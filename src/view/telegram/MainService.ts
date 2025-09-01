@@ -2,7 +2,6 @@ import assert from 'node:assert';
 
 import { inject, injectable, LazyServiceIdentifier } from 'inversify';
 import type { Context, Telegraf } from 'telegraf';
-import { message } from 'telegraf/filters';
 
 import type { AdminService } from '@/application/interfaces/admin/AdminService';
 import { ADMIN_SERVICE_ID } from '@/application/interfaces/admin/AdminService';
@@ -10,11 +9,6 @@ import type { ChatApprovalService } from '@/application/interfaces/chat/ChatAppr
 import { CHAT_APPROVAL_SERVICE_ID } from '@/application/interfaces/chat/ChatApprovalService';
 import type { ChatConfigService } from '@/application/interfaces/chat/ChatConfigService';
 import { CHAT_CONFIG_SERVICE_ID } from '@/application/interfaces/chat/ChatConfigService';
-import {
-  InvalidHistoryLimitError,
-  InvalidInterestIntervalError,
-  InvalidTopicTimeError,
-} from '@/application/interfaces/chat/ChatConfigService.errors';
 import {
   CHAT_INFO_SERVICE_ID,
   type ChatInfoService,
@@ -43,10 +37,10 @@ import {
 import { MessageFactory } from '@/application/use-cases/messages/MessageFactory';
 import type { TriggerContext } from '@/domain/triggers/Trigger';
 
-import { registerRoutes } from './telegramRouter';
-import { createWindows, type WindowId } from './windowConfig';
+import type { RunningRouter } from './inline-router';
+import { type Actions, setupBotRouting } from './routes';
 
-export async function withTyping(
+async function withTyping(
   ctx: Context,
   fn: () => Promise<void>
 ): Promise<void> {
@@ -70,17 +64,7 @@ export async function withTyping(
 export class MainService {
   private readonly bot: Telegraf;
   private env: Env;
-  private router: ReturnType<typeof registerRoutes<WindowId>>;
-  private awaitingConfig = new Map<
-    number,
-    {
-      type: 'history' | 'interest' | 'topic';
-      chatId: number;
-      admin: boolean;
-      topicTime?: string;
-      topicTimezone?: string;
-    }
-  >();
+  private router: RunningRouter<Actions>;
   private readonly logger: Logger;
   private readonly messenger: ChatMessenger;
   private readonly scheduler: TopicOfDayScheduler;
@@ -108,25 +92,36 @@ export class MainService {
     this.bot = messenger.bot;
     this.scheduler = scheduler;
     this.logger = loggerFactory.create('MainService');
-    const actions = {
+    const actions: Actions = {
       exportData: (ctx: Context) => this.handleExportData(ctx),
       resetMemory: (ctx: Context) => this.handleResetMemory(ctx),
       requestChatAccess: (ctx: Context) => this.handleChatRequest(ctx),
       requestUserAccess: (ctx: Context) => this.handleRequestAccess(ctx),
-      showAdminChats: (ctx: Context) =>
-        this.router.show(ctx, 'admin_chats', {
-          loadData: () => this.getChats(),
-        }),
-      showChatSettings: (ctx: Context) => this.showChatSettings(ctx),
-      configHistoryLimit: (ctx: Context) => this.handleConfigHistoryLimit(ctx),
-      configInterestInterval: (ctx: Context) =>
-        this.handleConfigInterestInterval(ctx),
-      configTopicTime: (ctx: Context) => this.handleConfigTopicTime(ctx),
-      acceptTopicTimezone: (ctx: Context) =>
-        this.handleAcceptTopicTimezone(ctx),
+      getChats: () => this.getChats(),
+      getChatData: (chatId: number) => this.getChatData(chatId),
+      sendChatApprovalRequest: (chatId: number, title?: string) =>
+        this.sendChatApprovalRequest(chatId, title),
+      approveChat: (chatId: number) => this.approvalService.approve(chatId),
+      banChat: (chatId: number) => this.approvalService.ban(chatId),
+      unbanChat: (chatId: number) => this.approvalService.unban(chatId),
+      approveUser: (chatId: number, userId: number) =>
+        this.admin.createAccessKey(userId, chatId),
+      getChatConfig: (chatId: number) => this.chatConfig.getConfig(chatId),
+      setHistoryLimit: (chatId: number, limit: number, _isAdmin: boolean) =>
+        this.chatConfig.setHistoryLimit(chatId, limit),
+      setInterestInterval: (
+        chatId: number,
+        interval: number,
+        _isAdmin: boolean
+      ) => this.chatConfig.setInterestInterval(chatId, interval),
+      setTopicTime: (chatId: number, time: string, timezone: string) =>
+        this.chatConfig.setTopicTime(chatId, time, timezone),
+      checkChatStatus: (chatId: number) =>
+        this.approvalService.getStatus(chatId),
+      processMessage: (ctx: Context) => this.handleMessage(ctx),
+      isAdmin: (userId: number) => userId === this.env.ADMIN_CHAT_ID,
     };
-    const windows = createWindows(actions);
-    this.router = registerRoutes<WindowId>(this.bot, windows);
+    this.router = setupBotRouting(this.bot, actions);
     this.configure();
   }
 
@@ -147,275 +142,16 @@ export class MainService {
   ): Promise<void> {
     await this.approvalService.pending(chatId);
     const name = title ? `${title} (${chatId})` : `Chat ${chatId}`;
-    const ctx = {
-      chat: { id: this.env.ADMIN_CHAT_ID },
-      reply: (text: string, extra?: object) =>
-        this.messenger.sendMessage(this.env.ADMIN_CHAT_ID, text, extra),
-    } as unknown as Context;
-    await this.router.show(ctx, 'chat_approval_request', {
-      loadData: () => ({ name, chatId }),
-    });
+
+    // Отправляем уведомление администратору - навигация обрабатывается в роутере
+    await this.messenger.sendMessage(
+      this.env.ADMIN_CHAT_ID,
+      `Запрос на доступ от чата: ${name}`
+    );
   }
 
   private configure(): void {
-    this.bot.start(async (ctx) => {
-      try {
-        await this.showMenu(ctx);
-      } catch (error) {
-        this.logger.error(
-          { error, chatId: ctx.chat?.id, userId: ctx.from?.id },
-          'Failed to handle /start'
-        );
-      }
-    });
-    this.bot.command('menu', async (ctx) => {
-      try {
-        await this.showMenu(ctx);
-      } catch (error) {
-        this.logger.error(
-          { error, chatId: ctx.chat?.id, userId: ctx.from?.id },
-          'Failed to handle /menu'
-        );
-      }
-    });
-
-    this.bot.telegram
-      .setMyCommands([{ command: 'menu', description: 'Показать меню' }])
-      .catch((err) => this.logger.error({ err }, 'Failed to set bot commands'));
-
-    this.bot.on('my_chat_member', async (ctx) => {
-      const chatId = ctx.chat?.id;
-      assert(chatId, 'This is not a chat');
-      this.logger.info({ chatId }, 'Bot added to chat');
-      try {
-        const status = await this.approvalService.getStatus(chatId);
-        if (status !== 'approved') {
-          this.logger.info(
-            { chatId, status },
-            'Chat not approved, showing request access button'
-          );
-          await this.router.show(ctx, 'chat_not_approved');
-        }
-      } catch (error) {
-        this.logger.error(
-          { error, chatId },
-          'Failed to handle my_chat_member event'
-        );
-      }
-    });
-
-    // Обработчики кнопок навигации и действий регистрируются в registerRoutes
-
-    this.bot.action(/^admin_chat:(\S+)$/, async (ctx) => {
-      const adminChatId = this.env.ADMIN_CHAT_ID;
-      if (ctx.chat?.id !== adminChatId) {
-        await ctx.answerCbQuery();
-        return;
-      }
-      const chatId = Number(ctx.match[1]);
-      try {
-        await ctx.deleteMessage().catch(() => {});
-        await ctx.answerCbQuery();
-        await this.showAdminChat(ctx, chatId);
-      } catch (error) {
-        this.logger.error(
-          { error, chatId, adminChatId },
-          'Failed to show admin chat'
-        );
-      }
-    });
-
-    this.bot.action(/^admin_chat_history_limit:(\S+)$/, async (ctx) => {
-      const adminChatId = this.env.ADMIN_CHAT_ID;
-      if (ctx.chat?.id !== adminChatId) {
-        await ctx.answerCbQuery();
-        return;
-      }
-      const chatId = Number(ctx.match[1]);
-      try {
-        await ctx.answerCbQuery();
-        await this.handleAdminConfigHistoryLimit(ctx, chatId);
-      } catch (error) {
-        this.logger.error(
-          { error, chatId, adminChatId },
-          'Failed to handle admin history limit'
-        );
-      }
-    });
-
-    this.bot.action(/^admin_chat_interest_interval:(\S+)$/, async (ctx) => {
-      const adminChatId = this.env.ADMIN_CHAT_ID;
-      if (ctx.chat?.id !== adminChatId) {
-        await ctx.answerCbQuery();
-        return;
-      }
-      const chatId = Number(ctx.match[1]);
-      try {
-        await ctx.answerCbQuery();
-        await this.handleAdminConfigInterestInterval(ctx, chatId);
-      } catch (error) {
-        this.logger.error(
-          { error, chatId, adminChatId },
-          'Failed to handle admin interest interval'
-        );
-      }
-    });
-
-    this.bot.action(/^admin_chat_topic_time:(\S+)$/, async (ctx) => {
-      const adminChatId = this.env.ADMIN_CHAT_ID;
-      if (ctx.chat?.id !== adminChatId) {
-        await ctx.answerCbQuery();
-        return;
-      }
-      const chatId = Number(ctx.match[1]);
-      try {
-        await ctx.answerCbQuery();
-        await this.handleAdminConfigTopicTime(ctx, chatId);
-      } catch (error) {
-        this.logger.error(
-          { error, chatId, adminChatId },
-          'Failed to handle admin topic time'
-        );
-      }
-    });
-
-    this.bot.action(/^chat_approve:(\S+)$/, async (ctx) => {
-      const adminChatId = this.env.ADMIN_CHAT_ID;
-      if (ctx.chat?.id !== adminChatId) {
-        this.logger.warn(
-          { adminChatId, requestChatId: ctx.chat?.id },
-          'Unauthorized chat approval attempt'
-        );
-        await ctx.answerCbQuery();
-        return;
-      }
-      const chatId = Number(ctx.match[1]);
-      this.logger.info({ chatId, adminChatId }, 'Approving chat access');
-      try {
-        await this.approvalService.approve(chatId);
-        await ctx.answerCbQuery('Чат одобрен');
-        await this.messenger.sendMessage(chatId, 'Доступ разрешён');
-        this.logger.info({ chatId }, 'Chat access approved successfully');
-      } catch (error) {
-        this.logger.error({ error, chatId }, 'Failed to approve chat access');
-        await ctx.answerCbQuery('Ошибка при одобрении чата');
-      }
-    });
-
-    this.bot.action(/^chat_ban:(\S+)$/, async (ctx) => {
-      const adminChatId = this.env.ADMIN_CHAT_ID;
-      if (ctx.chat?.id !== adminChatId) {
-        this.logger.warn(
-          { adminChatId, requestChatId: ctx.chat?.id },
-          'Unauthorized chat ban attempt'
-        );
-        await ctx.answerCbQuery();
-        return;
-      }
-      const chatId = Number(ctx.match[1]);
-      this.logger.info({ chatId, adminChatId }, 'Banning chat access');
-      try {
-        await this.approvalService.ban(chatId);
-        await ctx.answerCbQuery('Чат забанен');
-        await this.messenger.sendMessage(chatId, 'Доступ запрещён');
-        await ctx.deleteMessage().catch(() => {});
-        await this.showAdminChat(ctx, chatId);
-        this.logger.info({ chatId }, 'Chat access banned successfully');
-      } catch (error) {
-        this.logger.error({ error, chatId }, 'Failed to ban chat access');
-        await ctx.answerCbQuery('Ошибка при блокировке чата');
-      }
-    });
-
-    this.bot.action(/^chat_unban:(\S+)$/, async (ctx) => {
-      const adminChatId = this.env.ADMIN_CHAT_ID;
-      if (ctx.chat?.id !== adminChatId) {
-        await ctx.answerCbQuery();
-        return;
-      }
-      const chatId = Number(ctx.match[1]);
-      try {
-        await this.approvalService.unban(chatId);
-        await ctx.answerCbQuery('Чат разбанен');
-        await this.messenger.sendMessage(chatId, 'Доступ разрешён');
-        await ctx.deleteMessage().catch(() => {});
-        await this.showAdminChat(ctx, chatId);
-      } catch (error) {
-        this.logger.error({ error, chatId }, 'Failed to unban chat');
-        await ctx.answerCbQuery('Ошибка при разбане чата');
-      }
-    });
-
-    this.bot.action(/^user_approve:(\S+):(\S+)$/, async (ctx) => {
-      const adminChatId = this.env.ADMIN_CHAT_ID;
-      if (ctx.chat?.id !== adminChatId) {
-        await ctx.answerCbQuery();
-        return;
-      }
-      const chatId = Number(ctx.match[1]);
-      const userId = Number(ctx.match[2]);
-      try {
-        const expiresAt = await this.admin.createAccessKey(chatId, userId);
-        await ctx.answerCbQuery('Доступ одобрен');
-        await ctx.reply(`Одобрено для чата ${chatId} и пользователя ${userId}`);
-        await this.messenger.sendMessage(
-          chatId,
-          `Доступ к данным разрешен для пользователя ${userId} до ${expiresAt.toISOString()}. Используйте меню для экспорта и сброса`
-        );
-      } catch (error) {
-        this.logger.error(
-          { error, chatId, userId },
-          'Failed to approve user access'
-        );
-        await ctx.answerCbQuery('Ошибка при одобрении доступа');
-      }
-    });
-
-    this.bot.on(message('text'), async (ctx) => {
-      try {
-        await this.handleText(ctx);
-      } catch (error) {
-        this.logger.error(
-          { error, chatId: ctx.chat?.id, userId: ctx.from?.id },
-          'Failed to handle text message'
-        );
-      }
-    });
-  }
-
-  private async showMenu(ctx: Context): Promise<void> {
-    const chatId = ctx.chat?.id;
-    const userId = ctx.from?.id;
-    assert(chatId, 'This is not a chat');
-    if (chatId === this.env.ADMIN_CHAT_ID) {
-      this.logger.info({ chatId, userId }, 'Showing admin menu');
-      await this.router.show(ctx, 'admin_menu');
-      return;
-    }
-    const allowed = await this.checkChatStatus(ctx, chatId);
-    if (!allowed) return;
-    this.logger.info({ chatId, userId }, 'Showing user menu');
-    await this.router.show(ctx, 'menu');
-  }
-
-  private async showAdminChat(ctx: Context, chatId: number): Promise<void> {
-    const load = async (): Promise<{
-      chatId: number;
-      status: string;
-      config: {
-        historyLimit: number;
-        interestInterval: number;
-        topicTime: string | null;
-        topicTimezone: string;
-      };
-    }> => ({
-      chatId,
-      status: await this.approvalService.getStatus(chatId),
-      config: await this.chatConfig.getConfig(chatId),
-    });
-    await this.router.show(ctx, 'admin_chat', {
-      loadData: load,
-    });
+    // Все команды и обработчики теперь в роутере (routes.ts)
   }
 
   private async getChats(): Promise<{ id: number; title: string }[]> {
@@ -426,6 +162,21 @@ export class MainService {
         return { id: chatId, title: chat?.title ?? 'Без названия' };
       })
     );
+  }
+
+  private async getChatData(chatId: number): Promise<{
+    chatId: number;
+    status: string;
+    config: {
+      historyLimit: number;
+      interestInterval: number;
+      topicTime: string | null;
+      topicTimezone: string;
+    };
+  }> {
+    const status = await this.approvalService.getStatus(chatId);
+    const config = await this.chatConfig.getConfig(chatId);
+    return { chatId, status, config };
   }
 
   private async handleChatRequest(ctx: Context): Promise<void> {
@@ -449,24 +200,10 @@ export class MainService {
     const fullName = [firstName, lastName].filter(Boolean).join(' ');
     const usernamePart = username ? ` @${username}` : '';
     const msg = `Chat ${chatId} user ${userId} (${fullName}${usernamePart}) requests data access.`;
-    const adminCtx = {
-      chat: { id: this.env.ADMIN_CHAT_ID },
-      reply: (text: string, extra?: object) =>
-        this.messenger.sendMessage(this.env.ADMIN_CHAT_ID, text, extra),
-    } as unknown as Context;
-    await this.router.show(adminCtx, 'user_access_request', {
-      loadData: () => ({ msg, chatId, userId }),
-    });
-    await ctx.reply('Запрос отправлен администратору.');
-  }
 
-  private async showChatSettings(ctx: Context): Promise<void> {
-    const chatId = ctx.chat?.id;
-    assert(chatId, 'This is not a chat');
-    const config = await this.chatConfig.getConfig(chatId);
-    await this.router.show(ctx, 'chat_settings', {
-      loadData: () => config,
-    });
+    // Отправляем уведомление администратору
+    await this.messenger.sendMessage(this.env.ADMIN_CHAT_ID, msg);
+    await ctx.reply('Запрос отправлен администратору.');
   }
 
   private async handleExportData(ctx: Context): Promise<void> {
@@ -481,7 +218,6 @@ export class MainService {
       if (!allowed) {
         this.logger.warn({ chatId, userId }, 'Export data access denied');
         await ctx.answerCbQuery('Нет доступа или ключ просрочен');
-        await this.router.show(ctx, 'no_access');
         return;
       }
     }
@@ -522,90 +258,6 @@ export class MainService {
     }
   }
 
-  private async handleConfigHistoryLimit(ctx: Context): Promise<void> {
-    const chatId = ctx.chat?.id;
-    const userId = ctx.from?.id;
-    assert(chatId, 'This is not a chat');
-    this.logger.info({ chatId, userId }, 'Config history limit requested');
-    this.awaitingConfig.set(chatId, {
-      type: 'history',
-      chatId,
-      admin: false,
-    });
-    await this.router.show(ctx, 'chat_history_limit');
-    this.logger.info({ chatId, userId }, 'Prompted for history limit');
-  }
-
-  private async handleConfigInterestInterval(ctx: Context): Promise<void> {
-    const chatId = ctx.chat?.id;
-    assert(chatId, 'This is not a chat');
-    this.awaitingConfig.set(chatId, {
-      type: 'interest',
-      chatId,
-      admin: false,
-    });
-    await this.router.show(ctx, 'chat_interest_interval');
-  }
-
-  private async handleConfigTopicTime(ctx: Context): Promise<void> {
-    const chatId = ctx.chat?.id;
-    assert(chatId, 'This is not a chat');
-    this.awaitingConfig.set(chatId, {
-      type: 'topic',
-      chatId,
-      admin: false,
-    });
-    await this.router.show(ctx, 'chat_topic_time');
-  }
-
-  private async handleAdminConfigHistoryLimit(
-    ctx: Context,
-    targetChatId: number
-  ): Promise<void> {
-    const adminChatId = ctx.chat?.id;
-    assert(adminChatId, 'This is not a chat');
-    this.awaitingConfig.set(adminChatId, {
-      type: 'history',
-      chatId: targetChatId,
-      admin: true,
-    });
-    await this.router.show(ctx, 'admin_chat_history_limit', {
-      loadData: async () => ({ chatId: targetChatId }),
-    });
-  }
-
-  private async handleAdminConfigInterestInterval(
-    ctx: Context,
-    targetChatId: number
-  ): Promise<void> {
-    const adminChatId = ctx.chat?.id;
-    assert(adminChatId, 'This is not a chat');
-    this.awaitingConfig.set(adminChatId, {
-      type: 'interest',
-      chatId: targetChatId,
-      admin: true,
-    });
-    await this.router.show(ctx, 'admin_chat_interest_interval', {
-      loadData: async () => ({ chatId: targetChatId }),
-    });
-  }
-
-  private async handleAdminConfigTopicTime(
-    ctx: Context,
-    targetChatId: number
-  ): Promise<void> {
-    const adminChatId = ctx.chat?.id;
-    assert(adminChatId, 'This is not a chat');
-    this.awaitingConfig.set(adminChatId, {
-      type: 'topic',
-      chatId: targetChatId,
-      admin: true,
-    });
-    await this.router.show(ctx, 'admin_chat_topic_time', {
-      loadData: async () => ({ chatId: targetChatId }),
-    });
-  }
-
   private async handleResetMemory(ctx: Context): Promise<void> {
     const chatId = ctx.chat?.id;
     const userId = ctx.from?.id;
@@ -631,169 +283,29 @@ export class MainService {
     }
   }
 
-  private async handleText(ctx: Context): Promise<void> {
+  private async checkChatStatus(chatId: number): Promise<string> {
+    return this.approvalService.getStatus(chatId);
+  }
+
+  private async handleMessage(ctx: Context): Promise<void> {
     const chatId = ctx.chat?.id;
     assert(!!chatId, 'This is not a chat');
-    const awaiting = this.awaitingConfig.get(chatId);
-    if (awaiting) {
-      this.awaitingConfig.delete(chatId);
-      await this.handleAwaitingConfig(ctx, awaiting);
-      return;
-    }
+
     if (chatId === this.env.ADMIN_CHAT_ID) {
       this.logger.debug({ chatId }, 'Ignoring admin chat message');
       return;
     }
 
     this.logger.debug({ chatId }, 'Received text message');
-    const allowed = await this.checkChatStatus(ctx, chatId);
-    if (!allowed) return;
-
-    await this.prepareAndSendResponse(ctx, chatId);
-  }
-
-  private async handleAwaitingConfig(
-    ctx: Context,
-    awaiting: {
-      type: 'history' | 'interest' | 'topic';
-      chatId: number;
-      admin: boolean;
-      topicTime?: string;
-      topicTimezone?: string;
-    }
-  ): Promise<void> {
-    const text =
-      ctx.message && 'text' in ctx.message ? ctx.message.text : undefined;
-    const value = Number(text);
-    try {
-      if (awaiting.type === 'history') {
-        if (awaiting.admin) {
-          await this.admin.setHistoryLimit(awaiting.chatId, value);
-        } else {
-          await this.chatConfig.setHistoryLimit(awaiting.chatId, value);
-        }
-        await ctx.reply('✅ Лимит истории обновлён');
-      } else if (awaiting.type === 'interest') {
-        if (awaiting.admin) {
-          await this.admin.setInterestInterval(awaiting.chatId, value);
-        } else {
-          await this.chatConfig.setInterestInterval(awaiting.chatId, value);
-        }
-        await ctx.reply('✅ Интервал интереса обновлён');
-      } else {
-        if (!awaiting.topicTime) {
-          const time = text ?? '';
-          const date =
-            ctx.message && 'date' in ctx.message
-              ? new Date(ctx.message.date * 1000)
-              : new Date();
-          const offset = -date.getTimezoneOffset();
-          const hours = Math.floor(offset / 60);
-          const sign = hours >= 0 ? '+' : '-';
-          const timezone = `UTC${sign}${String(Math.abs(hours)).padStart(2, '0')}`;
-          const key = ctx.chat?.id;
-          assert(key, 'This is not a chat');
-          this.awaitingConfig.set(key, {
-            ...awaiting,
-            topicTime: time,
-            topicTimezone: timezone,
-          });
-          const windowId = awaiting.admin
-            ? 'admin_chat_topic_timezone'
-            : 'chat_topic_timezone';
-          await this.router.show(ctx, windowId, {
-            loadData: async () =>
-              awaiting.admin
-                ? { chatId: awaiting.chatId, timezone }
-                : { timezone },
-          });
-          return;
-        }
-        const time = awaiting.topicTime;
-        const timezone =
-          text && text.trim() !== '' ? text : (awaiting.topicTimezone ?? 'UTC');
-        await this.chatConfig.setTopicTime(awaiting.chatId, time, timezone);
-        await this.scheduler?.reschedule(awaiting.chatId);
-        await ctx.reply('✅ Время статьи обновлено');
-      }
-    } catch (error) {
-      this.logger.error(
-        { error, chatId: awaiting.chatId },
-        'Failed to update chat config'
+    const status = await this.checkChatStatus(chatId);
+    if (status !== 'approved') {
+      this.logger.debug(
+        { chatId, status },
+        'Message from non-approved chat ignored'
       );
-      const message = (() => {
-        if (error instanceof InvalidHistoryLimitError) {
-          return '❌ Лимит истории должен быть целым числом от 1 до 50';
-        }
-        if (error instanceof InvalidInterestIntervalError) {
-          return '❌ Интервал интереса должен быть целым числом от 1 до 50';
-        }
-        if (error instanceof InvalidTopicTimeError) {
-          return '❌ Время статьи должно быть в формате HH:MM';
-        }
-        return '❌ Ошибка при обновлении параметра';
-      })();
-      await ctx.reply(message);
-    }
-    if (awaiting.admin) {
-      await this.showAdminChat(ctx, awaiting.chatId);
-    } else {
-      await this.router.show(ctx, 'menu');
-    }
-  }
-
-  private async handleAcceptTopicTimezone(ctx: Context): Promise<void> {
-    const chatId = ctx.chat?.id;
-    assert(chatId, 'This is not a chat');
-    const awaiting = this.awaitingConfig.get(chatId);
-    if (!awaiting || awaiting.type !== 'topic' || !awaiting.topicTime) {
-      await ctx.answerCbQuery().catch(() => {});
-      await this.showMenu(ctx);
       return;
     }
 
-    try {
-      const time = awaiting.topicTime;
-      const timezone = awaiting.topicTimezone ?? 'UTC';
-      await this.chatConfig.setTopicTime(awaiting.chatId, time, timezone);
-      await this.scheduler?.reschedule(awaiting.chatId);
-      await ctx.reply('✅ Время статьи обновлено');
-    } catch (error) {
-      this.logger.error(
-        { error, chatId: awaiting.chatId },
-        'Failed to accept detected timezone'
-      );
-      await ctx.reply('❌ Не удалось применить часовой пояс');
-    } finally {
-      this.awaitingConfig.delete(chatId);
-    }
-
-    if (awaiting.admin) {
-      await this.showAdminChat(ctx, awaiting.chatId);
-    } else {
-      await this.router.show(ctx, 'menu');
-    }
-  }
-
-  private async checkChatStatus(
-    ctx: Context,
-    chatId: number
-  ): Promise<boolean> {
-    const status = await this.approvalService.getStatus(chatId);
-    if (status !== 'approved') {
-      if (status === 'banned') {
-        this.logger.warn({ chatId }, 'Message from banned chat ignored');
-      }
-      await this.router.show(ctx, 'chat_not_approved');
-      return false;
-    }
-    return true;
-  }
-
-  private async prepareAndSendResponse(
-    ctx: Context,
-    chatId: number
-  ): Promise<void> {
     const meta = this.extractor.extract(ctx);
     const userMsg = MessageFactory.fromUser(ctx, meta);
     const memory = await this.memories.get(chatId);

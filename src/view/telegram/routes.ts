@@ -612,7 +612,7 @@ export const router = createRouter<Actions>(
 );
 
 // Setup функция для настройки бота
-// eslint-disable-next-line import/no-unused-modules
+
 export function setupBotRouting(
   bot: Telegraf,
   actions: Actions
