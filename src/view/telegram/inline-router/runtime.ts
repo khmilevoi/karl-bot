@@ -42,6 +42,21 @@ type RuntimeDeps<A> = {
   ) => Promise<void>;
 };
 
+// Helper to handle onText state after rendering
+async function handleOnTextState<A>(
+  view: RouteView<A> | void,
+  routeId: string,
+  state: RouterState,
+  setState: (ctx: Context, st: RouterState) => Promise<void>,
+  ctx: Context
+): Promise<void> {
+  if (view?.onText) {
+    state.currentOnTextHandler = view.onText;
+    state.awaitingTextRouteId = routeId;
+    await setState(ctx, state);
+  }
+}
+
 // Factories for internal runtime pieces
 function createHandleError<A>(deps: RuntimeDeps<A>) {
   const { options, getState, render } = deps;
@@ -104,11 +119,11 @@ function createNavigate<A>(
     st.stack.push(r.id);
     Reflect.set(st.params, r.id, params as unknown);
     st.awaitingTextRouteId = undefined;
+    st.currentOnTextHandler = undefined;
     await setState(ctx, st);
     const e = getEntry(r.id);
     if (!e) return;
     const inheritedBack = e.hasBackEffective && !!e.parentId;
-    const inheritedCancel = !!r.onText && options.showCancelOnWait;
     try {
       const view = (await r.action({
         ctx,
@@ -118,20 +133,15 @@ function createNavigate<A>(
         navigateBack: () => navigateBack(ctx),
         state: st,
       })) as RouteView<A> | void;
-      if (view) await render(ctx, view, inheritedBack, inheritedCancel);
-      else if (r.onText)
-        await render(
-          ctx,
-          { text: options.inputPrompt, buttons: [] },
-          inheritedBack,
-          true
-        );
-      if (r.onText) {
-        st.awaitingTextRouteId = r.id;
-        await setState(ctx, st);
+
+      const inheritedCancel = !!view?.onText && options.showCancelOnWait;
+
+      if (view) {
+        await render(ctx, view, inheritedBack, inheritedCancel);
+        await handleOnTextState(view, r.id, st, setState, ctx);
       }
     } catch (err) {
-      await handleError(ctx, err, inheritedBack, !!r.onText);
+      await handleError(ctx, err, inheritedBack, !!st.currentOnTextHandler);
     }
   };
 }
@@ -149,6 +159,7 @@ function createNavigateBack<A>(
     const st = await getState(ctx);
     st.stack.pop();
     st.awaitingTextRouteId = undefined;
+    st.currentOnTextHandler = undefined;
     await setState(ctx, st);
     const cur = topRouteId(st);
     if (!cur) {
@@ -163,7 +174,6 @@ function createNavigateBack<A>(
     if (!e) return;
     const r = e.route;
     const inheritedBack = e.hasBackEffective && !!e.parentId;
-    const inheritedCancel = !!r.onText && options.showCancelOnWait;
     try {
       const view = (await r.action({
         ctx,
@@ -173,19 +183,15 @@ function createNavigateBack<A>(
         navigateBack: () => navigateBack(ctx),
         state: st,
       })) as RouteView<A> | void;
-      if (view) await render(ctx, view, inheritedBack, inheritedCancel);
-      else if (r.onText) {
-        await render(
-          ctx,
-          { text: options.inputPrompt, buttons: [] },
-          inheritedBack,
-          true
-        );
-        st.awaitingTextRouteId = r.id;
-        await setState(ctx, st);
+
+      const inheritedCancel = !!view?.onText && options.showCancelOnWait;
+
+      if (view) {
+        await render(ctx, view, inheritedBack, inheritedCancel);
+        await handleOnTextState(view, r.id, st, setState, ctx);
       }
     } catch (err) {
-      await handleError(ctx, err, inheritedBack, !!r.onText);
+      await handleError(ctx, err, inheritedBack, !!st.currentOnTextHandler);
     }
   };
 }
@@ -197,26 +203,29 @@ function createCancelWait<A>(
   const { getState, setState } = deps;
   return async function cancelWait(ctx: Context): Promise<void> {
     const st = await getState(ctx);
-    if (st.awaitingTextRouteId) {
-      const rid = st.awaitingTextRouteId;
-      const currentTopId = topRouteId(st);
+    if (!st.awaitingTextRouteId) {
+      await navigateBack(ctx);
+      return;
+    }
 
-      // Only pop from stack if awaiting route is on top
-      if (rid === currentTopId) {
-        st.stack.pop();
-      }
-      // If awaiting route is not on top, find and remove it from stack
-      else {
-        const index = st.stack.findIndex((id) => id === rid);
-        if (index !== -1) {
-          st.stack.splice(index, 1);
-        }
-      }
+    const rid = st.awaitingTextRouteId;
+    const currentTopId = topRouteId(st);
 
-      st.awaitingTextRouteId = undefined;
+    // Clear awaiting state
+    st.awaitingTextRouteId = undefined;
+    st.currentOnTextHandler = undefined;
+
+    // Only pop from stack if awaiting route is on top
+    if (rid === currentTopId) {
+      st.stack.pop();
+      await setState(ctx, st);
+      // Navigate back to re-render previous route
+      await navigateBack(ctx);
+    } else {
+      // If awaiting route is not on top, just clear the state
+      // without additional navigation
       await setState(ctx, st);
     }
-    await navigateBack(ctx);
   };
 }
 
@@ -362,12 +371,20 @@ function createTextHandler<A>(
       const st = await getState(ctx);
       const rid = st.awaitingTextRouteId;
       const text = (ctx as ContextWithMessage).message?.text?.trim();
+
+      // If no awaiting route, pass to next handler
       if (!rid) {
         if (next) await next();
         return;
       }
+
+      // If text is empty or undefined, ignore this message
+      if (!text) {
+        return;
+      }
+
+      // Check for cancel commands
       if (
-        text &&
         (options.cancelCommands ?? []).some(
           (c) => c.toLowerCase() === text.toLowerCase()
         )
@@ -378,24 +395,26 @@ function createTextHandler<A>(
       const e = getEntry(rid);
       if (!e) {
         st.awaitingTextRouteId = undefined;
+        st.currentOnTextHandler = undefined;
         await setState(ctx, st);
         if (next) await next();
         return;
       }
-      const r = e.route;
       try {
-        if (r.onText) {
-          const res = await r.onText({
+        if (st.currentOnTextHandler) {
+          const res = await st.currentOnTextHandler({
             ctx,
             actions,
             params: Reflect.get(st.params, rid) as unknown,
-            navigate: (nr, ...p) =>
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            navigate: (nr: any, ...p: any[]) =>
               navigate(ctx, nr as Route<A, unknown>, ...p),
             navigateBack: () => navigateBack(ctx),
             state: st,
             text: text ?? '',
           });
           if (res) {
+            // Handler returned new view - render it and clear onText state
             await render(
               ctx,
               res as RouteView<A>,
@@ -403,14 +422,16 @@ function createTextHandler<A>(
               false
             );
             st.awaitingTextRouteId = undefined;
+            st.currentOnTextHandler = undefined;
             await setState(ctx, st);
           } else {
-            st.awaitingTextRouteId = undefined;
-            await setState(ctx, st);
-            await navigateBack(ctx);
+            // Handler returned void - keep the onText handler active
+            // This allows the handler to process text without changing the view
+            // The handler can call navigate() or navigateBack() if it wants to change routes
           }
         } else {
           st.awaitingTextRouteId = undefined;
+          st.currentOnTextHandler = undefined;
           await setState(ctx, st);
           if (next) await next();
         }

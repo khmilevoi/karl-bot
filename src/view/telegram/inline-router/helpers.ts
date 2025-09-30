@@ -23,7 +23,28 @@ export function parseCb(data: string): {
   isToken: boolean;
   token?: string;
 } {
+  // Validate input
+  if (!data || typeof data !== 'string') {
+    return {
+      routeId: '',
+      cbVersion: undefined,
+      args: [],
+      isToken: false,
+      token: undefined,
+    };
+  }
+
   const [head, ...rest] = data.split(':');
+  if (!head) {
+    return {
+      routeId: '',
+      cbVersion: undefined,
+      args: rest,
+      isToken: false,
+      token: undefined,
+    };
+  }
+
   const [routeId, version] = head.split('!');
   if (!version)
     return { routeId: head, cbVersion: undefined, args: rest, isToken: false };
@@ -78,9 +99,6 @@ export function route<A = unknown, P = void>(
   options?: {
     actionName?: string;
     actionDescription?: string;
-    onText?: (
-      args: RouteActionArgs<A, P> & { text: string }
-    ) => Promise<RouteView<A> | void> | RouteView<A> | void;
   }
 ): Route<A, P> {
   return {
@@ -88,7 +106,6 @@ export function route<A = unknown, P = void>(
     actionName: options?.actionName,
     actionDescription: options?.actionDescription,
     action,
-    onText: options?.onText,
   };
 }
 

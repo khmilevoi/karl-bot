@@ -543,7 +543,6 @@ export const router = createRouter<Actions>(
         // Админская ветка
         {
           route: AdminMenu,
-          hasBack: true,
           children: [
             {
               route: AdminChats,
@@ -574,7 +573,6 @@ export const router = createRouter<Actions>(
         // Пользовательская ветка
         {
           route: UserMenu,
-          hasBack: true,
           children: [
             {
               route: ChatSettings,

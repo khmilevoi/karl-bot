@@ -78,9 +78,6 @@ export type Route<A = unknown, P = void> = {
   action: (
     args: RouteActionArgs<A, P>
   ) => Promise<void | RouteView<A>> | void | RouteView<A>;
-  onText?: (
-    args: RouteActionArgs<A, P> & { text: string }
-  ) => Promise<RouteView<A> | void> | RouteView<A> | void;
 };
 
 export type RouteNode<A = unknown> = {
@@ -95,6 +92,8 @@ export type RouterState = {
   stack: string[];
   params: Record<string, unknown>;
   awaitingTextRouteId?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  currentOnTextHandler?: (args: any) => any;
   messages: Array<{
     messageId: number;
     text: string;

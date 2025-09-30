@@ -73,14 +73,12 @@ describe('MainService (Minimal)', () => {
     const responder = { generate: vi.fn() } as unknown as ChatResponder;
     const chatInfo = { getChat: vi.fn() } as unknown as ChatInfoService;
     const config = {
-      getConfig: vi
-        .fn()
-        .mockResolvedValue({
-          historyLimit: 50,
-          interestInterval: 25,
-          topicTime: null,
-          topicTimezone: 'UTC',
-        }),
+      getConfig: vi.fn().mockResolvedValue({
+        historyLimit: 50,
+        interestInterval: 25,
+        topicTime: null,
+        topicTimezone: 'UTC',
+      }),
       setHistoryLimit: vi.fn(),
       setInterestInterval: vi.fn(),
       setTopicTime: vi.fn(),
@@ -211,14 +209,12 @@ describe('MainService (Minimal)', () => {
     const responder = { generate: vi.fn() } as unknown as ChatResponder;
     const chatInfo = { getChat: vi.fn() } as unknown as ChatInfoService;
     const config = {
-      getConfig: vi
-        .fn()
-        .mockResolvedValue({
-          historyLimit: 50,
-          interestInterval: 25,
-          topicTime: null,
-          topicTimezone: 'UTC',
-        }),
+      getConfig: vi.fn().mockResolvedValue({
+        historyLimit: 50,
+        interestInterval: 25,
+        topicTime: null,
+        topicTimezone: 'UTC',
+      }),
       setHistoryLimit: vi.fn(),
       setInterestInterval: vi.fn(),
       setTopicTime: vi.fn(),

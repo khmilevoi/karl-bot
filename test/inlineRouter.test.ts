@@ -217,11 +217,16 @@ describe('inline-router navigation and state management', () => {
 
   describe('Text Input Flow', () => {
     it('manages awaiting text state correctly', async () => {
+      const onTextHandler = vi
+        .fn()
+        .mockResolvedValue({ text: 'Input received' });
       const inputRoute: Route = {
         id: 'input',
         actionName: 'input',
-        action: vi.fn().mockResolvedValue(undefined), // No view = show input prompt
-        onText: vi.fn().mockResolvedValue({ text: 'Input received' }),
+        action: vi.fn().mockResolvedValue({
+          text: 'Please enter text:',
+          onText: onTextHandler,
+        }),
       };
 
       const router = createRouter([inputRoute], [], {
@@ -254,7 +259,7 @@ describe('inline-router navigation and state management', () => {
       const textCtx = { ...ctx, message: { text: 'user input' } };
       await textHandler!(textCtx, vi.fn());
 
-      expect(inputRoute.onText).toHaveBeenCalledWith(
+      expect(onTextHandler).toHaveBeenCalledWith(
         expect.objectContaining({
           text: 'user input',
         })
