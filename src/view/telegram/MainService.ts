@@ -236,8 +236,9 @@ export class MainService {
 
   private async handleExportData(
     ctx: BotContext,
-    _menuMessageId: number
+    menuMessageId: number
   ): Promise<void> {
+    void menuMessageId;
     const chatId = ctx.chat?.id;
     const userId = ctx.from?.id;
     assert(chatId, 'This is not a chat');
