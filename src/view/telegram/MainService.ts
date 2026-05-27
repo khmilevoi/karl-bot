@@ -96,8 +96,10 @@ export class MainService {
       '[INIT] MainService initialized with ADMIN_CHAT_ID'
     );
     const actions: Actions = {
-      exportData: (ctx: BotContext) => this.handleExportData(ctx),
-      resetMemory: (ctx: BotContext) => this.handleResetMemory(ctx),
+      exportData: (ctx: BotContext, menuMessageId: number) =>
+        this.handleExportData(ctx, menuMessageId),
+      resetMemory: (ctx: BotContext, menuMessageId: number) =>
+        this.handleResetMemory(ctx, menuMessageId),
       requestChatAccess: (ctx: BotContext) => this.handleChatRequest(ctx),
       requestUserAccess: (ctx: BotContext) => this.handleRequestAccess(ctx),
       sendUserNotification: (
@@ -232,7 +234,10 @@ export class MainService {
     return { chatId, userId, messageId };
   }
 
-  private async handleExportData(ctx: BotContext): Promise<void> {
+  private async handleExportData(
+    ctx: BotContext,
+    _menuMessageId: number
+  ): Promise<void> {
     const chatId = ctx.chat?.id;
     const userId = ctx.from?.id;
     assert(chatId, 'This is not a chat');
@@ -272,7 +277,10 @@ export class MainService {
     }
   }
 
-  private async handleResetMemory(ctx: BotContext): Promise<void> {
+  private async handleResetMemory(
+    ctx: BotContext,
+    menuMessageId: number
+  ): Promise<void> {
     const chatId = ctx.chat?.id;
     const userId = ctx.from?.id;
     assert(chatId, 'This is not a chat');
@@ -286,14 +294,28 @@ export class MainService {
       }
     }
 
-    await ctx.answerCallbackQuery('Сбрасываю память диалога...');
-
     try {
       await this.memories.reset(chatId);
-      await ctx.reply('✅ Контекст диалога сброшен!');
+      if (menuMessageId) {
+        await ctx.api
+          .editMessageText(chatId, menuMessageId, '✅ Память сброшена!')
+          .catch(() => {});
+      } else {
+        await ctx.reply('✅ Память сброшена!');
+      }
     } catch (error) {
       this.logger.error({ error, chatId }, 'Failed to reset memory');
-      await ctx.reply('❌ Ошибка при сбросе памяти. Попробуйте позже.');
+      if (menuMessageId) {
+        await ctx.api
+          .editMessageText(
+            chatId,
+            menuMessageId,
+            '❌ Ошибка при сбросе памяти.'
+          )
+          .catch(() => {});
+      } else {
+        await ctx.reply('❌ Ошибка при сбросе памяти. Попробуйте позже.');
+      }
     }
   }
 

@@ -9,8 +9,8 @@ import type { BotContext } from './context';
 // ─── Actions interface ────────────────────────────────────────────────────────
 
 export interface Actions {
-  exportData: (ctx: BotContext) => Promise<void>;
-  resetMemory: (ctx: BotContext) => Promise<void>;
+  exportData: (ctx: BotContext, menuMessageId: number) => Promise<void>;
+  resetMemory: (ctx: BotContext, menuMessageId: number) => Promise<void>;
 
   getChats: () => Promise<{ id: number; title: string }[]>;
   getChatData: (chatId: number) => Promise<{
@@ -451,7 +451,10 @@ function buildMenus(actions: Actions): {
 
   const adminMenu = new Menu<BotContext>('admin_menu')
     .text('📊 Загрузить данные', async (ctx) => {
-      await actions.exportData(ctx);
+      await actions.exportData(
+        ctx,
+        ctx.callbackQuery?.message?.message_id ?? 0
+      );
     })
     .row()
     .submenu('💬 Управление чатами', 'admin_chats');
@@ -475,6 +478,17 @@ function buildMenus(actions: Actions): {
     })
     .row()
     .back('← Назад');
+
+  const confirmReset = new Menu<BotContext>('confirm_reset')
+    .text('✅ Да, сбросить', async (ctx) => {
+      const messageId = ctx.callbackQuery?.message?.message_id;
+      if (messageId) {
+        await ctx.editMessageText('⏳ Сбрасываю память...');
+      }
+      await actions.resetMemory(ctx, messageId ?? 0);
+    })
+    .row()
+    .back('❌ Отмена');
 
   const requestDataAccessMenu = new Menu<BotContext>('request_data_access')
     .text('📝 Запросить доступ', async (ctx) => {
@@ -510,16 +524,21 @@ function buildMenus(actions: Actions): {
         );
         return;
       }
-      await actions.exportData(ctx);
+      await actions.exportData(
+        ctx,
+        ctx.callbackQuery?.message?.message_id ?? 0
+      );
     })
     .row()
-    .text('🔄 Сбросить память', async (ctx) => {
-      await actions.resetMemory(ctx);
+    .submenu('🔄 Сбросить память', 'confirm_reset', async (ctx) => {
+      await ctx.editMessageText(
+        '⚠️ Вы уверены, что хотите сбросить память диалога? Это действие необратимо.'
+      );
     })
     .row()
     .submenu('⚙️ Настройки чата', 'chat_settings');
 
-  userMenu.register([chatSettings, requestDataAccessMenu]);
+  userMenu.register([chatSettings, confirmReset, requestDataAccessMenu]);
 
   // ── Standalone menus ───
 
