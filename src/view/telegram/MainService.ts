@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 
-import { type Bot, InputFile } from 'grammy';
+import { type Bot, InlineKeyboard, InputFile } from 'grammy';
 import { inject, injectable, LazyServiceIdentifier } from 'inversify';
 
 import type { AdminService } from '@/application/interfaces/admin/AdminService';
@@ -154,9 +154,13 @@ export class MainService {
   ): Promise<void> {
     await this.approvalService.pending(chatId);
     const name = title ? `${title} (${chatId})` : `Chat ${chatId}`;
+    const keyboard = new InlineKeyboard()
+      .text('✅ Одобрить', `approve_chat:${chatId}`)
+      .text('🚫 Забанить', `ban_chat:${chatId}`);
     await this.messenger.sendMessage(
       this.env.ADMIN_CHAT_ID,
-      `Запрос на доступ от чата: ${name}`
+      `Запрос на доступ от чата: ${name}`,
+      { reply_markup: keyboard }
     );
   }
 
@@ -249,7 +253,9 @@ export class MainService {
     const editProgress = async (text: string): Promise<void> => {
       if (!menuMessageId) return;
       try {
-        await ctx.api.editMessageText(chatId, menuMessageId, text);
+        await ctx.api.editMessageText(chatId, menuMessageId, text, {
+          reply_markup: { inline_keyboard: [] },
+        });
       } catch {
         // Message may have been deleted — ignore
       }

@@ -38,6 +38,7 @@ const createMockBot = () => ({
   on: vi.fn(),
   command: vi.fn(),
   use: vi.fn(),
+  callbackQuery: vi.fn(),
 });
 
 const createMockMessenger = () =>

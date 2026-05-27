@@ -606,6 +606,27 @@ export function setupBotRouting(bot: Bot<BotContext>, actions: Actions): void {
     }
   });
 
+  // Admin chat approval callbacks
+  bot.callbackQuery(/^approve_chat:(-?\d+)$/, async (ctx) => {
+    const chatId = parseInt(ctx.match[1], 10);
+    await actions.approveChat(chatId);
+    await ctx.editMessageText(
+      `${ctx.callbackQuery.message?.text ?? ''}\n\n✅ Одобрено`,
+      { reply_markup: { inline_keyboard: [] } }
+    );
+    await ctx.answerCallbackQuery('Чат одобрен');
+  });
+
+  bot.callbackQuery(/^ban_chat:(-?\d+)$/, async (ctx) => {
+    const chatId = parseInt(ctx.match[1], 10);
+    await actions.banChat(chatId);
+    await ctx.editMessageText(
+      `${ctx.callbackQuery.message?.text ?? ''}\n\n🚫 Заблокирован`,
+      { reply_markup: { inline_keyboard: [] } }
+    );
+    await ctx.answerCallbackQuery('Чат заблокирован');
+  });
+
   // Text messages — trigger pipeline
   bot.on('message:text', async (ctx) => {
     await actions.processMessage(ctx);
