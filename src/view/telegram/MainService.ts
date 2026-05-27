@@ -274,7 +274,8 @@ export class MainService {
 
       if (files.length === 0) {
         this.logger.info({ chatId, userId }, 'No data to export');
-        await editProgress('Нет данных для экспорта.');
+        await deleteProgress();
+        await ctx.reply('Нет данных для экспорта.');
         return;
       }
 
@@ -297,7 +298,8 @@ export class MainService {
       );
     } catch (error) {
       this.logger.error({ error, chatId, userId }, 'Failed to export data');
-      await editProgress('❌ Ошибка при загрузке данных.');
+      await deleteProgress();
+      await ctx.reply('❌ Ошибка при загрузке данных.');
     }
   }
 
