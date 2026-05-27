@@ -1,5 +1,5 @@
 import { conversations } from '@grammyjs/conversations';
-import { Bot, type Context, session } from 'grammy';
+import { Bot, type Context, GrammyError, HttpError, session } from 'grammy';
 import { inject, injectable } from 'inversify';
 
 import type { ChatMessenger } from '@/application/interfaces/chat/ChatMessenger';
@@ -34,6 +34,18 @@ export class TelegramMessenger implements ChatMessenger {
     );
     this._bot.use(conversations());
     this.logger = loggerFactory.create('TelegramMessenger');
+    this._bot.catch((err) => {
+      const { error } = err;
+      if (error instanceof GrammyError && error.error_code === 400) {
+        this.logger.warn({ err: error }, 'Ignoring 400 Telegram API error');
+        return;
+      }
+      if (error instanceof HttpError) {
+        this.logger.warn({ err: error }, 'Ignoring HTTP error');
+        return;
+      }
+      this.logger.error({ err }, 'Unhandled bot error');
+    });
   }
 
   async launch(): Promise<void> {

@@ -238,35 +238,58 @@ export class MainService {
     ctx: BotContext,
     menuMessageId: number
   ): Promise<void> {
-    void menuMessageId;
     const chatId = ctx.chat?.id;
     const userId = ctx.from?.id;
     assert(chatId, 'This is not a chat');
     assert(userId, 'No user id');
     this.logger.info({ chatId, userId }, 'Export data requested');
 
-    await ctx.answerCallbackQuery('Начинаю загрузку данных...');
+    await ctx.answerCallbackQuery();
+
+    const editProgress = async (text: string): Promise<void> => {
+      if (!menuMessageId) return;
+      try {
+        await ctx.api.editMessageText(chatId, menuMessageId, text);
+      } catch {
+        // Message may have been deleted — ignore
+      }
+    };
+
+    const deleteProgress = async (): Promise<void> => {
+      if (!menuMessageId) return;
+      try {
+        await ctx.api.deleteMessage(chatId, menuMessageId);
+      } catch {
+        // ignore
+      }
+    };
+
+    await editProgress('⏳ Подготовка данных...');
 
     try {
       const files =
         chatId === this.env.ADMIN_CHAT_ID
           ? await this.admin.exportTables()
           : await this.admin.exportChatData(chatId);
+
       if (files.length === 0) {
         this.logger.info({ chatId, userId }, 'No data to export');
-        await ctx.reply('Нет данных для экспорта');
+        await editProgress('Нет данных для экспорта.');
         return;
       }
 
-      await ctx.reply(
-        `Найдено ${files.length} таблиц для экспорта. Начинаю загрузку...`
-      );
+      const total = files.length;
+      await editProgress(`📦 Загружено 0/${total}...`);
 
-      for (const f of files) {
-        await ctx.replyWithDocument(new InputFile(f.buffer, f.filename));
+      for (let i = 0; i < files.length; i++) {
+        await ctx.replyWithDocument(
+          new InputFile(files[i].buffer, files[i].filename)
+        );
+        await editProgress(`📦 Загружено ${i + 1}/${total}...`);
         await new Promise<void>((resolve) => setImmediate(resolve));
       }
 
+      await deleteProgress();
       await ctx.reply('✅ Загрузка данных завершена!');
       this.logger.info(
         { chatId, userId, tables: files.length },
@@ -274,7 +297,7 @@ export class MainService {
       );
     } catch (error) {
       this.logger.error({ error, chatId, userId }, 'Failed to export data');
-      await ctx.reply('❌ Ошибка при загрузке данных. Попробуйте позже.');
+      await editProgress('❌ Ошибка при загрузке данных.');
     }
   }
 
