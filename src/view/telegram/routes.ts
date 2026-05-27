@@ -608,6 +608,10 @@ export function setupBotRouting(bot: Bot<BotContext>, actions: Actions): void {
 
   // Admin chat approval callbacks
   bot.callbackQuery(/^approve_chat:(-?\d+)$/, async (ctx) => {
+    if (!actions.isAdmin(ctx.chat?.id ?? 0)) {
+      await ctx.answerCallbackQuery('Not authorized');
+      return;
+    }
     const chatId = parseInt(ctx.match[1], 10);
     await actions.approveChat(chatId);
     await ctx.editMessageText(
@@ -618,6 +622,10 @@ export function setupBotRouting(bot: Bot<BotContext>, actions: Actions): void {
   });
 
   bot.callbackQuery(/^ban_chat:(-?\d+)$/, async (ctx) => {
+    if (!actions.isAdmin(ctx.chat?.id ?? 0)) {
+      await ctx.answerCallbackQuery('Not authorized');
+      return;
+    }
     const chatId = parseInt(ctx.match[1], 10);
     await actions.banChat(chatId);
     await ctx.editMessageText(
