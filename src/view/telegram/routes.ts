@@ -164,8 +164,6 @@ type MenuRef = { menu: Menu<BotContext>; title: string };
 function makeConversations(
   actions: Actions,
   menuRefs: {
-    userMenu: MenuRef;
-    adminMenu: MenuRef;
     chatSettings: MenuRef;
     adminChat: MenuRef;
   }
