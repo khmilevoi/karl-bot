@@ -99,7 +99,7 @@ async function tryDeleteMessage(
   }
 }
 
-export async function waitForInputOrCancel<T>(
+async function waitForInputOrCancel<T>(
   conversation: BotConversation,
   ctx: BotContext,
   promptText: string,
@@ -157,8 +157,18 @@ export async function waitForInputOrCancel<T>(
   return null;
 }
 
+// ─── Menu ref type ────────────────────────────────────────────────────────────
+
+type MenuRef = { menu: Menu<BotContext>; title: string };
+
 function makeConversations(
-  actions: Actions
+  actions: Actions,
+  menuRefs: {
+    userMenu: MenuRef;
+    adminMenu: MenuRef;
+    chatSettings: MenuRef;
+    adminChat: MenuRef;
+  }
 ): Record<
   string,
   (conversation: BotConversation, ctx: BotContext) => Promise<void>
@@ -167,67 +177,100 @@ function makeConversations(
     conversation: BotConversation,
     ctx: BotContext
   ): Promise<void> {
+    const adminChatId = ctx.chat?.id;
+    assert(adminChatId, 'No chat id');
     const chatId = await conversation.external(
       (ctx) => ctx.session?.selectedChatId
     );
     assert(chatId, 'No selected chat');
-    await ctx.reply(
-      `Введите новый лимит истории для чата ${chatId} (от 1 до 50):`
+
+    const result = await waitForInputOrCancel(
+      conversation,
+      ctx,
+      `Введите новый лимит истории для чата ${chatId} (от 1 до 50):`,
+      (text) => {
+        const n = parseInt(text, 10);
+        return !isNaN(n) && n >= 1 && n <= 50 ? n : null;
+      }
     );
-    const next = await conversation.waitFor('message:text');
-    const limit = parseInt(next.message.text, 10);
-    if (isNaN(limit) || limit < 1 || limit > 50) {
-      await ctx.api.sendMessage(chatId, 'Некорректное значение (1–50).');
-      return;
-    }
-    await actions.setHistoryLimit(chatId, limit, true);
-    await ctx.api.sendMessage(chatId, '✅ Лимит установлен');
+
+    if (result === null) return;
+
+    await actions.setHistoryLimit(chatId, result.value, true);
+    await ctx.api.sendMessage(adminChatId, '✅ Лимит установлен', {
+      reply_markup: menuRefs.adminChat.menu,
+    });
   }
 
   async function adminInterestInterval(
     conversation: BotConversation,
     ctx: BotContext
   ): Promise<void> {
+    const adminChatId = ctx.chat?.id;
+    assert(adminChatId, 'No chat id');
     const chatId = await conversation.external(
       (ctx) => ctx.session?.selectedChatId
     );
     assert(chatId, 'No selected chat');
-    await ctx.reply(
-      `Введите новый интервал интереса для чата ${chatId} (от 1 до 50):`
+
+    const result = await waitForInputOrCancel(
+      conversation,
+      ctx,
+      `Введите новый интервал интереса для чата ${chatId} (от 1 до 50):`,
+      (text) => {
+        const n = parseInt(text, 10);
+        return !isNaN(n) && n >= 1 && n <= 50 ? n : null;
+      }
     );
-    const next = await conversation.waitFor('message:text');
-    const interval = parseInt(next.message.text, 10);
-    if (isNaN(interval) || interval < 1 || interval > 50) {
-      await ctx.api.sendMessage(chatId, 'Некорректное значение (1–50).');
-      return;
-    }
-    await actions.setInterestInterval(chatId, interval, true);
-    await ctx.api.sendMessage(chatId, '✅ Интервал установлен');
+
+    if (result === null) return;
+
+    await actions.setInterestInterval(chatId, result.value, true);
+    await ctx.api.sendMessage(adminChatId, '✅ Интервал установлен', {
+      reply_markup: menuRefs.adminChat.menu,
+    });
   }
 
   async function adminTopicTime(
     conversation: BotConversation,
     ctx: BotContext
   ): Promise<void> {
+    const adminChatId = ctx.chat?.id;
+    assert(adminChatId, 'No chat id');
     const chatId = await conversation.external(
       () => ctx.session?.selectedChatId
     );
     assert(chatId, 'No selected chat');
-    await ctx.reply(
-      `Введите время темы дня для чата ${chatId} (формат HH:MM):`
+
+    const timeResult = await waitForInputOrCancel(
+      conversation,
+      ctx,
+      `Введите время темы дня для чата ${chatId} (формат HH:MM):`,
+      (text) => {
+        const trimmed = text.trim();
+        return /^\d{1,2}:\d{2}$/.test(trimmed) ? trimmed : null;
+      }
     );
-    const timeNext = await conversation.waitFor('message:text');
-    const time = timeNext.message.text.trim();
-    await ctx.api.sendMessage(
-      chatId,
-      `Введите часовой пояс (например UTC+03):`
+
+    if (timeResult === null) return;
+
+    const tzResult = await waitForInputOrCancel(
+      conversation,
+      ctx,
+      'Введите часовой пояс (например UTC+03):',
+      (text) => {
+        const trimmed = text.trim();
+        return trimmed.length > 0 ? trimmed : null;
+      }
     );
-    const tzNext = await conversation.waitFor('message:text');
-    const timezone = tzNext.message.text.trim();
-    await actions.setTopicTime(chatId, time, timezone);
+
+    if (tzResult === null) return;
+
+    await actions.setTopicTime(chatId, timeResult.value, tzResult.value);
     await ctx.api.sendMessage(
-      chatId,
-      `✅ Время ${time} (${timezone}) установлено`
+      adminChatId,
+      `✅ Время ${timeResult.value} (${tzResult.value}) установлено`,
+      { reply_markup: menuRefs.adminChat.menu }
     );
   }
 
@@ -237,15 +280,23 @@ function makeConversations(
   ): Promise<void> {
     const chatId = ctx.chat?.id;
     assert(chatId, 'No chat id');
-    await ctx.reply('Введите новый лимит истории (от 1 до 50):');
-    const next = await conversation.waitFor('message:text');
-    const limit = parseInt(next.message.text, 10);
-    if (isNaN(limit) || limit < 1 || limit > 50) {
-      await ctx.reply('Некорректное значение (1–50).');
-      return;
-    }
-    await actions.setHistoryLimit(chatId, limit, false);
-    await ctx.reply('✅ Лимит установлен');
+
+    const result = await waitForInputOrCancel(
+      conversation,
+      ctx,
+      'Введите новый лимит истории (от 1 до 50):',
+      (text) => {
+        const n = parseInt(text, 10);
+        return !isNaN(n) && n >= 1 && n <= 50 ? n : null;
+      }
+    );
+
+    if (result === null) return;
+
+    await actions.setHistoryLimit(chatId, result.value, false);
+    await ctx.api.sendMessage(chatId, '✅ Лимит установлен', {
+      reply_markup: menuRefs.chatSettings.menu,
+    });
   }
 
   async function userInterestInterval(
@@ -254,15 +305,23 @@ function makeConversations(
   ): Promise<void> {
     const chatId = ctx.chat?.id;
     assert(chatId, 'No chat id');
-    await ctx.reply('Введите новый интервал интереса (от 1 до 50):');
-    const next = await conversation.waitFor('message:text');
-    const interval = parseInt(next.message.text, 10);
-    if (isNaN(interval) || interval < 1 || interval > 50) {
-      await ctx.reply('Некорректное значение (1–50).');
-      return;
-    }
-    await actions.setInterestInterval(chatId, interval, false);
-    await ctx.reply('✅ Интервал установлен');
+
+    const result = await waitForInputOrCancel(
+      conversation,
+      ctx,
+      'Введите новый интервал интереса (от 1 до 50):',
+      (text) => {
+        const n = parseInt(text, 10);
+        return !isNaN(n) && n >= 1 && n <= 50 ? n : null;
+      }
+    );
+
+    if (result === null) return;
+
+    await actions.setInterestInterval(chatId, result.value, false);
+    await ctx.api.sendMessage(chatId, '✅ Интервал установлен', {
+      reply_markup: menuRefs.chatSettings.menu,
+    });
   }
 
   async function userTopicTime(
@@ -271,14 +330,37 @@ function makeConversations(
   ): Promise<void> {
     const chatId = ctx.chat?.id;
     assert(chatId, 'No chat id');
-    await ctx.reply('Введите время темы дня (формат HH:MM):');
-    const timeNext = await conversation.waitFor('message:text');
-    const time = timeNext.message.text.trim();
-    await ctx.reply('Введите часовой пояс (например UTC+03):');
-    const tzNext = await conversation.waitFor('message:text');
-    const timezone = tzNext.message.text.trim();
-    await actions.setTopicTime(chatId, time, timezone);
-    await ctx.reply(`✅ Время ${time} (${timezone}) установлено`);
+
+    const timeResult = await waitForInputOrCancel(
+      conversation,
+      ctx,
+      'Введите время темы дня (формат HH:MM):',
+      (text) => {
+        const trimmed = text.trim();
+        return /^\d{1,2}:\d{2}$/.test(trimmed) ? trimmed : null;
+      }
+    );
+
+    if (timeResult === null) return;
+
+    const tzResult = await waitForInputOrCancel(
+      conversation,
+      ctx,
+      'Введите часовой пояс (например UTC+03):',
+      (text) => {
+        const trimmed = text.trim();
+        return trimmed.length > 0 ? trimmed : null;
+      }
+    );
+
+    if (tzResult === null) return;
+
+    await actions.setTopicTime(chatId, timeResult.value, tzResult.value);
+    await ctx.api.sendMessage(
+      chatId,
+      `✅ Время ${timeResult.value} (${tzResult.value}) установлено`,
+      { reply_markup: menuRefs.chatSettings.menu }
+    );
   }
 
   return {
@@ -297,6 +379,8 @@ function buildMenus(actions: Actions): {
   adminMenu: Menu<BotContext>;
   userMenu: Menu<BotContext>;
   chatNotApprovedMenu: Menu<BotContext>;
+  chatSettings: Menu<BotContext>;
+  adminChat: Menu<BotContext>;
 } {
   // ── Admin menus ───
 
@@ -446,14 +530,28 @@ function buildMenus(actions: Actions): {
     }
   );
 
-  return { adminMenu, userMenu, chatNotApprovedMenu };
+  return { adminMenu, userMenu, chatNotApprovedMenu, chatSettings, adminChat };
 }
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
 export function setupBotRouting(bot: Bot<BotContext>, actions: Actions): void {
+  // Build menus first (conversations need menu refs)
+  const { adminMenu, userMenu, chatNotApprovedMenu, chatSettings, adminChat } =
+    buildMenus(actions);
+
+  const menuRefs = {
+    userMenu: { menu: userMenu, title: 'Главное меню\nВыберите действие:' },
+    adminMenu: {
+      menu: adminMenu,
+      title: 'Панель администратора\nВыберите действие:',
+    },
+    chatSettings: { menu: chatSettings, title: 'Настройки чата:' },
+    adminChat: { menu: adminChat, title: 'Управление чатом:' },
+  };
+
   // Register conversation handlers (must come before menus and command handlers)
-  const convs = makeConversations(actions);
+  const convs = makeConversations(actions, menuRefs);
   bot.use(createConversation(convs.adminHistoryLimit));
   bot.use(createConversation(convs.adminInterestInterval));
   bot.use(createConversation(convs.adminTopicTime));
@@ -461,8 +559,7 @@ export function setupBotRouting(bot: Bot<BotContext>, actions: Actions): void {
   bot.use(createConversation(convs.userInterestInterval));
   bot.use(createConversation(convs.userTopicTime));
 
-  // Build and register menus
-  const { adminMenu, userMenu, chatNotApprovedMenu } = buildMenus(actions);
+  // Register menus
   bot.use(adminMenu);
   bot.use(userMenu);
   bot.use(chatNotApprovedMenu);
@@ -470,11 +567,11 @@ export function setupBotRouting(bot: Bot<BotContext>, actions: Actions): void {
   // Commands
   bot.command(['start', 'menu'], async (ctx) => {
     if (actions.isAdmin(ctx.chat?.id ?? 0)) {
-      await ctx.reply('Панель администратора\nВыберите действие:', {
+      await ctx.reply(menuRefs.adminMenu.title, {
         reply_markup: adminMenu,
       });
     } else {
-      await ctx.reply('Главное меню\nВыберите действие:', {
+      await ctx.reply(menuRefs.userMenu.title, {
         reply_markup: userMenu,
       });
     }

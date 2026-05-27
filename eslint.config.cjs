@@ -80,7 +80,6 @@ module.exports = [
           ignoreExports: [
             'src/index.ts',
             'src/infrastructure/persistence/sqlite/DbProvider.ts',
-            'src/view/telegram/routes.ts',
             'test/**',
           ],
         },
