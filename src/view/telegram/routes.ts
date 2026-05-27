@@ -2,7 +2,7 @@ import assert from 'node:assert';
 
 import { type Conversation, createConversation } from '@grammyjs/conversations';
 import { Menu } from '@grammyjs/menu';
-import type { Bot } from 'grammy';
+import { type Bot, InlineKeyboard } from 'grammy';
 
 import type { BotContext } from './context';
 
@@ -76,6 +76,86 @@ export interface Actions {
 // ─── Conversation helpers ─────────────────────────────────────────────────────
 
 type BotConversation = Conversation<BotContext, BotContext>;
+
+interface InputResult<T> {
+  value: T;
+  userMessageId: number;
+  promptMessageId: number;
+}
+
+const CANCEL_DATA = 'cancel_conversation';
+
+const cancelKeyboard = new InlineKeyboard().text('❌ Отмена', CANCEL_DATA);
+
+async function tryDeleteMessage(
+  ctx: BotContext,
+  chatId: number,
+  messageId: number
+): Promise<void> {
+  try {
+    await ctx.api.deleteMessage(chatId, messageId);
+  } catch {
+    // Bot may lack admin rights — ignore
+  }
+}
+
+export async function waitForInputOrCancel<T>(
+  conversation: BotConversation,
+  ctx: BotContext,
+  promptText: string,
+  validator: (text: string) => T | null
+): Promise<InputResult<T> | null> {
+  const chatId = ctx.chat?.id;
+  assert(chatId, 'No chat id');
+
+  let retries = 0;
+
+  while (retries < 2) {
+    const promptMsg = await ctx.api.sendMessage(chatId, promptText, {
+      reply_markup: cancelKeyboard,
+    });
+
+    const update = await conversation.waitUntil(
+      (ctx) => ctx.hasCallbackQuery(CANCEL_DATA) || ctx.has('message:text')
+    );
+
+    if (update.callbackQuery?.data === CANCEL_DATA) {
+      await update.answerCallbackQuery('Отменено');
+      await tryDeleteMessage(ctx, chatId, promptMsg.message_id);
+      return null;
+    }
+
+    const text = update.message?.text ?? '';
+    const userMessageId = update.message?.message_id ?? 0;
+    const result = validator(text);
+
+    if (result !== null) {
+      await tryDeleteMessage(ctx, chatId, promptMsg.message_id);
+      await tryDeleteMessage(ctx, chatId, userMessageId);
+      return {
+        value: result,
+        userMessageId,
+        promptMessageId: promptMsg.message_id,
+      };
+    }
+
+    await tryDeleteMessage(ctx, chatId, promptMsg.message_id);
+    await tryDeleteMessage(ctx, chatId, userMessageId);
+    retries++;
+
+    if (retries >= 2) {
+      await ctx.api.sendMessage(
+        chatId,
+        'Слишком много попыток. Возвращаюсь в меню.'
+      );
+      return null;
+    }
+
+    promptText = `Некорректное значение. ${promptText}`;
+  }
+
+  return null;
+}
 
 function makeConversations(
   actions: Actions
