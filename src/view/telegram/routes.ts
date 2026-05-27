@@ -87,7 +87,9 @@ function makeConversations(
     conversation: BotConversation,
     ctx: BotContext
   ): Promise<void> {
-    const chatId = ctx.session.selectedChatId;
+    const chatId = await conversation.external(
+      (ctx) => ctx.session?.selectedChatId
+    );
     assert(chatId, 'No selected chat');
     await ctx.reply(
       `Введите новый лимит истории для чата ${chatId} (от 1 до 50):`
@@ -106,7 +108,9 @@ function makeConversations(
     conversation: BotConversation,
     ctx: BotContext
   ): Promise<void> {
-    const chatId = ctx.session.selectedChatId;
+    const chatId = await conversation.external(
+      (ctx) => ctx.session?.selectedChatId
+    );
     assert(chatId, 'No selected chat');
     await ctx.reply(
       `Введите новый интервал интереса для чата ${chatId} (от 1 до 50):`
@@ -125,7 +129,9 @@ function makeConversations(
     conversation: BotConversation,
     ctx: BotContext
   ): Promise<void> {
-    const chatId = ctx.session.selectedChatId;
+    const chatId = await conversation.external(
+      () => ctx.session?.selectedChatId
+    );
     assert(chatId, 'No selected chat');
     await ctx.reply(
       `Введите время темы дня для чата ${chatId} (формат HH:MM):`
@@ -383,7 +389,7 @@ export function setupBotRouting(bot: Bot<BotContext>, actions: Actions): void {
 
   // Commands
   bot.command(['start', 'menu'], async (ctx) => {
-    if (actions.isAdmin(ctx.from?.id ?? 0)) {
+    if (actions.isAdmin(ctx.chat?.id ?? 0)) {
       await ctx.reply('Панель администратора\nВыберите действие:', {
         reply_markup: adminMenu,
       });
