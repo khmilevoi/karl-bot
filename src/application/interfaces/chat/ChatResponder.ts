@@ -1,5 +1,5 @@
+import type { Context } from 'grammy';
 import type { ServiceIdentifier } from 'inversify';
-import type { Context } from 'telegraf';
 
 import type { TriggerReason } from '@/domain/triggers/Trigger';
 

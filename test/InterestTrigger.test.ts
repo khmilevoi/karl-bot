@@ -1,4 +1,4 @@
-import type { Context } from 'telegraf';
+import type { Context } from 'grammy';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DefaultDialogueManager } from '../src/application/use-cases/chat/DefaultDialogueManager';

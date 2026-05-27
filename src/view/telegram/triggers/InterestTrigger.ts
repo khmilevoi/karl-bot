@@ -1,5 +1,5 @@
+import type { Context } from 'grammy';
 import { inject, injectable } from 'inversify';
-import type { Context } from 'telegraf';
 
 import {
   DIALOGUE_MANAGER_ID,

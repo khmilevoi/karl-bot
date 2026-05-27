@@ -1,4 +1,4 @@
-import type { Context } from 'telegraf';
+import type { Context } from 'grammy';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DefaultDialogueManager } from '../src/application/use-cases/chat/DefaultDialogueManager';
@@ -57,7 +57,7 @@ describe('TriggerPipeline', () => {
     });
     const ctx = {
       message: { text: 'hi @bot' },
-      me: 'bot',
+      me: { username: 'bot' },
     } as unknown as Context;
     const context: TriggerContext = {
       text: 'hi @bot',
@@ -75,7 +75,7 @@ describe('TriggerPipeline', () => {
     const { pipeline } = createPipeline(interestChecker);
     const ctx = {
       message: { text: 'hi @bot' },
-      me: 'bot',
+      me: { username: 'bot' },
     } as unknown as Context;
     const context: TriggerContext = {
       text: 'hi @bot',
@@ -98,7 +98,7 @@ describe('TriggerPipeline', () => {
     const { pipeline } = createPipeline(interestChecker);
     const ctx = {
       message: { text: 'hello there' },
-      me: 'bot',
+      me: { username: 'bot' },
     } as unknown as Context;
     const context: TriggerContext = {
       text: 'hello there',
@@ -132,7 +132,7 @@ describe('TriggerPipeline', () => {
     );
     const ctx = {
       message: { text: 'hi @bot', reply_to_message: { message_id: 2 } },
-      me: 'bot',
+      me: { username: 'bot' },
     } as unknown as Context;
     const context: TriggerContext = {
       text: 'hi @bot',
@@ -151,7 +151,7 @@ describe('TriggerPipeline', () => {
     const { pipeline } = createPipeline(interestChecker);
     const ctx = {
       message: { text: 'hello there' },
-      me: 'bot',
+      me: { username: 'bot' },
     } as unknown as Context;
     const context: TriggerContext = {
       text: 'hello there',
@@ -173,7 +173,7 @@ describe('TriggerPipeline', () => {
     dialogue.start(1);
     const ctx = {
       message: { text: 'hello there' },
-      me: 'bot',
+      me: { username: 'bot' },
     } as unknown as Context;
     const context: TriggerContext = {
       text: 'hello there',
@@ -192,7 +192,7 @@ describe('TriggerPipeline', () => {
     const { pipeline, dialogue } = createPipeline(interestChecker);
     const ctx = {
       message: { text: 'hello there' },
-      me: 'bot',
+      me: { username: 'bot' },
     } as unknown as Context;
     const context: TriggerContext = {
       text: 'hello there',
@@ -232,7 +232,7 @@ describe('TriggerPipeline', () => {
     );
     const ctx = {
       message: { text: 'hi @bot' },
-      me: 'bot',
+      me: { username: 'bot' },
     } as unknown as Context;
     const context: TriggerContext = {
       text: 'hi @bot',
@@ -272,7 +272,7 @@ describe('TriggerPipeline', () => {
     const { pipeline } = createPipeline(interestChecker, customLoggerFactory);
     const ctx = {
       message: { text: 'hello there' },
-      me: 'bot',
+      me: { username: 'bot' },
     } as unknown as Context;
     const context: TriggerContext = {
       text: 'hello there',

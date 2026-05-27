@@ -1,5 +1,5 @@
+import type { Context } from 'grammy';
 import { inject, injectable } from 'inversify';
-import type { Context } from 'telegraf';
 
 import {
   DIALOGUE_MANAGER_ID,
@@ -31,11 +31,8 @@ export class MentionTrigger implements Trigger<Context> {
   ): Promise<TriggerResult | null> {
     const msg = ctx.message as Record<string, unknown> | undefined;
     const text = typeof msg?.text === 'string' ? msg.text : '';
-    const me =
-      typeof (ctx as unknown as Record<string, unknown>).me === 'string'
-        ? (ctx as unknown as { me: string }).me
-        : '';
-    const mention = `@${me}`;
+    const botUsername = ctx.me?.username ?? '';
+    const mention = `@${botUsername}`;
     const index = text.indexOf(mention);
     if (index !== -1) {
       const snippet = text.slice(

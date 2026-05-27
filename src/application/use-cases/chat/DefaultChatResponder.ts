@@ -1,5 +1,5 @@
+import type { Context } from 'grammy';
 import { inject, injectable } from 'inversify';
-import type { Context } from 'telegraf';
 
 import type { AIService } from '@/application/interfaces/ai/AIService';
 import { AI_SERVICE_ID } from '@/application/interfaces/ai/AIService';

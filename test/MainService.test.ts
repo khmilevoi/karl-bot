@@ -1,4 +1,4 @@
-import type { Context } from 'telegraf';
+import type { Context } from 'grammy';
 import { describe, expect, it, vi } from 'vitest';
 
 import { MainService } from '../src/view/telegram/MainService';
@@ -31,10 +31,12 @@ class MockEnvService {
 }
 
 const createMockBot = () => ({
-  telegram: { setMyCommands: vi.fn().mockResolvedValue(undefined) },
+  api: {
+    setMyCommands: vi.fn().mockResolvedValue(undefined),
+    deleteMessage: vi.fn().mockResolvedValue(undefined),
+  },
   on: vi.fn(),
   command: vi.fn(),
-  action: vi.fn(),
   use: vi.fn(),
 });
 
@@ -240,7 +242,7 @@ describe('MainService (Minimal)', () => {
     );
 
     // Test admin chat - should return early
-    const adminCtx = { chat: { id: 1 } } as Context;
+    const adminCtx = { chat: { id: 1 } } as unknown as Context;
     await (service as any).handleMessage(adminCtx);
 
     expect(pipeline.shouldRespond).not.toHaveBeenCalled();

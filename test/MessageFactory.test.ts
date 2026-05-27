@@ -1,4 +1,4 @@
-import type { Context } from 'telegraf';
+import type { Context } from 'grammy';
 import { describe, expect, it } from 'vitest';
 
 import type { MessageContext } from '../src/application/interfaces/messages/MessageContextExtractor';
@@ -52,7 +52,7 @@ describe('MessageFactory', () => {
 
   it('fromAssistant uses ctx.me and chatId', () => {
     const ctx = {
-      me: 'bot',
+      me: { username: 'bot' },
       chat: { id: 3, title: 'C' },
     } as unknown as Context;
     const res = MessageFactory.fromAssistant(ctx, 'answer');

@@ -1,4 +1,4 @@
-import type { Context } from 'telegraf';
+import type { Context } from 'grammy';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { AIService } from '../src/application/interfaces/ai/AIService';
@@ -96,7 +96,10 @@ describe('ChatResponder', () => {
 
     const mem1 = await memories.get(1);
     await mem1.addMessage({ role: 'user', content: 'hi' });
-    const ctx = { me: 'bot', chat: { id: 1 } } as unknown as Context;
+    const ctx = {
+      me: { username: 'bot' },
+      chat: { id: 1 },
+    } as unknown as Context;
 
     const answer = await responder.generate(ctx, 1, {
       why: 'why',
@@ -123,7 +126,10 @@ describe('ChatResponder', () => {
 
     const mem2 = await memories.get(1);
     await mem2.addMessage({ role: 'user', content: 'hi' });
-    const ctx = { me: 'bot', chat: { id: 1 } } as unknown as Context;
+    const ctx = {
+      me: { username: 'bot' },
+      chat: { id: 1 },
+    } as unknown as Context;
 
     await expect(responder.generate(ctx, 1)).rejects.toThrow('ask failed');
     expect(memories.memory.messages).toHaveLength(1);
@@ -139,7 +145,10 @@ describe('ChatResponder', () => {
       summaries,
       createLoggerFactory()
     );
-    const ctx = { me: 'bot', chat: { id: 1 } } as unknown as Context;
+    const ctx = {
+      me: { username: 'bot' },
+      chat: { id: 1 },
+    } as unknown as Context;
 
     const answer = await responder.generate(ctx, 1);
     expect(answer).toBe('answer');

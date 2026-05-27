@@ -4,4 +4,3 @@ node_modules
 memory.db
 coverage
 prompts.log
-.claude
