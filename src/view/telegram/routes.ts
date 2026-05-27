@@ -64,7 +64,7 @@ export interface Actions {
 
   checkChatStatus: (chatId: number) => Promise<string>;
   processMessage: (ctx: BotContext) => Promise<void>;
-  isAdmin: (userId: number) => boolean;
+  isAdmin: (chatId: number) => boolean;
 
   log: (
     level: 'info' | 'debug' | 'warn' | 'error',

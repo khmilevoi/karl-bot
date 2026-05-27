@@ -129,7 +129,7 @@ export class MainService {
       checkChatStatus: (chatId: number) =>
         this.approvalService.getStatus(chatId),
       processMessage: (ctx: BotContext) => this.handleMessage(ctx),
-      isAdmin: (userId: number) => userId === this.env.ADMIN_CHAT_ID,
+      isAdmin: (chatId: number) => chatId === this.env.ADMIN_CHAT_ID,
       log: (level, message, data) => this.logger[level](data ?? {}, message),
     };
     setupBotRouting(this.bot, actions);
