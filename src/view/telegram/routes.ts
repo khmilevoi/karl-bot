@@ -1,23 +1,20 @@
-import type { Context, Telegraf } from 'telegraf';
+import assert from 'node:assert';
 
-import {
-  branch,
-  button,
-  type ContextWithMatch,
-  createRouter,
-  type NavigateFn,
-  type Route,
-  route,
-  type RunningRouter,
-} from './inline-router';
+import { type Conversation, createConversation } from '@grammyjs/conversations';
+import { Menu } from '@grammyjs/menu';
+import { type Bot, InlineKeyboard } from 'grammy';
 
-// Actions интерфейс - только данные, никакой навигации
-interface Actions {
-  // Экспорт и память
-  exportData: (ctx: Context) => Promise<void>;
-  resetMemory: (ctx: Context) => Promise<void>;
+import type { BotContext } from './context';
 
-  // Чаты и пользователи
+export const ADMIN_MENU_TITLE = 'Панель администратора\nВыберите действие:';
+export const USER_MENU_TITLE = 'Главное меню\nВыберите действие:';
+
+// ─── Actions interface ────────────────────────────────────────────────────────
+
+export interface Actions {
+  exportData: (ctx: BotContext, menuMessageId: number) => Promise<void>;
+  resetMemory: (ctx: BotContext) => Promise<'ok' | 'denied' | 'error'>;
+
   getChats: () => Promise<{ id: number; title: string }[]>;
   getChatData: (chatId: number) => Promise<{
     chatId: number;
@@ -29,17 +26,23 @@ interface Actions {
       topicTimezone: string;
     };
   }>;
-  requestChatAccess: (ctx: Context) => Promise<void>;
-  requestUserAccess: (ctx: Context) => Promise<void>;
+  requestChatAccess: (ctx: BotContext) => Promise<void>;
+  requestUserAccess: (
+    ctx: BotContext
+  ) => Promise<{ chatId: number; userId: number; messageId: number }>;
   sendChatApprovalRequest: (chatId: number, title?: string) => Promise<void>;
+  sendUserNotification: (
+    chatId: number,
+    text: string,
+    messageIdToDelete?: number
+  ) => Promise<void>;
 
-  // Управление доступом
   approveChat: (chatId: number) => Promise<void>;
   banChat: (chatId: number) => Promise<void>;
   unbanChat: (chatId: number) => Promise<void>;
   approveUser: (chatId: number, userId: number) => Promise<Date>;
+  hasUserAccess: (chatId: number, userId: number) => Promise<boolean>;
 
-  // Конфигурация
   getChatConfig: (chatId: number) => Promise<{
     historyLimit: number;
     interestInterval: number;
@@ -62,576 +65,622 @@ interface Actions {
     timezone: string
   ) => Promise<void>;
 
-  // Проверки и обработка сообщений
   checkChatStatus: (chatId: number) => Promise<string>;
-  processMessage: (ctx: Context) => Promise<void>;
-  isAdmin: (userId: number) => boolean;
+  processMessage: (ctx: BotContext) => Promise<void>;
+  isAdmin: (chatId: number) => boolean;
+
+  log: (
+    level: 'info' | 'debug' | 'warn' | 'error',
+    message: string,
+    data?: Record<string, unknown>
+  ) => void;
 }
 
-export type { Actions };
+// ─── Conversation helpers ─────────────────────────────────────────────────────
 
-// Основные роуты (имена с большой буквы)
+type BotConversation = Conversation<BotContext, BotContext>;
 
-// Главное меню - определяет админ это или пользователь и редиректит
-const Menu = route<Actions>('menu', async ({ ctx, actions, navigate }) => {
-  if (actions.isAdmin(ctx.from?.id ?? 0)) {
-    return navigate(AdminMenu);
+export const CANCEL_DATA = 'cancel_conversation';
+
+const cancelKeyboard = new InlineKeyboard().text('❌ Отмена', CANCEL_DATA);
+
+async function tryDeleteMessage(
+  ctx: BotContext,
+  chatId: number,
+  messageId: number
+): Promise<void> {
+  try {
+    await ctx.api.deleteMessage(chatId, messageId);
+  } catch {
+    // Bot may lack admin rights — ignore
   }
-  return navigate(UserMenu);
-});
+}
 
-// Админское меню
-const AdminMenu = route<Actions>('admin_menu', async () => ({
-  text: 'Панель администратора\nВыберите действие:',
-  buttons: [
-    button({
-      text: '📊 Загрузить данные',
-      callback: 'admin_export',
-      action: async ({ actions, ctx }) => {
-        await actions.exportData(ctx);
-      },
-    }),
-    button({
-      text: '💬 Управление чатами',
-      callback: 'admin_chats',
-      action: ({ navigate }) => navigate(AdminChats),
-    }),
-  ],
-}));
+export async function waitForInputOrCancel<T>(
+  conversation: BotConversation,
+  ctx: BotContext,
+  promptText: string,
+  validator: (text: string) => T | null
+): Promise<T | null> {
+  const chatId = ctx.chat?.id;
+  assert(chatId, 'No chat id');
 
-// Пользовательское меню
-const UserMenu: Route<Actions> = route<Actions>('user_menu', async () => ({
-  text: 'Главное меню\nВыберите действие:',
-  buttons: [
-    button({
-      text: '📊 Загрузить данные',
-      callback: 'export',
-      action: async ({ actions, ctx }) => {
-        await actions.exportData(ctx);
-      },
-    }),
-    button({
-      text: '🔄 Сбросить память',
-      callback: 'reset',
-      action: async ({ actions, ctx }) => {
-        await actions.resetMemory(ctx);
-      },
-    }),
-    button({
-      text: '⚙️ Настройки чата',
-      callback: 'settings',
-      action: ({ navigate }) => navigate(ChatSettings),
-    }),
-  ],
-}));
+  let currentPrompt = promptText;
 
-// Список чатов для админа
-const AdminChats = route<Actions>('admin_chats', async ({ actions }) => {
-  const chats = await actions.getChats();
-  return {
-    text:
-      chats.length > 0 ? 'Выберите чат для управления:' : 'Нет доступных чатов',
-    buttons: chats.map((chat) =>
-      button({
-        text: `${chat.title} (${chat.id})`,
-        callback: `chat_${chat.id}`,
-        action: ({ navigate }) => navigate(AdminChat, { chatId: chat.id }),
-      })
-    ),
-  };
-});
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const promptMsg = await ctx.api.sendMessage(chatId, currentPrompt, {
+      reply_markup: cancelKeyboard,
+    });
 
-// Управление конкретным чатом (админ)
-const AdminChat: Route<Actions, { chatId: number }> = route<
-  Actions,
-  { chatId: number }
->('admin_chat', async ({ actions, params }) => {
-  const data = await actions.getChatData(params.chatId);
-  const { chatId, status, config } = data;
+    const update = await conversation.waitUntil(
+      (ctx) => ctx.hasCallbackQuery(CANCEL_DATA) || ctx.has('message:text')
+    );
 
-  return {
-    text: `Управление чатом ${chatId}\nСтатус: ${status}\n\nНастройки:\n• История: ${config.historyLimit} сообщений\n• Интервал интереса: ${config.interestInterval} сообщений\n• Время темы дня: ${config.topicTime ?? 'не установлено'}`,
-    buttons: [
-      button({
-        text: '📝 Лимит истории',
-        callback: 'history',
-        action: ({ navigate }) => navigate(AdminChatHistoryLimit, params),
-      }),
-      button({
-        text: '🎯 Интервал интереса',
-        callback: 'interest',
-        action: ({ navigate }) => navigate(AdminChatInterestInterval, params),
-      }),
-      button({
-        text: '📅 Время темы дня',
-        callback: 'topic',
-        action: ({ navigate }) => navigate(AdminChatTopicTime, params),
-      }),
-      ...({
-        approved: [
-          button<Actions>({
-            text: '🚫 Заблокировать',
-            callback: `ban:${chatId}`,
-            action: async ({ actions, navigate, ctx }) => {
-              const match = (ctx as ContextWithMatch).match;
-              const id = parseInt(match?.[1] ?? '0', 10);
-              await actions.banChat(id);
-              return navigate(AdminChat, { chatId: id });
-            },
-          }),
-        ],
-        banned: [
-          button<Actions>({
-            text: '✅ Разблокировать',
-            callback: `unban:${chatId}`,
-            action: async ({ actions, navigate, ctx }) => {
-              const match = (ctx as ContextWithMatch).match;
-              const id = parseInt(match?.[1] ?? '0', 10);
-              await actions.unbanChat(id);
-              return navigate(AdminChat, { chatId: id });
-            },
-          }),
-        ],
-      }[status as 'approved' | 'banned'] ?? []),
-    ],
-  };
-});
+    if (update.callbackQuery?.data === CANCEL_DATA) {
+      await update.answerCallbackQuery('Отменено');
+      await tryDeleteMessage(ctx, chatId, promptMsg.message_id);
+      return null;
+    }
 
-// Админские роуты настройки чатов
-const AdminChatHistoryLimit = route<Actions, { chatId: number }>(
-  'admin_chat_history_limit',
-  async ({ params }) => ({
-    text: `Введите новый лимит истории для чата ${params.chatId} (от 1 до 50):`,
-    onText: async ({ text, actions, navigate }) => {
-      const limit = parseInt(text, 10);
-      await actions.setHistoryLimit(params.chatId, limit, true);
-      return navigate(AdminChat, params);
-    },
-  })
-);
+    const text = update.message?.text ?? '';
+    const userMessageId = update.message?.message_id ?? 0;
+    const result = validator(text);
 
-const AdminChatInterestInterval = route<Actions, { chatId: number }>(
-  'admin_chat_interest_interval',
-  async ({ params }) => ({
-    text: `Введите новый интервал интереса для чата ${params.chatId} (от 1 до 50):`,
-    onText: async ({
-      text,
-      actions,
-      params,
-      navigate,
-    }: {
-      text: string;
-      actions: Actions;
-      params: { chatId: number };
-      navigate: NavigateFn<Actions>;
-    }) => {
-      const interval = parseInt(text, 10);
-      await actions.setInterestInterval(params.chatId, interval, true);
-      return navigate(AdminChat, params);
-    },
-  })
-);
+    await tryDeleteMessage(ctx, chatId, promptMsg.message_id);
+    await tryDeleteMessage(ctx, chatId, userMessageId);
 
-const AdminChatTopicTime = route<Actions, { chatId: number }>(
-  'admin_chat_topic_time',
-  async ({ params }) => ({
-    text: `Введите время темы дня для чата ${params.chatId} (формат HH:MM):`,
-    onText: async ({ text, navigate }) => {
-      const time = text.trim();
-      // Получим часовой пояс пользователя автоматически и перейдем к подтверждению
-      const date = new Date();
-      const offset = -date.getTimezoneOffset();
-      const hours = Math.floor(offset / 60);
-      const sign = hours >= 0 ? '+' : '-';
-      const timezone = `UTC${sign}${String(Math.abs(hours)).padStart(2, '0')}`;
+    if (result !== null) {
+      return result;
+    }
 
-      return navigate(AdminChatTopicTimezone, {
-        chatId: params.chatId,
-        time,
-        timezone,
-      });
-    },
-  })
-);
+    currentPrompt = `Некорректное значение. ${promptText}`;
+  }
 
-const AdminChatTopicTimezone = route<
-  Actions,
-  { chatId: number; time: string; timezone: string }
->('admin_chat_topic_timezone', async ({ params }) => ({
-  text: `Время: ${params.time}\nЧасовой пояс: ${params.timezone}\n\nВведите другой часовой пояс или оставьте этот:`,
-  buttons: [
-    button({
-      text: `✅ Оставить ${params.timezone}`,
-      callback: `accept:${params.chatId}:${params.time}:${params.timezone}`,
-      action: async ({ actions, navigate, ctx }) => {
-        const match = (ctx as ContextWithMatch).match;
-        const chatId = parseInt(match?.[1] ?? '0', 10);
-        const time = match?.[2] ?? '';
-        const timezone = match?.[3] ?? 'UTC+00';
+  await ctx.api.sendMessage(
+    chatId,
+    'Слишком много попыток. Возвращаюсь в меню.'
+  );
+  return null;
+}
 
-        await actions.setTopicTime(chatId, time, timezone);
-        return navigate(AdminChat, { chatId });
-      },
-    }),
-  ],
-  onText: async ({
-    text,
-    actions,
-    params,
-    navigate,
-  }: {
-    text: string;
-    actions: Actions;
-    params: { chatId: number; time: string; timezone: string };
-    navigate: NavigateFn<Actions>;
-  }) => {
-    const timezone = text.trim() || params.timezone;
-    await actions.setTopicTime(params.chatId, params.time, timezone);
-    return navigate(AdminChat, { chatId: params.chatId });
-  },
-}));
+// ─── Menu ref type ────────────────────────────────────────────────────────────
 
-// Пользовательские настройки чата
-const ChatSettings: Route<Actions> = route<Actions>(
-  'chat_settings',
-  async ({ actions, ctx }) => {
+type MenuRef = { menu: Menu<BotContext>; title: string };
+
+export function makeConversations(
+  actions: Actions,
+  menuRefs: {
+    chatSettings: MenuRef;
+    adminChat: MenuRef;
+  }
+): Record<
+  string,
+  (conversation: BotConversation, ctx: BotContext) => Promise<void>
+> {
+  async function adminHistoryLimit(
+    conversation: BotConversation,
+    ctx: BotContext
+  ): Promise<void> {
+    const adminChatId = ctx.chat?.id;
+    assert(adminChatId, 'No chat id');
+    const chatId = await conversation.external(
+      (ctx) => ctx.session?.selectedChatId
+    );
+    assert(chatId, 'No selected chat');
+
+    const result = await waitForInputOrCancel(
+      conversation,
+      ctx,
+      `Введите новый лимит истории для чата ${chatId} (от 1 до 50):`,
+      (text) => {
+        const n = parseInt(text, 10);
+        return !isNaN(n) && n >= 1 && n <= 50 ? n : null;
+      }
+    );
+
+    if (result === null) return;
+
+    await actions.setHistoryLimit(chatId, result, true);
+    await ctx.api.sendMessage(adminChatId, '✅ Лимит установлен', {
+      reply_markup: menuRefs.adminChat.menu,
+    });
+  }
+
+  async function adminInterestInterval(
+    conversation: BotConversation,
+    ctx: BotContext
+  ): Promise<void> {
+    const adminChatId = ctx.chat?.id;
+    assert(adminChatId, 'No chat id');
+    const chatId = await conversation.external(
+      (ctx) => ctx.session?.selectedChatId
+    );
+    assert(chatId, 'No selected chat');
+
+    const result = await waitForInputOrCancel(
+      conversation,
+      ctx,
+      `Введите новый интервал интереса для чата ${chatId} (от 1 до 50):`,
+      (text) => {
+        const n = parseInt(text, 10);
+        return !isNaN(n) && n >= 1 && n <= 50 ? n : null;
+      }
+    );
+
+    if (result === null) return;
+
+    await actions.setInterestInterval(chatId, result, true);
+    await ctx.api.sendMessage(adminChatId, '✅ Интервал установлен', {
+      reply_markup: menuRefs.adminChat.menu,
+    });
+  }
+
+  async function adminTopicTime(
+    conversation: BotConversation,
+    ctx: BotContext
+  ): Promise<void> {
+    const adminChatId = ctx.chat?.id;
+    assert(adminChatId, 'No chat id');
+    const chatId = await conversation.external(
+      (ctx) => ctx.session?.selectedChatId
+    );
+    assert(chatId, 'No selected chat');
+
+    const timeResult = await waitForInputOrCancel(
+      conversation,
+      ctx,
+      `Введите время темы дня для чата ${chatId} (формат HH:MM):`,
+      (text) => {
+        const trimmed = text.trim();
+        return /^\d{1,2}:\d{2}$/.test(trimmed) ? trimmed : null;
+      }
+    );
+
+    if (timeResult === null) return;
+
+    const tzResult = await waitForInputOrCancel(
+      conversation,
+      ctx,
+      'Введите часовой пояс (например UTC+03):',
+      (text) => {
+        const trimmed = text.trim();
+        return trimmed.length > 0 ? trimmed : null;
+      }
+    );
+
+    if (tzResult === null) return;
+
+    await actions.setTopicTime(chatId, timeResult, tzResult);
+    await ctx.api.sendMessage(
+      adminChatId,
+      `✅ Время ${timeResult} (${tzResult}) установлено`,
+      { reply_markup: menuRefs.adminChat.menu }
+    );
+  }
+
+  async function userHistoryLimit(
+    conversation: BotConversation,
+    ctx: BotContext
+  ): Promise<void> {
     const chatId = ctx.chat?.id;
-    if (!chatId) throw new Error('No chat ID');
+    assert(chatId, 'No chat id');
 
-    const config = await actions.getChatConfig(chatId);
+    const result = await waitForInputOrCancel(
+      conversation,
+      ctx,
+      'Введите новый лимит истории (от 1 до 50):',
+      (text) => {
+        const n = parseInt(text, 10);
+        return !isNaN(n) && n >= 1 && n <= 50 ? n : null;
+      }
+    );
 
-    return {
-      text: `Настройки чата\n\n• История: ${config.historyLimit} сообщений\n• Интервал интереса: ${config.interestInterval} сообщений\n• Время темы дня: ${config.topicTime ?? 'не установлено'}`,
-      buttons: [
-        button({
-          text: '📝 Лимит истории',
-          callback: 'history',
-          action: ({ navigate }) => navigate(ChatHistoryLimit),
-        }),
-        button({
-          text: '🎯 Интервал интереса',
-          callback: 'interest',
-          action: ({ navigate }) => navigate(ChatInterestInterval),
-        }),
-        button({
-          text: '📅 Время темы дня',
-          callback: 'topic',
-          action: ({ navigate }) => navigate(ChatTopicTime),
-        }),
-      ],
-    };
+    if (result === null) return;
+
+    await actions.setHistoryLimit(chatId, result, false);
+    await ctx.api.sendMessage(chatId, '✅ Лимит установлен', {
+      reply_markup: menuRefs.chatSettings.menu,
+    });
   }
-);
 
-const ChatHistoryLimit: Route<Actions> = route<Actions>(
-  'chat_history_limit',
-  async () => ({
-    text: 'Введите новый лимит истории (от 1 до 50):',
-    onText: async ({
-      text,
-      actions,
+  async function userInterestInterval(
+    conversation: BotConversation,
+    ctx: BotContext
+  ): Promise<void> {
+    const chatId = ctx.chat?.id;
+    assert(chatId, 'No chat id');
+
+    const result = await waitForInputOrCancel(
+      conversation,
       ctx,
-      navigate,
-    }: {
-      text: string;
-      actions: Actions;
-      ctx: Context;
-      navigate: NavigateFn<Actions>;
-    }) => {
-      const chatId = ctx.chat?.id;
-      if (!chatId) throw new Error('No chat ID');
+      'Введите новый интервал интереса (от 1 до 50):',
+      (text) => {
+        const n = parseInt(text, 10);
+        return !isNaN(n) && n >= 1 && n <= 50 ? n : null;
+      }
+    );
 
-      const limit = parseInt(text, 10);
-      await actions.setHistoryLimit(chatId, limit, false);
-      return navigate(UserMenu);
-    },
-  })
-);
+    if (result === null) return;
 
-const ChatInterestInterval: Route<Actions> = route<Actions>(
-  'chat_interest_interval',
-  async () => ({
-    text: 'Введите новый интервал интереса (от 1 до 50):',
-    onText: async ({
-      text,
-      actions,
-      ctx,
-      navigate,
-    }: {
-      text: string;
-      actions: Actions;
-      ctx: Context;
-      navigate: NavigateFn<Actions>;
-    }) => {
-      const chatId = ctx.chat?.id;
-      if (!chatId) throw new Error('No chat ID');
-
-      const interval = parseInt(text, 10);
-      await actions.setInterestInterval(chatId, interval, false);
-      return navigate(UserMenu);
-    },
-  })
-);
-
-const ChatTopicTime: Route<Actions> = route<Actions>(
-  'chat_topic_time',
-  async () => ({
-    text: 'Введите время темы дня (формат HH:MM):',
-    onText: async ({
-      text,
-      ctx,
-      navigate,
-    }: {
-      text: string;
-      actions: Actions;
-      ctx: Context;
-      navigate: NavigateFn<Actions>;
-    }) => {
-      const chatId = ctx.chat?.id;
-      if (!chatId) throw new Error('No chat ID');
-
-      const time = text.trim();
-      const date = new Date();
-      const offset = -date.getTimezoneOffset();
-      const hours = Math.floor(offset / 60);
-      const sign = hours >= 0 ? '+' : '-';
-      const timezone = `UTC${sign}${String(Math.abs(hours)).padStart(2, '0')}`;
-
-      return navigate(ChatTopicTimezone, { time, timezone });
-    },
-  })
-);
-
-const ChatTopicTimezone: Route<Actions, { time: string; timezone: string }> =
-  route<Actions, { time: string; timezone: string }>(
-    'chat_topic_timezone',
-    async ({ params }) => ({
-      text: `Время: ${params.time}\nЧасовой пояс: ${params.timezone}\n\nВведите другой часовой пояс или оставьте этот:`,
-      buttons: [
-        button({
-          text: `✅ Оставить ${params.timezone}`,
-          callback: `accept:${params.time}:${params.timezone}`,
-          action: async ({ actions, ctx, navigate }) => {
-            const chatId = ctx.chat?.id;
-            if (!chatId) throw new Error('No chat ID');
-
-            const match = (ctx as ContextWithMatch).match;
-            const time = match?.[1] ?? '';
-            const timezone = match?.[2] ?? 'UTC+00';
-
-            await actions.setTopicTime(chatId, time, timezone);
-            return navigate(UserMenu);
-          },
-        }),
-      ],
-      onText: async ({
-        text,
-        actions,
-        ctx,
-        params,
-        navigate,
-      }: {
-        text: string;
-        actions: Actions;
-        ctx: Context;
-        params: { time: string; timezone: string };
-        navigate: NavigateFn<Actions>;
-      }) => {
-        const chatId = ctx.chat?.id;
-        if (!chatId) throw new Error('No chat ID');
-
-        const timezone = text.trim() || params.timezone;
-        await actions.setTopicTime(chatId, params.time, timezone);
-        return navigate(UserMenu);
-      },
-    })
-  );
-
-// Роуты запросов и ошибок
-const ChatNotApproved: Route<Actions> = route<Actions>(
-  'chat_not_approved',
-  async () => ({
-    text: 'Этот чат не находится в списке разрешённых.',
-    buttons: [
-      button({
-        text: '📝 Запросить доступ',
-        callback: 'request_access',
-        action: async ({ actions, ctx }) => {
-          await actions.requestChatAccess(ctx);
-        },
-      }),
-    ],
-  })
-);
-
-const NoAccess: Route<Actions> = route<Actions>('no_access', async () => ({
-  text: '❌ У вас нет доступа к данным этого чата.\n\nДля получения доступа обратитесь к администратору бота.',
-  buttons: [
-    button({
-      text: '📝 Запросить доступ',
-      callback: 'request_user_access',
-      action: async ({ actions, ctx }) => {
-        await actions.requestUserAccess(ctx);
-      },
-    }),
-  ],
-}));
-
-const ChatApprovalRequest: Route<Actions, { name: string; chatId: number }> =
-  route<Actions, { name: string; chatId: number }>(
-    'chat_approval_request',
-    async ({ params }) => ({
-      text: `Запрос на добавление чата:\n\n${params.name}\n\nРазрешить доступ?`,
-      buttons: [
-        button({
-          text: '✅ Одобрить',
-          callback: 'approve',
-          action: async ({ actions, ctx }) => {
-            const match = (ctx as ContextWithMatch).match;
-            const chatId = parseInt(match?.[1] ?? '0', 10);
-            await actions.approveChat(chatId);
-          },
-          answer: { text: 'Чат одобрен' },
-        }),
-        button({
-          text: '🚫 Заблокировать',
-          callback: 'ban',
-          action: async ({ actions, ctx }) => {
-            const match = (ctx as ContextWithMatch).match;
-            const chatId = parseInt(match?.[1] ?? '0', 10);
-            await actions.banChat(chatId);
-          },
-          answer: { text: 'Чат заблокирован' },
-        }),
-      ],
-    })
-  );
-
-const UserAccessRequest: Route<
-  Actions,
-  { msg: string; chatId: number; userId: number }
-> = route<Actions, { msg: string; chatId: number; userId: number }>(
-  'user_access_request',
-  async ({ params }) => ({
-    text: `Запрос доступа к данным:\n\n${params.msg}\n\nРазрешить доступ?`,
-    buttons: [
-      button({
-        text: '✅ Одобрить доступ',
-        callback: 'approve_user',
-        action: async ({ actions, ctx }) => {
-          const match = (ctx as ContextWithMatch).match;
-          const chatId = parseInt(match?.[1] ?? '0', 10);
-          const userId = parseInt(match?.[2] ?? '0', 10);
-          const expiresAt = await actions.approveUser(chatId, userId);
-          await ctx.reply(
-            `Одобрено для чата ${chatId} и пользователя ${userId}\nДоступ действует до: ${expiresAt.toISOString()}`
-          );
-        },
-      }),
-    ],
-  })
-);
-
-// Создание роутера с иерархической структурой
-// eslint-disable-next-line import/no-unused-modules
-export const router = createRouter<Actions>(
-  [
-    // Корневой уровень
-    {
-      route: Menu,
-      children: [
-        // Админская ветка
-        {
-          route: AdminMenu,
-          children: [
-            {
-              route: AdminChats,
-              hasBack: true,
-              children: [
-                {
-                  route: AdminChat,
-                  hasBack: true,
-                  children: [
-                    { route: AdminChatHistoryLimit, hasBack: true },
-                    { route: AdminChatInterestInterval, hasBack: true },
-                    {
-                      route: AdminChatTopicTime,
-                      hasBack: true,
-                      children: [
-                        { route: AdminChatTopicTimezone, hasBack: true },
-                      ],
-                    },
-                  ],
-                },
-              ],
-            },
-            { route: ChatApprovalRequest, hasBack: true },
-            { route: UserAccessRequest, hasBack: true },
-          ],
-        },
-
-        // Пользовательская ветка
-        {
-          route: UserMenu,
-          children: [
-            {
-              route: ChatSettings,
-              hasBack: true,
-              children: [
-                { route: ChatHistoryLimit, hasBack: true },
-                { route: ChatInterestInterval, hasBack: true },
-                {
-                  route: ChatTopicTime,
-                  hasBack: true,
-                  children: [{ route: ChatTopicTimezone, hasBack: true }],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    },
-
-    // Отдельные роуты без иерархии
-    ChatNotApproved,
-    NoAccess,
-  ],
-  [
-    // Branches для команд
-    branch('menu', 'Показать меню', Menu),
-    branch('start', 'Начать работу', Menu),
-  ],
-  {
-    backLabel: '← Назад',
-    cancelLabel: '❌ Отмена',
-    inputPrompt: 'Введите значение:',
-    errorDefaultText: 'Произошла ошибка',
+    await actions.setInterestInterval(chatId, result, false);
+    await ctx.api.sendMessage(chatId, '✅ Интервал установлен', {
+      reply_markup: menuRefs.chatSettings.menu,
+    });
   }
-);
 
-// Setup функция для настройки бота
+  async function userTopicTime(
+    conversation: BotConversation,
+    ctx: BotContext
+  ): Promise<void> {
+    const chatId = ctx.chat?.id;
+    assert(chatId, 'No chat id');
 
-export function setupBotRouting(
-  bot: Telegraf,
-  actions: Actions
-): RunningRouter<Actions> {
-  const running = router.run(bot, actions);
+    const timeResult = await waitForInputOrCancel(
+      conversation,
+      ctx,
+      'Введите время темы дня (формат HH:MM):',
+      (text) => {
+        const trimmed = text.trim();
+        return /^\d{1,2}:\d{2}$/.test(trimmed) ? trimmed : null;
+      }
+    );
 
-  // Обработка my_chat_member через onConnect
-  running.onConnect(async (ctx) => {
+    if (timeResult === null) return;
+
+    const tzResult = await waitForInputOrCancel(
+      conversation,
+      ctx,
+      'Введите часовой пояс (например UTC+03):',
+      (text) => {
+        const trimmed = text.trim();
+        return trimmed.length > 0 ? trimmed : null;
+      }
+    );
+
+    if (tzResult === null) return;
+
+    await actions.setTopicTime(chatId, timeResult, tzResult);
+    await ctx.api.sendMessage(
+      chatId,
+      `✅ Время ${timeResult} (${tzResult}) установлено`,
+      { reply_markup: menuRefs.chatSettings.menu }
+    );
+  }
+
+  return {
+    adminHistoryLimit,
+    adminInterestInterval,
+    adminTopicTime,
+    userHistoryLimit,
+    userInterestInterval,
+    userTopicTime,
+  };
+}
+
+// ─── Menu builders ────────────────────────────────────────────────────────────
+
+function buildMenus(actions: Actions): {
+  adminMenu: Menu<BotContext>;
+  userMenu: Menu<BotContext>;
+  chatNotApprovedMenu: Menu<BotContext>;
+  chatSettings: Menu<BotContext>;
+  adminChat: Menu<BotContext>;
+} {
+  // ── Admin menus ───
+
+  async function sendMainMenu(
+    ctx: BotContext,
+    titleOverride?: string
+  ): Promise<void> {
     const chatId = ctx.chat?.id;
     if (!chatId) return;
+    const isAdminChat = actions.isAdmin(chatId);
+    const title =
+      titleOverride ?? (isAdminChat ? ADMIN_MENU_TITLE : USER_MENU_TITLE);
+    await ctx.api.sendMessage(chatId, title, {
+      reply_markup: isAdminChat ? adminMenu : userMenu,
+    });
+  }
 
-    const status = await actions.checkChatStatus(chatId);
-    if (status !== 'approved') {
-      await running.navigate(ctx, ChatNotApproved);
+  const adminChat = new Menu<BotContext>('admin_chat')
+    .dynamic(async (ctx, range) => {
+      const chatId = ctx.session.selectedChatId;
+      if (!chatId) return;
+      const data = await actions.getChatData(chatId);
+      const { status, config } = data;
+
+      range.text('📝 Лимит истории', async (ctx) => {
+        await ctx.conversation.enter('adminHistoryLimit');
+      });
+      range.row();
+      range.text('🎯 Интервал интереса', async (ctx) => {
+        await ctx.conversation.enter('adminInterestInterval');
+      });
+      range.row();
+      range.text('📅 Время темы дня', async (ctx) => {
+        await ctx.conversation.enter('adminTopicTime');
+      });
+      range.row();
+
+      if (status === 'approved') {
+        range.text('🚫 Заблокировать', async (ctx) => {
+          await actions.banChat(chatId);
+          await ctx.answerCallbackQuery('Чат заблокирован');
+          ctx.menu.update();
+        });
+      } else if (status === 'banned') {
+        range.text('✅ Разблокировать', async (ctx) => {
+          await actions.unbanChat(chatId);
+          await ctx.answerCallbackQuery('Чат разблокирован');
+          ctx.menu.update();
+        });
+      }
+
+      range.row();
+      range.text(
+        `История: ${config.historyLimit} | Интервал: ${config.interestInterval}`,
+        async (ctx) => {
+          await ctx.answerCallbackQuery();
+        }
+      );
+    })
+    .row()
+    .back('← Назад');
+
+  const adminChats = new Menu<BotContext>('admin_chats')
+    .dynamic(async (ctx, range) => {
+      const chats = await actions.getChats();
+      if (chats.length === 0) {
+        range.text('Нет доступных чатов', async (ctx) => {
+          await ctx.answerCallbackQuery();
+        });
+        return;
+      }
+      for (const chat of chats) {
+        range.text(`${chat.title} (${chat.id})`, async (ctx) => {
+          ctx.session.selectedChatId = chat.id;
+          await ctx.menu.nav('admin_chat');
+        });
+        range.row();
+      }
+    })
+    .row()
+    .back('← Назад');
+
+  const adminMenu = new Menu<BotContext>('admin_menu')
+    .text('📊 Загрузить данные', async (ctx) => {
+      await actions.exportData(
+        ctx,
+        ctx.callbackQuery?.message?.message_id ?? 0
+      );
+      await sendMainMenu(ctx);
+    })
+    .row()
+    .submenu('💬 Управление чатами', 'admin_chats');
+
+  adminChats.register(adminChat);
+  adminMenu.register(adminChats);
+
+  // ── User menus ───
+
+  const chatSettings = new Menu<BotContext>('chat_settings')
+    .text('📝 Лимит истории', async (ctx) => {
+      await ctx.conversation.enter('userHistoryLimit');
+    })
+    .row()
+    .text('🎯 Интервал интереса', async (ctx) => {
+      await ctx.conversation.enter('userInterestInterval');
+    })
+    .row()
+    .text('📅 Время темы дня', async (ctx) => {
+      await ctx.conversation.enter('userTopicTime');
+    })
+    .row()
+    .back('← Назад');
+
+  const resetTitles: Record<'ok' | 'denied' | 'error', string> = {
+    ok: '✅ Память сброшена!',
+    denied: '❌ Нет доступа или ключ просрочен.',
+    error: '❌ Ошибка при сбросе памяти.',
+  };
+
+  const confirmReset = new Menu<BotContext>('confirm_reset')
+    .text('✅ Да, сбросить', async (ctx) => {
+      await ctx.editMessageText('⏳ Сбрасываю память...');
+      const result = await actions.resetMemory(ctx);
+      const chatId = ctx.chat?.id;
+      const messageId = ctx.callbackQuery?.message?.message_id;
+      if (chatId && messageId) {
+        await tryDeleteMessage(ctx, chatId, messageId);
+      }
+      await sendMainMenu(ctx, resetTitles[result]);
+    })
+    .row()
+    .back('❌ Отмена');
+
+  const requestDataAccessMenu = new Menu<BotContext>('request_data_access')
+    .text('📝 Запросить доступ', async (ctx) => {
+      actions.log('info', '[REQUEST_ACCESS] Button clicked');
+      const result = await actions.requestUserAccess(ctx);
+      actions.log('info', '[REQUEST_ACCESS] Request sent', result);
+      await ctx.deleteMessage();
+      await ctx.answerCallbackQuery('Запрос отправлен администратору');
+    })
+    .row()
+    .text('❌ Отмена', async (ctx) => {
+      await ctx.deleteMessage();
+      await ctx.answerCallbackQuery('Отменено');
+    });
+
+  const userMenu = new Menu<BotContext>('user_menu')
+    .text('📊 Загрузить данные', async (ctx) => {
+      const chatId = ctx.chat?.id;
+      const userId = ctx.from?.id;
+      if (!chatId || !userId) {
+        await ctx.answerCallbackQuery(
+          'Ошибка: не удалось определить чат или пользователя'
+        );
+        return;
+      }
+      const isAdminChat = actions.isAdmin(chatId);
+      const hasAccess =
+        isAdminChat || (await actions.hasUserAccess(chatId, userId));
+      if (!hasAccess) {
+        const deniedText =
+          '❌ У вас нет доступа к данным этого чата.\n\nДля получения доступа обратитесь к администратору.';
+        try {
+          await ctx.editMessageText(deniedText, {
+            reply_markup: requestDataAccessMenu,
+          });
+        } catch {
+          await ctx.reply(deniedText, { reply_markup: requestDataAccessMenu });
+        }
+        return;
+      }
+      await actions.exportData(
+        ctx,
+        ctx.callbackQuery?.message?.message_id ?? 0
+      );
+      await sendMainMenu(ctx);
+    })
+    .row()
+    .submenu('🔄 Сбросить память', 'confirm_reset', async (ctx) => {
+      await ctx.editMessageText(
+        '⚠️ Вы уверены, что хотите сбросить память диалога? Это действие необратимо.'
+      );
+    })
+    .row()
+    .submenu('⚙️ Настройки чата', 'chat_settings');
+
+  userMenu.register([chatSettings, confirmReset, requestDataAccessMenu]);
+
+  // ── Standalone menus ───
+
+  const chatNotApprovedMenu = new Menu<BotContext>('chat_not_approved').text(
+    '📝 Запросить доступ',
+    async (ctx) => {
+      await actions.requestChatAccess(ctx);
+    }
+  );
+
+  return { adminMenu, userMenu, chatNotApprovedMenu, chatSettings, adminChat };
+}
+
+// ─── Setup ────────────────────────────────────────────────────────────────────
+
+export function setupBotRouting(bot: Bot<BotContext>, actions: Actions): void {
+  // Build menus first (conversations need menu refs)
+  const { adminMenu, userMenu, chatNotApprovedMenu, chatSettings, adminChat } =
+    buildMenus(actions);
+
+  const menuRefs = {
+    userMenu: { menu: userMenu, title: USER_MENU_TITLE },
+    adminMenu: { menu: adminMenu, title: ADMIN_MENU_TITLE },
+    chatSettings: { menu: chatSettings, title: 'Настройки чата:' },
+    adminChat: { menu: adminChat, title: 'Управление чатом:' },
+  };
+
+  // Register menus before conversations so their API transformer is active inside conversations
+  bot.use(adminMenu);
+  bot.use(userMenu);
+  bot.use(chatNotApprovedMenu);
+
+  // Register conversation handlers
+  const convs = makeConversations(actions, menuRefs);
+  bot.use(createConversation(convs.adminHistoryLimit));
+  bot.use(createConversation(convs.adminInterestInterval));
+  bot.use(createConversation(convs.adminTopicTime));
+  bot.use(createConversation(convs.userHistoryLimit));
+  bot.use(createConversation(convs.userInterestInterval));
+  bot.use(createConversation(convs.userTopicTime));
+
+  // Commands
+  bot.command(['start', 'menu'], async (ctx) => {
+    if (actions.isAdmin(ctx.chat?.id ?? 0)) {
+      await ctx.reply(menuRefs.adminMenu.title, {
+        reply_markup: adminMenu,
+      });
+    } else {
+      await ctx.reply(menuRefs.userMenu.title, {
+        reply_markup: userMenu,
+      });
     }
   });
 
-  // Обработка текстовых сообщений для триггер пайплайна
-  running.onText(async (ctx) => {
-    await actions.processMessage(ctx);
+  // New chat member — check approval status
+  bot.on('my_chat_member', async (ctx) => {
+    const chatId = ctx.chat?.id;
+    if (!chatId) return;
+    const status = await actions.checkChatStatus(chatId);
+    if (status !== 'approved') {
+      await ctx.reply('Этот чат не находится в списке разрешённых.', {
+        reply_markup: chatNotApprovedMenu,
+      });
+    }
   });
 
-  return running;
+  // Admin chat approval callbacks
+  bot.callbackQuery(/^approve_chat:(-?\d+)$/, async (ctx) => {
+    if (!actions.isAdmin(ctx.chat?.id ?? 0)) {
+      await ctx.answerCallbackQuery('Not authorized');
+      return;
+    }
+    const chatId = parseInt(ctx.match[1], 10);
+    await actions.approveChat(chatId);
+    await ctx.editMessageText(
+      `${ctx.callbackQuery.message?.text ?? ''}\n\n✅ Одобрено`,
+      { reply_markup: { inline_keyboard: [] } }
+    );
+    await ctx.answerCallbackQuery('Чат одобрен');
+  });
+
+  bot.callbackQuery(/^ban_chat:(-?\d+)$/, async (ctx) => {
+    if (!actions.isAdmin(ctx.chat?.id ?? 0)) {
+      await ctx.answerCallbackQuery('Not authorized');
+      return;
+    }
+    const chatId = parseInt(ctx.match[1], 10);
+    await actions.banChat(chatId);
+    await ctx.editMessageText(
+      `${ctx.callbackQuery.message?.text ?? ''}\n\n🚫 Заблокирован`,
+      { reply_markup: { inline_keyboard: [] } }
+    );
+    await ctx.answerCallbackQuery('Чат заблокирован');
+  });
+
+  bot.callbackQuery(/^approve_user:(-?\d+):(\d+)$/, async (ctx) => {
+    if (!actions.isAdmin(ctx.chat?.id ?? 0)) {
+      await ctx.answerCallbackQuery('Not authorized');
+      return;
+    }
+    const chatId = parseInt(ctx.match[1], 10);
+    const userId = parseInt(ctx.match[2], 10);
+    await actions.approveUser(chatId, userId);
+    await actions.sendUserNotification(
+      chatId,
+      '✅ Ваш запрос на доступ к данным одобрен!'
+    );
+    await ctx.editMessageText(
+      `${ctx.callbackQuery.message?.text ?? ''}\n\n✅ Доступ выдан`,
+      { reply_markup: { inline_keyboard: [] } }
+    );
+    await ctx.answerCallbackQuery('Доступ выдан');
+  });
+
+  bot.callbackQuery(/^deny_user:(-?\d+)$/, async (ctx) => {
+    if (!actions.isAdmin(ctx.chat?.id ?? 0)) {
+      await ctx.answerCallbackQuery('Not authorized');
+      return;
+    }
+    await ctx.editMessageText(
+      `${ctx.callbackQuery.message?.text ?? ''}\n\n❌ Отклонено`,
+      { reply_markup: { inline_keyboard: [] } }
+    );
+    await ctx.answerCallbackQuery('Отклонено');
+  });
+
+  // Text messages — trigger pipeline
+  bot.on('message:text', async (ctx) => {
+    await actions.processMessage(ctx);
+  });
 }

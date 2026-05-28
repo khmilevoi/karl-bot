@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 
-import type { Context } from 'telegraf';
+import type { Context } from 'grammy';
 
 import type { MessageContext } from '@/application/interfaces/messages/MessageContextExtractor';
 import type { StoredMessage } from '@/domain/messages/StoredMessage';
@@ -44,7 +44,7 @@ export class MessageFactory {
     return {
       role: 'assistant',
       content,
-      username: ctx.me,
+      username: ctx.me.username,
       chatId,
       chatTitle,
     };

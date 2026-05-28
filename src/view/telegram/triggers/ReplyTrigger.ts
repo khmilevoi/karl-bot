@@ -1,5 +1,5 @@
+import type { Context } from 'grammy';
 import { inject, injectable } from 'inversify';
-import type { Context } from 'telegraf';
 
 import type { Logger } from '@/application/interfaces/logging/Logger';
 import {
@@ -30,7 +30,8 @@ export class ReplyTrigger implements Trigger<Context> {
       | undefined;
     const reply = msg?.reply_to_message;
 
-    if (reply?.from?.username === ctx.me) {
+    const botUsername = ctx.me?.username;
+    if (botUsername && reply?.from?.username === botUsername) {
       this.logger.debug(
         {
           chatId: context.chatId,

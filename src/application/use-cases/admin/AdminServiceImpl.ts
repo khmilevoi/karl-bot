@@ -72,9 +72,15 @@ export class AdminServiceImpl implements AdminService {
   }
 
   async hasAccess(chatId: number, userId: number): Promise<boolean> {
+    this.logger.debug({ chatId, userId }, '[HAS_ACCESS] Checking user access');
     await this.accessKeyRepo.deleteExpired(Date.now());
     const entry = await this.accessKeyRepo.findByChatAndUser(chatId, userId);
-    return entry !== undefined;
+    const hasAccess = entry !== undefined;
+    this.logger.debug(
+      { chatId, userId, hasAccess, entry },
+      '[HAS_ACCESS] Access check result'
+    );
+    return hasAccess;
   }
 
   async exportTables(): Promise<{ filename: string; buffer: Buffer }[]> {

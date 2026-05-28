@@ -1,4 +1,4 @@
-import type { Context } from 'telegraf';
+import type { Context } from 'grammy';
 import { describe, expect, it } from 'vitest';
 
 import { DefaultMessageContextExtractor } from '../src/application/use-cases/messages/DefaultMessageContextExtractor';

@@ -1,8 +1,8 @@
+import type { Bot, Context } from 'grammy';
 import type { ServiceIdentifier } from 'inversify';
-import type { Telegraf } from 'telegraf';
 
 export interface ChatMessenger {
-  readonly bot: Telegraf;
+  readonly bot: Bot<Context>;
   sendMessage(chatId: number, text: string, extra?: object): Promise<void>;
   launch(): Promise<void>;
   stop(reason: string): void;

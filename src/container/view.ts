@@ -1,5 +1,5 @@
+import type { Context } from 'grammy';
 import { type Container } from 'inversify';
-import type { Context } from 'telegraf';
 
 import { type Trigger, TRIGGER_ID } from '../domain/triggers/Trigger';
 import { MainService } from '../view/telegram/MainService';
