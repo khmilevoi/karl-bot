@@ -6,8 +6,8 @@ import { type Bot, InlineKeyboard } from 'grammy';
 
 import type { BotContext } from './context';
 
-const ADMIN_MENU_TITLE = 'Панель администратора\nВыберите действие:';
-const USER_MENU_TITLE = 'Главное меню\nВыберите действие:';
+export const ADMIN_MENU_TITLE = 'Панель администратора\nВыберите действие:';
+export const USER_MENU_TITLE = 'Главное меню\nВыберите действие:';
 
 // ─── Actions interface ────────────────────────────────────────────────────────
 
@@ -574,11 +574,8 @@ export function setupBotRouting(bot: Bot<BotContext>, actions: Actions): void {
     buildMenus(actions);
 
   const menuRefs = {
-    userMenu: { menu: userMenu, title: 'Главное меню\nВыберите действие:' },
-    adminMenu: {
-      menu: adminMenu,
-      title: 'Панель администратора\nВыберите действие:',
-    },
+    userMenu: { menu: userMenu, title: USER_MENU_TITLE },
+    adminMenu: { menu: adminMenu, title: ADMIN_MENU_TITLE },
     chatSettings: { menu: chatSettings, title: 'Настройки чата:' },
     adminChat: { menu: adminChat, title: 'Управление чатом:' },
   };

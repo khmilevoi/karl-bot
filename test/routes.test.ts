@@ -2,8 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   type Actions,
+  ADMIN_MENU_TITLE,
   CANCEL_DATA,
   makeConversations,
+  setupBotRouting,
+  USER_MENU_TITLE,
   waitForInputOrCancel,
 } from '../src/view/telegram/routes';
 import type { BotContext } from '../src/view/telegram/context';
@@ -146,5 +149,76 @@ describe('adminTopicTime conversation', () => {
     await convs.adminTopicTime(conversation, outerCtx);
 
     expect(setTopicTime).toHaveBeenCalledWith(42, '09:00', 'UTC+03');
+  });
+});
+
+describe('setupBotRouting /start routing', () => {
+  const fullActions = (isAdmin: (id: number) => boolean): Actions =>
+    ({
+      isAdmin,
+      exportData: vi.fn(),
+      resetMemory: vi.fn(),
+      getChats: vi.fn().mockResolvedValue([]),
+      getChatData: vi.fn(),
+      requestChatAccess: vi.fn(),
+      requestUserAccess: vi.fn(),
+      sendChatApprovalRequest: vi.fn(),
+      sendUserNotification: vi.fn(),
+      approveChat: vi.fn(),
+      banChat: vi.fn(),
+      unbanChat: vi.fn(),
+      approveUser: vi.fn(),
+      hasUserAccess: vi.fn(),
+      getChatConfig: vi.fn(),
+      setHistoryLimit: vi.fn(),
+      setInterestInterval: vi.fn(),
+      setTopicTime: vi.fn(),
+      checkChatStatus: vi.fn(),
+      processMessage: vi.fn(),
+      log: vi.fn(),
+    }) as unknown as Actions;
+
+  const captureCommand = (actions: Actions) => {
+    let commandHandler: (ctx: any) => Promise<void> = async () => {};
+    const bot = {
+      use: vi.fn(),
+      command: vi.fn((_names: unknown, h: (ctx: any) => Promise<void>) => {
+        commandHandler = h;
+      }),
+      callbackQuery: vi.fn(),
+      on: vi.fn(),
+    };
+    setupBotRouting(bot as any, actions);
+    return commandHandler;
+  };
+
+  it('shows the admin menu in the admin chat', async () => {
+    const handler = captureCommand(fullActions(() => true));
+    const ctx = {
+      chat: { id: 1 },
+      reply: vi.fn().mockResolvedValue(undefined),
+    };
+
+    await handler(ctx);
+
+    expect(ctx.reply).toHaveBeenCalledWith(
+      ADMIN_MENU_TITLE,
+      expect.objectContaining({ reply_markup: expect.anything() })
+    );
+  });
+
+  it('shows the user menu in a non-admin chat', async () => {
+    const handler = captureCommand(fullActions(() => false));
+    const ctx = {
+      chat: { id: 9 },
+      reply: vi.fn().mockResolvedValue(undefined),
+    };
+
+    await handler(ctx);
+
+    expect(ctx.reply).toHaveBeenCalledWith(
+      USER_MENU_TITLE,
+      expect.objectContaining({ reply_markup: expect.anything() })
+    );
   });
 });
