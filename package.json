@@ -13,8 +13,8 @@
     "type:check": "tsc --noEmit",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "format": "prettier --check .",
-    "format:fix": "prettier --write .",
+    "format": "oxfmt --check",
+    "format:fix": "oxfmt",
     "migration:up": "node scripts/pre-migrate.js && node dist/migrate.js up",
     "migration:down": "node scripts/pre-migrate.js && node dist/migrate.js down",
     "migration:check": "node scripts/pre-migrate.js && node dist/migrate.js check"
@@ -44,8 +44,8 @@
     "@types/node": "^25.9.1",
     "@vitest/coverage-v8": "^3.2.4",
     "nodemon": "^3.1.10",
+    "oxfmt": "^0.52.0",
     "oxlint": "^1.67.0",
-    "prettier": "^3.6.2",
     "typescript": "^6.0.3",
     "vitest": "^3.2.4"
   },
