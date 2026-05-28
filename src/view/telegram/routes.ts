@@ -6,11 +6,14 @@ import { type Bot, InlineKeyboard } from 'grammy';
 
 import type { BotContext } from './context';
 
+const ADMIN_MENU_TITLE = 'Панель администратора\nВыберите действие:';
+const USER_MENU_TITLE = 'Главное меню\nВыберите действие:';
+
 // ─── Actions interface ────────────────────────────────────────────────────────
 
 export interface Actions {
   exportData: (ctx: BotContext, menuMessageId: number) => Promise<void>;
-  resetMemory: (ctx: BotContext, menuMessageId: number) => Promise<void>;
+  resetMemory: (ctx: BotContext) => Promise<'ok' | 'denied' | 'error'>;
 
   getChats: () => Promise<{ id: number; title: string }[]>;
   getChatData: (chatId: number) => Promise<{
@@ -365,6 +368,20 @@ function buildMenus(actions: Actions): {
 } {
   // ── Admin menus ───
 
+  async function sendMainMenu(
+    ctx: BotContext,
+    titleOverride?: string
+  ): Promise<void> {
+    const chatId = ctx.chat?.id;
+    if (!chatId) return;
+    const isAdminChat = actions.isAdmin(chatId);
+    const title =
+      titleOverride ?? (isAdminChat ? ADMIN_MENU_TITLE : USER_MENU_TITLE);
+    await ctx.api.sendMessage(chatId, title, {
+      reply_markup: isAdminChat ? adminMenu : userMenu,
+    });
+  }
+
   const adminChat = new Menu<BotContext>('admin_chat')
     .dynamic(async (ctx, range) => {
       const chatId = ctx.session.selectedChatId;
@@ -460,13 +477,22 @@ function buildMenus(actions: Actions): {
     .row()
     .back('← Назад');
 
+  const resetTitles: Record<'ok' | 'denied' | 'error', string> = {
+    ok: '✅ Память сброшена!',
+    denied: '❌ Нет доступа или ключ просрочен.',
+    error: '❌ Ошибка при сбросе памяти.',
+  };
+
   const confirmReset = new Menu<BotContext>('confirm_reset')
     .text('✅ Да, сбросить', async (ctx) => {
+      await ctx.editMessageText('⏳ Сбрасываю память...');
+      const result = await actions.resetMemory(ctx);
+      const chatId = ctx.chat?.id;
       const messageId = ctx.callbackQuery?.message?.message_id;
-      if (messageId) {
-        await ctx.editMessageText('⏳ Сбрасываю память...');
+      if (chatId && messageId) {
+        await tryDeleteMessage(ctx, chatId, messageId);
       }
-      await actions.resetMemory(ctx, messageId ?? 0);
+      await sendMainMenu(ctx, resetTitles[result]);
     })
     .row()
     .back('❌ Отмена');

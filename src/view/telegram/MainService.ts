@@ -98,8 +98,7 @@ export class MainService {
     const actions: Actions = {
       exportData: (ctx: BotContext, menuMessageId: number) =>
         this.handleExportData(ctx, menuMessageId),
-      resetMemory: (ctx: BotContext, menuMessageId: number) =>
-        this.handleResetMemory(ctx, menuMessageId),
+      resetMemory: (ctx: BotContext) => this.handleResetMemory(ctx),
       requestChatAccess: (ctx: BotContext) => this.handleChatRequest(ctx),
       requestUserAccess: (ctx: BotContext) => this.handleRequestAccess(ctx),
       sendUserNotification: (
@@ -318,9 +317,8 @@ export class MainService {
   }
 
   private async handleResetMemory(
-    ctx: BotContext,
-    menuMessageId: number
-  ): Promise<void> {
+    ctx: BotContext
+  ): Promise<'ok' | 'denied' | 'error'> {
     const chatId = ctx.chat?.id;
     const userId = ctx.from?.id;
     assert(chatId, 'This is not a chat');
@@ -329,33 +327,16 @@ export class MainService {
     if (chatId !== this.env.ADMIN_CHAT_ID) {
       const allowed = await this.admin.hasAccess(chatId, userId);
       if (!allowed) {
-        await ctx.answerCallbackQuery('Нет доступа или ключ просрочен');
-        return;
+        return 'denied';
       }
     }
 
     try {
       await this.memories.reset(chatId);
-      if (menuMessageId) {
-        await ctx.api
-          .editMessageText(chatId, menuMessageId, '✅ Память сброшена!')
-          .catch(() => {});
-      } else {
-        await ctx.reply('✅ Память сброшена!');
-      }
+      return 'ok';
     } catch (error) {
       this.logger.error({ error, chatId }, 'Failed to reset memory');
-      if (menuMessageId) {
-        await ctx.api
-          .editMessageText(
-            chatId,
-            menuMessageId,
-            '❌ Ошибка при сбросе памяти.'
-          )
-          .catch(() => {});
-      } else {
-        await ctx.reply('❌ Ошибка при сбросе памяти. Попробуйте позже.');
-      }
+      return 'error';
     }
   }
 
