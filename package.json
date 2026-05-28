@@ -15,7 +15,6 @@
     "lint:fix": "npm run lint -- --fix",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
-    "prepare": "husky",
     "migration:up": "node scripts/pre-migrate.js && node dist/migrate.js up",
     "migration:down": "node scripts/pre-migrate.js && node dist/migrate.js down",
     "migration:check": "node scripts/pre-migrate.js && node dist/migrate.js check"
@@ -31,19 +30,19 @@
     "grammy": "^1.43.0",
     "inversify": "^7.0.0-alpha.5",
     "node-cron": "^4.2.1",
-    "openai": "^5.12.2",
+    "openai": "^6.39.1",
     "pino": "^9.7.0",
     "pino-pretty": "^13.1.1",
     "reflect-metadata": "^0.2.2",
     "sqlite": "^5.1.1",
-    "sqlite3": "^5.1.7",
-    "zod": "^3.25.76"
+    "sqlite3": "^6.0.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",
-    "@rsbuild/core": "^1.4.15",
-    "@rspack/core": "^1.4.11",
-    "@types/node": "^24.0.11",
+    "@rsbuild/core": "^2.0.8",
+    "@rspack/core": "^2.0.5",
+    "@types/node": "^25.9.1",
     "@typescript-eslint/eslint-plugin": "^8.36.0",
     "@typescript-eslint/parser": "^8.36.0",
     "@vitest/coverage-v8": "^3.2.4",
@@ -53,18 +52,10 @@
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-simple-import-sort": "^12.1.1",
     "eslint-plugin-unused-imports": "^4.1.4",
-    "husky": "^9.1.7",
-    "lint-staged": "^16.1.2",
     "nodemon": "^3.1.10",
     "prettier": "^3.6.2",
-    "typescript": "^5.8.3",
+    "typescript": "^6.0.3",
     "vitest": "^3.2.4"
-  },
-  "lint-staged": {
-    "*.{ts,js,json,md}": [
-      "eslint --fix",
-      "prettier --write"
-    ]
   },
   "packageManager": "npm@10.5.2"
 }
