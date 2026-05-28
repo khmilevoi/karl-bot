@@ -2,6 +2,10 @@
   "name": "arkadius-bot",
   "version": "1.0.0",
   "description": "бот Карл",
+  "keywords": [],
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
   "main": "index.js",
   "scripts": {
     "build": "rsbuild build",
@@ -11,19 +15,14 @@
     "test:watch": "vitest --config vitest.config.ts",
     "test:coverage": "vitest run --config vitest.config.ts --coverage",
     "type:check": "tsc --noEmit",
-    "lint": "eslint . --ext .ts",
-    "lint:fix": "npm run lint -- --fix",
-    "format": "prettier --check .",
-    "format:fix": "prettier --write .",
-    "prepare": "husky",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt --check",
+    "format:fix": "oxfmt",
     "migration:up": "node scripts/pre-migrate.js && node dist/migrate.js up",
     "migration:down": "node scripts/pre-migrate.js && node dist/migrate.js down",
     "migration:check": "node scripts/pre-migrate.js && node dist/migrate.js check"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "@grammyjs/conversations": "^2.1.1",
     "@grammyjs/menu": "^1.3.1",
@@ -31,40 +30,24 @@
     "grammy": "^1.43.0",
     "inversify": "^7.0.0-alpha.5",
     "node-cron": "^4.2.1",
-    "openai": "^5.12.2",
+    "openai": "^6.39.1",
     "pino": "^9.7.0",
     "pino-pretty": "^13.1.1",
     "reflect-metadata": "^0.2.2",
     "sqlite": "^5.1.1",
-    "sqlite3": "^5.1.7",
-    "zod": "^3.25.76"
+    "sqlite3": "^6.0.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@eslint/js": "^9.30.1",
-    "@rsbuild/core": "^1.4.15",
-    "@rspack/core": "^1.4.11",
-    "@types/node": "^24.0.11",
-    "@typescript-eslint/eslint-plugin": "^8.36.0",
-    "@typescript-eslint/parser": "^8.36.0",
+    "@rsbuild/core": "^2.0.8",
+    "@rspack/core": "^2.0.5",
+    "@types/node": "^25.9.1",
     "@vitest/coverage-v8": "^3.2.4",
-    "eslint": "^9.30.1",
-    "eslint-config-prettier": "^10.1.5",
-    "eslint-import-resolver-typescript": "^4.4.4",
-    "eslint-plugin-import": "^2.32.0",
-    "eslint-plugin-simple-import-sort": "^12.1.1",
-    "eslint-plugin-unused-imports": "^4.1.4",
-    "husky": "^9.1.7",
-    "lint-staged": "^16.1.2",
     "nodemon": "^3.1.10",
-    "prettier": "^3.6.2",
-    "typescript": "^5.8.3",
+    "oxfmt": "^0.52.0",
+    "oxlint": "^1.67.0",
+    "typescript": "^6.0.3",
     "vitest": "^3.2.4"
   },
-  "lint-staged": {
-    "*.{ts,js,json,md}": [
-      "eslint --fix",
-      "prettier --write"
-    ]
-  },
-  "packageManager": "npm@10.5.2"
+  "packageManager": "pnpm@11.4.0+sha512.f0febc7e37552ab485494a914241b338e0b3580b93d54ce31f00933015880863129038a1b4ae4e414a0ee63ac35bf21197e990172c4a68256450b5636310968f"
 }

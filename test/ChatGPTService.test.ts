@@ -59,9 +59,8 @@ describe('ChatGPTService', () => {
         child: vi.fn(),
       }),
     } as unknown as LoggerFactory;
-    ({ ChatGPTService } = await import(
-      '../src/infrastructure/external/ChatGPTService'
-    ));
+    ({ ChatGPTService } =
+      await import('../src/infrastructure/external/ChatGPTService'));
     service = new ChatGPTService(
       env,
       prompts as unknown as PromptDirector,

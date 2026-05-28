@@ -144,7 +144,7 @@ export const register = (container: Container): void => {
 
   container
     .bind<PromptBuilderFactory>(PROMPT_BUILDER_FACTORY_ID)
-    .toFactory(() => () => container.get(PromptBuilder));
+    .toFactory((): PromptBuilderFactory => () => container.get(PromptBuilder));
 
   container
     .bind<PromptDirector>(PROMPT_DIRECTOR_ID)

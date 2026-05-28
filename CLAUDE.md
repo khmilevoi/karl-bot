@@ -6,29 +6,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Build and Run:**
 
-- `npm run build` - Build the project using RSBuild
-- `npm start` - Run the built application
-- `npm run dev` - Development mode with file watching
+- `pnpm build` - Build the project using RSBuild
+- `pnpm start` - Run the built application
+- `pnpm dev` - Development mode with file watching
 
 **Testing:**
 
-- `npm test` - Run all tests with Vitest
-- `npm run test:watch` - Run tests in watch mode
-- `npm run test:coverage` - Run tests with coverage report
+- `pnpm test` - Run all tests with Vitest
+- `pnpm test:watch` - Run tests in watch mode
+- `pnpm test:coverage` - Run tests with coverage report
 
 **Code Quality:**
 
-- `npm run type:check` - TypeScript type checking
-- `npm run lint` - ESLint code checking
-- `npm run lint:fix` - Auto-fix linting issues
-- `npm run format` - Check Prettier formatting
-- `npm run format:fix` - Auto-fix formatting
+- `pnpm type:check` - TypeScript type checking
+- `pnpm lint` - oxlint code checking
+- `pnpm lint:fix` - Auto-fix linting issues
+- `pnpm format` - Check oxfmt formatting
+- `pnpm format:fix` - Auto-fix formatting
 
 **Database:**
 
-- `npm run migration:up` - Apply database migrations
-- `npm run migration:down` - Rollback database migrations
-- `npm run migration:check` - Check migration status
+- `pnpm migration:up` - Apply database migrations
+- `pnpm migration:down` - Rollback database migrations
+- `pnpm migration:check` - Check migration status
 
 ## Architecture
 
@@ -109,20 +109,20 @@ Environment variables in `.env`:
 
 **Build Process:**
 
-- Always run `npm run build` after code changes to ensure TypeScript compilation succeeds
-- Run `npm install` when dependencies are updated
-- Never commit `node_modules` or modify `package-lock.json` directly
+- Always run `pnpm build` after code changes to ensure TypeScript compilation succeeds
+- Run `pnpm install` when dependencies are updated
+- Never commit `node_modules` or modify `pnpm-lock.yaml` directly
 
 **Testing:**
 
-- Use `npm test` for single test runs
-- Use `npm run test:coverage` for coverage reports
-- Do NOT use `npm run test:watch` in automated workflows
+- Use `pnpm test` for single test runs
+- Use `pnpm test:coverage` for coverage reports
+- Do NOT use `pnpm test:watch` in automated workflows
 
 **Pre-commit:**
 
-- Never skip Husky pre-commit hooks (avoid `--no-verify`)
-- Run `npm run format:fix` to fix formatting before committing
+- Git-хуков нет — все проверки выполняются в CI
+- Перед коммитом прогоните `pnpm format:fix` и `pnpm lint:fix`
 - Update `.env.example` when environment variables change
 
 ## Database Guidelines
@@ -130,7 +130,7 @@ Environment variables in `.env`:
 - Database access through `DbProvider` interface only
 - Business logic must use repository interfaces and remain database-agnostic
 - Only SQLite-specific modules should depend on `SQLiteDbProvider`
-- Use `npm run migration:up/down` for database schema changes
+- Use `pnpm migration:up/down` for database schema changes
 
 ## Prompt System Guidelines
 
@@ -142,9 +142,9 @@ Environment variables in `.env`:
 
 ## Troubleshooting
 
-- Build failures with "swc: not found": Run `npm install` first
+- Build failures with "swc: not found": Run `pnpm install` first
 - "Unknown env config http-proxy" warning: Remove with `npm config delete http-proxy`
 - Migration failures: Script auto-removes and recreates `memory.db` if migrations table missing
 - отдавай предпочтение запуску сразу fix команд, некоторые ошибки сразу будут исправленны
-- используй сразу npm run lint:fix
+- используй сразу pnpm lint:fix
 - запомни что можно использовать паттерн матчинг и давай ему предпочтение тернарным выражениям
