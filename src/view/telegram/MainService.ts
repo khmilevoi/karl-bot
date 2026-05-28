@@ -115,7 +115,7 @@ export class MainService {
       banChat: (chatId: number) => this.approvalService.ban(chatId),
       unbanChat: (chatId: number) => this.approvalService.unban(chatId),
       approveUser: (chatId: number, userId: number) =>
-        this.admin.createAccessKey(userId, chatId),
+        this.admin.createAccessKey(chatId, userId),
       hasUserAccess: (chatId: number, userId: number) =>
         this.admin.hasAccess(chatId, userId),
       getChatConfig: (chatId: number) => this.chatConfig.getConfig(chatId),
@@ -224,8 +224,16 @@ export class MainService {
         ? (ctx.callbackQuery.message?.message_id ?? 0)
         : 0;
 
+    const keyboard = new InlineKeyboard()
+      .text('✅ Дать доступ', `approve_user:${chatId}:${userId}`)
+      .text('❌ Не давать', `deny_user:${chatId}`)
+      .row()
+      .text('🚫 Забанить чат', `ban_chat:${chatId}`);
+
     try {
-      await this.messenger.sendMessage(this.env.ADMIN_CHAT_ID, msg);
+      await this.messenger.sendMessage(this.env.ADMIN_CHAT_ID, msg, {
+        reply_markup: keyboard,
+      });
       this.logger.info('[REQUEST_ACCESS] Message sent successfully');
     } catch (error) {
       this.logger.error(

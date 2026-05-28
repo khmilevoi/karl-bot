@@ -635,6 +635,37 @@ export function setupBotRouting(bot: Bot<BotContext>, actions: Actions): void {
     await ctx.answerCallbackQuery('Чат заблокирован');
   });
 
+  bot.callbackQuery(/^approve_user:(-?\d+):(\d+)$/, async (ctx) => {
+    if (!actions.isAdmin(ctx.chat?.id ?? 0)) {
+      await ctx.answerCallbackQuery('Not authorized');
+      return;
+    }
+    const chatId = parseInt(ctx.match[1], 10);
+    const userId = parseInt(ctx.match[2], 10);
+    await actions.approveUser(chatId, userId);
+    await actions.sendUserNotification(
+      chatId,
+      '✅ Ваш запрос на доступ к данным одобрен!'
+    );
+    await ctx.editMessageText(
+      `${ctx.callbackQuery.message?.text ?? ''}\n\n✅ Доступ выдан`,
+      { reply_markup: { inline_keyboard: [] } }
+    );
+    await ctx.answerCallbackQuery('Доступ выдан');
+  });
+
+  bot.callbackQuery(/^deny_user:(-?\d+)$/, async (ctx) => {
+    if (!actions.isAdmin(ctx.chat?.id ?? 0)) {
+      await ctx.answerCallbackQuery('Not authorized');
+      return;
+    }
+    await ctx.editMessageText(
+      `${ctx.callbackQuery.message?.text ?? ''}\n\n❌ Отклонено`,
+      { reply_markup: { inline_keyboard: [] } }
+    );
+    await ctx.answerCallbackQuery('Отклонено');
+  });
+
   // Text messages — trigger pipeline
   bot.on('message:text', async (ctx) => {
     await actions.processMessage(ctx);
