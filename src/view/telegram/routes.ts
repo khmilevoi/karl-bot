@@ -453,6 +453,7 @@ function buildMenus(actions: Actions): {
         ctx,
         ctx.callbackQuery?.message?.message_id ?? 0
       );
+      await sendMainMenu(ctx);
     })
     .row()
     .submenu('💬 Управление чатами', 'admin_chats');
@@ -525,16 +526,22 @@ function buildMenus(actions: Actions): {
       const hasAccess =
         isAdminChat || (await actions.hasUserAccess(chatId, userId));
       if (!hasAccess) {
-        await ctx.reply(
-          '❌ У вас нет доступа к данным этого чата.\n\nДля получения доступа обратитесь к администратору.',
-          { reply_markup: requestDataAccessMenu }
-        );
+        const deniedText =
+          '❌ У вас нет доступа к данным этого чата.\n\nДля получения доступа обратитесь к администратору.';
+        try {
+          await ctx.editMessageText(deniedText, {
+            reply_markup: requestDataAccessMenu,
+          });
+        } catch {
+          await ctx.reply(deniedText, { reply_markup: requestDataAccessMenu });
+        }
         return;
       }
       await actions.exportData(
         ctx,
         ctx.callbackQuery?.message?.message_id ?? 0
       );
+      await sendMainMenu(ctx);
     })
     .row()
     .submenu('🔄 Сбросить память', 'confirm_reset', async (ctx) => {

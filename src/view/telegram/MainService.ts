@@ -300,6 +300,7 @@ export class MainService {
           new InputFile(files[i].buffer, files[i].filename)
         );
         await editProgress(`📦 Загружено ${i + 1}/${total}...`);
+        // Yield to the event loop so bulk document sends don't block other updates
         await new Promise<void>((resolve) => setImmediate(resolve));
       }
 

@@ -340,3 +340,56 @@ describe('MainService.handleResetMemory', () => {
     expect(deps.memories.reset).toHaveBeenCalledWith(1);
   });
 });
+
+describe('MainService.handleExportData', () => {
+  const makeExportCtx = () =>
+    ({
+      chat: { id: 2 },
+      from: { id: 5 },
+      answerCallbackQuery: vi.fn().mockResolvedValue(undefined),
+      reply: vi.fn().mockResolvedValue(undefined),
+      replyWithDocument: vi.fn().mockResolvedValue(undefined),
+      api: {
+        editMessageText: vi.fn().mockResolvedValue(undefined),
+        deleteMessage: vi.fn().mockResolvedValue(undefined),
+      },
+    }) as unknown as BotContext;
+
+  it('reports no data when there are no files', async () => {
+    const deps = makeDeps();
+    deps.admin.exportChatData = vi.fn().mockResolvedValue([]);
+    const service = buildService(deps);
+    const ctx = makeExportCtx();
+
+    await (service as any).handleExportData(ctx, 10);
+
+    expect(ctx.replyWithDocument).not.toHaveBeenCalled();
+    expect(ctx.reply).toHaveBeenCalledWith('Нет данных для экспорта.');
+  });
+
+  it('sends each file and updates progress', async () => {
+    const deps = makeDeps();
+    deps.admin.exportChatData = vi.fn().mockResolvedValue([
+      { buffer: Buffer.from('a'), filename: 'a.csv' },
+      { buffer: Buffer.from('b'), filename: 'b.csv' },
+    ]);
+    const service = buildService(deps);
+    const ctx = makeExportCtx();
+
+    await (service as any).handleExportData(ctx, 10);
+
+    expect(ctx.replyWithDocument).toHaveBeenCalledTimes(2);
+    expect(ctx.api.editMessageText).toHaveBeenCalled();
+  });
+
+  it('reports an error when export throws', async () => {
+    const deps = makeDeps();
+    deps.admin.exportChatData = vi.fn().mockRejectedValue(new Error('boom'));
+    const service = buildService(deps);
+    const ctx = makeExportCtx();
+
+    await (service as any).handleExportData(ctx, 10);
+
+    expect(ctx.reply).toHaveBeenCalledWith('❌ Ошибка при загрузке данных.');
+  });
+});
