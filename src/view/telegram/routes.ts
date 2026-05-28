@@ -77,13 +77,7 @@ export interface Actions {
 
 type BotConversation = Conversation<BotContext, BotContext>;
 
-interface InputResult<T> {
-  value: T;
-  userMessageId: number;
-  promptMessageId: number;
-}
-
-const CANCEL_DATA = 'cancel_conversation';
+export const CANCEL_DATA = 'cancel_conversation';
 
 const cancelKeyboard = new InlineKeyboard().text('❌ Отмена', CANCEL_DATA);
 
@@ -99,19 +93,19 @@ async function tryDeleteMessage(
   }
 }
 
-async function waitForInputOrCancel<T>(
+export async function waitForInputOrCancel<T>(
   conversation: BotConversation,
   ctx: BotContext,
   promptText: string,
   validator: (text: string) => T | null
-): Promise<InputResult<T> | null> {
+): Promise<T | null> {
   const chatId = ctx.chat?.id;
   assert(chatId, 'No chat id');
 
-  let retries = 0;
+  let currentPrompt = promptText;
 
-  while (retries < 2) {
-    const promptMsg = await ctx.api.sendMessage(chatId, promptText, {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const promptMsg = await ctx.api.sendMessage(chatId, currentPrompt, {
       reply_markup: cancelKeyboard,
     });
 
@@ -129,31 +123,20 @@ async function waitForInputOrCancel<T>(
     const userMessageId = update.message?.message_id ?? 0;
     const result = validator(text);
 
-    if (result !== null) {
-      await tryDeleteMessage(ctx, chatId, promptMsg.message_id);
-      await tryDeleteMessage(ctx, chatId, userMessageId);
-      return {
-        value: result,
-        userMessageId,
-        promptMessageId: promptMsg.message_id,
-      };
-    }
-
     await tryDeleteMessage(ctx, chatId, promptMsg.message_id);
     await tryDeleteMessage(ctx, chatId, userMessageId);
-    retries++;
 
-    if (retries >= 2) {
-      await ctx.api.sendMessage(
-        chatId,
-        'Слишком много попыток. Возвращаюсь в меню.'
-      );
-      return null;
+    if (result !== null) {
+      return result;
     }
 
-    promptText = `Некорректное значение. ${promptText}`;
+    currentPrompt = `Некорректное значение. ${promptText}`;
   }
 
+  await ctx.api.sendMessage(
+    chatId,
+    'Слишком много попыток. Возвращаюсь в меню.'
+  );
   return null;
 }
 
@@ -194,7 +177,7 @@ function makeConversations(
 
     if (result === null) return;
 
-    await actions.setHistoryLimit(chatId, result.value, true);
+    await actions.setHistoryLimit(chatId, result, true);
     await ctx.api.sendMessage(adminChatId, '✅ Лимит установлен', {
       reply_markup: menuRefs.adminChat.menu,
     });
@@ -223,7 +206,7 @@ function makeConversations(
 
     if (result === null) return;
 
-    await actions.setInterestInterval(chatId, result.value, true);
+    await actions.setInterestInterval(chatId, result, true);
     await ctx.api.sendMessage(adminChatId, '✅ Интервал установлен', {
       reply_markup: menuRefs.adminChat.menu,
     });
@@ -264,10 +247,10 @@ function makeConversations(
 
     if (tzResult === null) return;
 
-    await actions.setTopicTime(chatId, timeResult.value, tzResult.value);
+    await actions.setTopicTime(chatId, timeResult, tzResult);
     await ctx.api.sendMessage(
       adminChatId,
-      `✅ Время ${timeResult.value} (${tzResult.value}) установлено`,
+      `✅ Время ${timeResult} (${tzResult}) установлено`,
       { reply_markup: menuRefs.adminChat.menu }
     );
   }
@@ -291,7 +274,7 @@ function makeConversations(
 
     if (result === null) return;
 
-    await actions.setHistoryLimit(chatId, result.value, false);
+    await actions.setHistoryLimit(chatId, result, false);
     await ctx.api.sendMessage(chatId, '✅ Лимит установлен', {
       reply_markup: menuRefs.chatSettings.menu,
     });
@@ -316,7 +299,7 @@ function makeConversations(
 
     if (result === null) return;
 
-    await actions.setInterestInterval(chatId, result.value, false);
+    await actions.setInterestInterval(chatId, result, false);
     await ctx.api.sendMessage(chatId, '✅ Интервал установлен', {
       reply_markup: menuRefs.chatSettings.menu,
     });
@@ -353,10 +336,10 @@ function makeConversations(
 
     if (tzResult === null) return;
 
-    await actions.setTopicTime(chatId, timeResult.value, tzResult.value);
+    await actions.setTopicTime(chatId, timeResult, tzResult);
     await ctx.api.sendMessage(
       chatId,
-      `✅ Время ${timeResult.value} (${tzResult.value}) установлено`,
+      `✅ Время ${timeResult} (${tzResult}) установлено`,
       { reply_markup: menuRefs.chatSettings.menu }
     );
   }
