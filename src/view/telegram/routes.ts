@@ -144,7 +144,7 @@ export async function waitForInputOrCancel<T>(
 
 type MenuRef = { menu: Menu<BotContext>; title: string };
 
-function makeConversations(
+export function makeConversations(
   actions: Actions,
   menuRefs: {
     chatSettings: MenuRef;
@@ -219,7 +219,7 @@ function makeConversations(
     const adminChatId = ctx.chat?.id;
     assert(adminChatId, 'No chat id');
     const chatId = await conversation.external(
-      () => ctx.session?.selectedChatId
+      (ctx) => ctx.session?.selectedChatId
     );
     assert(chatId, 'No selected chat');
 

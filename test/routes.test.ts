@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { CANCEL_DATA, waitForInputOrCancel } from '../src/view/telegram/routes';
+import {
+  type Actions,
+  CANCEL_DATA,
+  makeConversations,
+  waitForInputOrCancel,
+} from '../src/view/telegram/routes';
 import type { BotContext } from '../src/view/telegram/context';
 
 const makeCtx = () =>
@@ -107,5 +112,39 @@ describe('waitForInputOrCancel', () => {
       100,
       'Слишком много попыток. Возвращаюсь в меню.'
     );
+  });
+});
+
+describe('adminTopicTime conversation', () => {
+  it('reads selectedChatId from the replayed conversation context', async () => {
+    const setTopicTime = vi.fn().mockResolvedValue(undefined);
+    const actions = { setTopicTime } as unknown as Actions;
+    const menuRefs = {
+      chatSettings: { menu: {} as any, title: '' },
+      adminChat: { menu: {} as any, title: '' },
+    };
+    const convs = makeConversations(actions, menuRefs);
+
+    const outerCtx = {
+      chat: { id: 100 },
+      session: {},
+      api: {
+        sendMessage: vi.fn().mockResolvedValue({ message_id: 1 }),
+        deleteMessage: vi.fn().mockResolvedValue(undefined),
+      },
+    } as unknown as BotContext;
+
+    const replayedCtx = { session: { selectedChatId: 42 } };
+    const conversation = {
+      external: vi.fn(async (fn: (c: any) => unknown) => fn(replayedCtx)),
+      waitUntil: vi
+        .fn()
+        .mockResolvedValueOnce(textUpdate('09:00'))
+        .mockResolvedValueOnce(textUpdate('UTC+03')),
+    } as any;
+
+    await convs.adminTopicTime(conversation, outerCtx);
+
+    expect(setTopicTime).toHaveBeenCalledWith(42, '09:00', 'UTC+03');
   });
 });
