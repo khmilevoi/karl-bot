@@ -580,7 +580,12 @@ export function setupBotRouting(bot: Bot<BotContext>, actions: Actions): void {
     adminChat: { menu: adminChat, title: 'Управление чатом:' },
   };
 
-  // Register conversation handlers (must come before menus and command handlers)
+  // Register menus before conversations so their API transformer is active inside conversations
+  bot.use(adminMenu);
+  bot.use(userMenu);
+  bot.use(chatNotApprovedMenu);
+
+  // Register conversation handlers
   const convs = makeConversations(actions, menuRefs);
   bot.use(createConversation(convs.adminHistoryLimit));
   bot.use(createConversation(convs.adminInterestInterval));
@@ -588,11 +593,6 @@ export function setupBotRouting(bot: Bot<BotContext>, actions: Actions): void {
   bot.use(createConversation(convs.userHistoryLimit));
   bot.use(createConversation(convs.userInterestInterval));
   bot.use(createConversation(convs.userTopicTime));
-
-  // Register menus
-  bot.use(adminMenu);
-  bot.use(userMenu);
-  bot.use(chatNotApprovedMenu);
 
   // Commands
   bot.command(['start', 'menu'], async (ctx) => {
