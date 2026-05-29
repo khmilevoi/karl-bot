@@ -25,3 +25,7 @@ export const signalStatusSchema = z.enum(['active', 'contested', 'inactive']);
 
 export type PatchEvidence = z.infer<typeof patchEvidenceSchema>;
 export type StateImpactRisk = z.infer<typeof stateImpactRiskSchema>;
+export type Confidence = z.infer<typeof confidenceSchema>;
+export type MessageId = z.infer<typeof messageIdSchema>;
+export type Intensity = z.infer<typeof intensitySchema>;
+export type SignalStatus = z.infer<typeof signalStatusSchema>;

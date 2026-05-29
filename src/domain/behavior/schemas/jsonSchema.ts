@@ -62,7 +62,9 @@ export function toOpenAiJsonSchema(
   schema: ZodType,
   name: string
 ): OpenAiResponseFormatSchema {
-  const raw = z.toJSONSchema(schema, { target: 'draft-2020-12' }) as JsonValue;
+  const raw = z.toJSONSchema(schema, {
+    target: 'draft-2020-12',
+  }) as unknown as JsonValue;
   const normalized = normalize(raw) as Record<string, unknown>;
   return { name, strict: true, schema: normalized };
 }
