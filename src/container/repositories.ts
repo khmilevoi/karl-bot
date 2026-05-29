@@ -45,6 +45,36 @@ import { SQLiteChatUserRepository } from '../infrastructure/persistence/sqlite/S
 import { SQLiteMessageRepository } from '../infrastructure/persistence/sqlite/SQLiteMessageRepository';
 import { SQLiteSummaryRepository } from '../infrastructure/persistence/sqlite/SQLiteSummaryRepository';
 import { SQLiteUserRepository } from '../infrastructure/persistence/sqlite/SQLiteUserRepository';
+import {
+  AI_ERROR_EVENT_REPOSITORY_ID,
+  type AiErrorEventRepository,
+} from '../domain/repositories/AiErrorEventRepository';
+import {
+  BEHAVIOR_EVENT_REPOSITORY_ID,
+  type BehaviorEventRepository,
+} from '../domain/repositories/BehaviorEventRepository';
+import {
+  PERSONALITY_STATE_REPOSITORY_ID,
+  type PersonalityStateRepository,
+} from '../domain/repositories/PersonalityStateRepository';
+import {
+  POLITICAL_STATE_REPOSITORY_ID,
+  type PoliticalStateRepository,
+} from '../domain/repositories/PoliticalStateRepository';
+import {
+  TRUTH_REPOSITORY_ID,
+  type TruthRepository,
+} from '../domain/repositories/TruthRepository';
+import {
+  USER_SOCIAL_PROFILE_REPOSITORY_ID,
+  type UserSocialProfileRepository,
+} from '../domain/repositories/UserSocialProfileRepository';
+import { SQLiteAiErrorEventRepository } from '../infrastructure/persistence/sqlite/SQLiteAiErrorEventRepository';
+import { SQLiteBehaviorEventRepository } from '../infrastructure/persistence/sqlite/SQLiteBehaviorEventRepository';
+import { SQLitePersonalityStateRepository } from '../infrastructure/persistence/sqlite/SQLitePersonalityStateRepository';
+import { SQLitePoliticalStateRepository } from '../infrastructure/persistence/sqlite/SQLitePoliticalStateRepository';
+import { SQLiteTruthRepository } from '../infrastructure/persistence/sqlite/SQLiteTruthRepository';
+import { SQLiteUserSocialProfileRepository } from '../infrastructure/persistence/sqlite/SQLiteUserSocialProfileRepository';
 
 export const register = (container: Container): void => {
   container
@@ -82,5 +112,29 @@ export const register = (container: Container): void => {
   container
     .bind<ChatConfigRepository>(CHAT_CONFIG_REPOSITORY_ID)
     .to(SQLiteChatConfigRepository)
+    .inSingletonScope();
+  container
+    .bind<PersonalityStateRepository>(PERSONALITY_STATE_REPOSITORY_ID)
+    .to(SQLitePersonalityStateRepository)
+    .inSingletonScope();
+  container
+    .bind<PoliticalStateRepository>(POLITICAL_STATE_REPOSITORY_ID)
+    .to(SQLitePoliticalStateRepository)
+    .inSingletonScope();
+  container
+    .bind<UserSocialProfileRepository>(USER_SOCIAL_PROFILE_REPOSITORY_ID)
+    .to(SQLiteUserSocialProfileRepository)
+    .inSingletonScope();
+  container
+    .bind<TruthRepository>(TRUTH_REPOSITORY_ID)
+    .to(SQLiteTruthRepository)
+    .inSingletonScope();
+  container
+    .bind<BehaviorEventRepository>(BEHAVIOR_EVENT_REPOSITORY_ID)
+    .to(SQLiteBehaviorEventRepository)
+    .inSingletonScope();
+  container
+    .bind<AiErrorEventRepository>(AI_ERROR_EVENT_REPOSITORY_ID)
+    .to(SQLiteAiErrorEventRepository)
     .inSingletonScope();
 };
