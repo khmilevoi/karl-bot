@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import { inject, injectable } from 'inversify';
 import OpenAI from 'openai';
+import { zodResponseFormat } from 'openai/helpers/zod';
 import type { ChatModel } from 'openai/resources/shared';
 import path from 'path';
 
@@ -30,14 +31,8 @@ import type {
 } from '@/application/behavior/BehaviorTypes';
 import type { ChatMessage } from '@/domain/messages/ChatMessage';
 import type { TriggerReason } from '@/domain/triggers/Trigger';
-import {
-  behaviorDecisionJsonSchema,
-  behaviorDecisionSchema,
-} from '@/domain/behavior/schemas/decision';
-import {
-  behaviorGateDecisionSchema,
-  behaviorGateJsonSchema,
-} from '@/domain/behavior/schemas/gate';
+import { behaviorDecisionSchema } from '@/domain/behavior/schemas/decision';
+import { behaviorGateDecisionSchema } from '@/domain/behavior/schemas/gate';
 
 type EscalationReason =
   | 'gate_state_impact_high'
@@ -79,20 +74,23 @@ export class ChatGPTService implements AIService, BehaviorAiService {
     const openaiMessages = this.toOpenAiMessages(prompt);
     const start = Date.now();
 
-    const completion = await this.openai.chat.completions.create({
+    const completion = await this.openai.chat.completions.parse({
       model: this.triggerGateModel,
       messages: openaiMessages,
-      response_format: {
-        type: 'json_schema',
-        json_schema: behaviorGateJsonSchema,
-      },
+      response_format: zodResponseFormat(
+        behaviorGateDecisionSchema,
+        'BehaviorGateDecision'
+      ),
     });
 
     const latencyMs = Date.now() - start;
-    const content = completion.choices[0]?.message?.content ?? '{}';
-    void this.logPrompt('behaviorGate', openaiMessages, content);
+    const raw = completion.choices[0]?.message?.parsed;
+    void this.logPrompt('behaviorGate', openaiMessages, raw);
 
-    const raw: unknown = this.parseJsonContent(content);
+    if (raw == null) {
+      throw new Error('Failed to parse evaluateGate JSON response');
+    }
+
     const parsed = behaviorGateDecisionSchema.safeParse(raw);
     if (!parsed.success) {
       throw new Error(
@@ -134,33 +132,28 @@ export class ChatGPTService implements AIService, BehaviorAiService {
       escalationReason: EscalationReason | null
     ): Promise<BehaviorAiDecisionResult> => {
       const start = Date.now();
-      const completion = await this.openai.chat.completions.create({
+      const completion = await this.openai.chat.completions.parse({
         model,
         messages: openaiMessages,
-        response_format: {
-          type: 'json_schema',
-          json_schema: behaviorDecisionJsonSchema,
-        },
+        response_format: zodResponseFormat(
+          behaviorDecisionSchema,
+          'BehaviorDecision'
+        ),
       });
       const latencyMs = Date.now() - start;
-      const content = completion.choices[0]?.message?.content ?? '{}';
+      const raw = completion.choices[0]?.message?.parsed;
       const logType =
         escalationReason != null
           ? 'behaviorDecisionEscalated'
           : 'behaviorDecision';
-      void this.logPrompt(logType, openaiMessages, content);
+      void this.logPrompt(logType, openaiMessages, raw);
 
-      let raw: unknown;
-      try {
-        raw = this.parseJsonContent(content);
-      } catch {
+      if (raw == null) {
         const reason: EscalationReason = 'schema_validation_failed';
         if (model !== this.behaviorDecisionEscalationModel) {
           return attempt(this.behaviorDecisionEscalationModel, reason);
         }
-        throw new Error(
-          `Failed to parse decideBehavior JSON response: ${content.slice(0, 200)}`
-        );
+        throw new Error('Failed to parse decideBehavior JSON response');
       }
 
       const parsed = behaviorDecisionSchema.safeParse(raw);
@@ -221,10 +214,6 @@ export class ChatGPTService implements AIService, BehaviorAiService {
       .map((a) => a.type)
       .filter((t) => t !== 'summarize_thread');
     return new Set(visibleTypes).size < visibleTypes.length;
-  }
-
-  private parseJsonContent(content: string): unknown {
-    return JSON.parse(content);
   }
 
   private buildMetadata(
@@ -531,17 +520,21 @@ export class ChatGPTService implements AIService, BehaviorAiService {
   private async logPrompt(
     type: string,
     messages: OpenAI.ChatCompletionMessageParam[],
-    response?: string
+    response?: unknown
   ): Promise<void> {
     if (!this.envService.env.LOG_PROMPTS) {
       return;
     }
     const filePath = path.join(process.cwd(), 'prompts.log');
+    const responseText =
+      typeof response === 'string'
+        ? response
+        : JSON.stringify(response, null, 2);
     const entry = `\n[${new Date().toISOString()}] ${type}\nPROMPT:\n${JSON.stringify(
       messages,
       null,
       2
-    )}\n${response ? `RESPONSE:\n${response}\n` : ''}---\n`;
+    )}\n${response != null ? `RESPONSE:\n${responseText}\n` : ''}---\n`;
     try {
       await fs.appendFile(filePath, entry);
     } catch (err) {

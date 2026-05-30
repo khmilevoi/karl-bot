@@ -63,6 +63,7 @@ describe('ChatGPTService behavior methods', () => {
   let ChatGPTService: ChatGPTServiceConstructor;
   let service: ChatGPTServiceType;
   let openaiCreate: ReturnType<typeof vi.fn>;
+  let openaiParse: ReturnType<typeof vi.fn>;
   let prompts: Record<string, unknown>;
   let env: TestEnvService;
   let loggerFactory: LoggerFactory;
@@ -71,7 +72,10 @@ describe('ChatGPTService behavior methods', () => {
     vi.resetModules();
 
     openaiCreate = vi.fn();
-    const openaiMock = { chat: { completions: { create: openaiCreate } } };
+    openaiParse = vi.fn();
+    const openaiMock = {
+      chat: { completions: { create: openaiCreate, parse: openaiParse } },
+    };
     vi.doMock('openai', () => ({ default: vi.fn(() => openaiMock) }));
 
     prompts = {
@@ -110,14 +114,14 @@ describe('ChatGPTService behavior methods', () => {
   });
 
   it('evaluateGate uses triggerGate.default model and json_schema response format', async () => {
-    openaiCreate.mockResolvedValue({
-      choices: [{ message: { content: JSON.stringify(validGateResponse) } }],
+    openaiParse.mockResolvedValue({
+      choices: [{ message: { parsed: validGateResponse } }],
       usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
     });
 
     const result = await service.evaluateGate([]);
 
-    expect(openaiCreate).toHaveBeenCalledWith(
+    expect(openaiParse).toHaveBeenCalledWith(
       expect.objectContaining({
         model: env.getModels().triggerGate.default,
         response_format: expect.objectContaining({ type: 'json_schema' }),
@@ -129,14 +133,14 @@ describe('ChatGPTService behavior methods', () => {
   });
 
   it('decideBehavior starts on default model for medium risk', async () => {
-    openaiCreate.mockResolvedValue({
-      choices: [{ message: { content: JSON.stringify(validDecision) } }],
+    openaiParse.mockResolvedValue({
+      choices: [{ message: { parsed: validDecision } }],
       usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
     });
 
     const result = await service.decideBehavior(makeContext('medium'));
 
-    expect(openaiCreate).toHaveBeenCalledWith(
+    expect(openaiParse).toHaveBeenCalledWith(
       expect.objectContaining({
         model: env.getModels().behaviorDecision.default,
       })
@@ -146,14 +150,14 @@ describe('ChatGPTService behavior methods', () => {
   });
 
   it('decideBehavior starts on escalation model when gate stateImpactRisk is high', async () => {
-    openaiCreate.mockResolvedValue({
-      choices: [{ message: { content: JSON.stringify(validDecision) } }],
+    openaiParse.mockResolvedValue({
+      choices: [{ message: { parsed: validDecision } }],
       usage: {},
     });
 
     const result = await service.decideBehavior(makeContext('high'));
 
-    expect(openaiCreate).toHaveBeenCalledWith(
+    expect(openaiParse).toHaveBeenCalledWith(
       expect.objectContaining({
         model: env.getModels().behaviorDecision.escalation,
       })
@@ -163,46 +167,44 @@ describe('ChatGPTService behavior methods', () => {
   });
 
   it('decideBehavior escalates on invalid JSON response', async () => {
-    openaiCreate
+    openaiParse
       .mockResolvedValueOnce({
-        choices: [{ message: { content: 'not-json' } }],
+        choices: [{ message: { parsed: null } }],
         usage: {},
       })
       .mockResolvedValueOnce({
-        choices: [{ message: { content: JSON.stringify(validDecision) } }],
+        choices: [{ message: { parsed: validDecision } }],
         usage: {},
       });
 
     const result = await service.decideBehavior(makeContext('medium'));
 
-    expect(openaiCreate).toHaveBeenCalledTimes(2);
+    expect(openaiParse).toHaveBeenCalledTimes(2);
     expect(result.metadata.escalated).toBe(true);
   });
 
   it('decideBehavior escalates on low confidence', async () => {
     const lowConfidenceDecision = { ...validDecision, confidence: 0.1 };
-    openaiCreate
+    openaiParse
       .mockResolvedValueOnce({
-        choices: [
-          { message: { content: JSON.stringify(lowConfidenceDecision) } },
-        ],
+        choices: [{ message: { parsed: lowConfidenceDecision } }],
         usage: {},
       })
       .mockResolvedValueOnce({
-        choices: [{ message: { content: JSON.stringify(validDecision) } }],
+        choices: [{ message: { parsed: validDecision } }],
         usage: {},
       });
 
     const result = await service.decideBehavior(makeContext('medium'));
 
-    expect(openaiCreate).toHaveBeenCalledTimes(2);
+    expect(openaiParse).toHaveBeenCalledTimes(2);
     expect(result.metadata.escalated).toBe(true);
     expect(result.metadata.escalationReason).toBe('low_confidence');
   });
 
   it('decideBehavior includes latency in metadata', async () => {
-    openaiCreate.mockResolvedValue({
-      choices: [{ message: { content: JSON.stringify(validDecision) } }],
+    openaiParse.mockResolvedValue({
+      choices: [{ message: { parsed: validDecision } }],
       usage: {},
     });
 
