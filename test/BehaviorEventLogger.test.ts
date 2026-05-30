@@ -3,8 +3,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { DefaultBehaviorEventLogger } from '../src/application/behavior/DefaultBehaviorEventLogger';
 import type { BehaviorEventRepository } from '../src/domain/repositories/BehaviorEventRepository';
 import type {
+  BehaviorActionResult,
   BehaviorAiDecisionResult,
   BehaviorDecisionContext,
+  BehaviorPatchResult,
 } from '../src/application/behavior/BehaviorTypes';
 
 function makeContext(): BehaviorDecisionContext {
@@ -86,6 +88,51 @@ describe('DefaultBehaviorEventLogger', () => {
         completionTokens: 5,
         totalTokens: 15,
         latencyMs: 150,
+      })
+    );
+  });
+
+  it('persists action and patch results when provided', async () => {
+    const repo: BehaviorEventRepository = {
+      insert: vi.fn().mockResolvedValue(43),
+      findById: vi.fn(),
+      findByChatId: vi.fn(),
+    } as unknown as BehaviorEventRepository;
+
+    const actionResults: BehaviorActionResult[] = [
+      {
+        actionType: 'react',
+        outcome: 'sent',
+        reason: null,
+        targetMessageId: 2,
+        telegramMessageId: 200,
+      },
+    ];
+    const patchResults: BehaviorPatchResult[] = [
+      {
+        patchType: 'truth.add',
+        outcome: 'applied',
+        reason: null,
+        stateRef: {
+          kind: 'bot_truth',
+          truthId: 10,
+          chatId: 1,
+        },
+      },
+    ];
+
+    const logger = new DefaultBehaviorEventLogger(repo);
+    await logger.logDecision({
+      context: makeContext(),
+      result: makeResult(),
+      actionResults,
+      patchResults,
+    });
+
+    expect(repo.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionResultsJson: JSON.stringify(actionResults),
+        patchResultsJson: JSON.stringify(patchResults),
       })
     );
   });
