@@ -7,8 +7,10 @@ import {
 
 import type { BehaviorEventLogger } from './BehaviorEventLogger';
 import type {
+  BehaviorActionResult,
   BehaviorAiDecisionResult,
   BehaviorDecisionContext,
+  BehaviorPatchResult,
 } from './BehaviorTypes';
 
 @injectable()
@@ -21,8 +23,10 @@ export class DefaultBehaviorEventLogger implements BehaviorEventLogger {
   async logDecision(params: {
     context: BehaviorDecisionContext;
     result: BehaviorAiDecisionResult;
+    actionResults?: BehaviorActionResult[];
+    patchResults?: BehaviorPatchResult[];
   }): Promise<number> {
-    const { context, result } = params;
+    const { actionResults = [], context, patchResults = [], result } = params;
     const { gate } = context;
     const { decision, metadata } = result;
     const now = new Date().toISOString();
@@ -40,9 +44,9 @@ export class DefaultBehaviorEventLogger implements BehaviorEventLogger {
       escalated: metadata.escalated,
       escalationReason: metadata.escalationReason,
       actionsJson: JSON.stringify(decision.actions),
-      actionResultsJson: JSON.stringify([]),
+      actionResultsJson: JSON.stringify(actionResults),
       statePatchesJson: JSON.stringify(decision.statePatches),
-      patchResultsJson: JSON.stringify([]),
+      patchResultsJson: JSON.stringify(patchResults),
       confidence: decision.confidence,
       promptTokens: metadata.usage.promptTokens,
       completionTokens: metadata.usage.completionTokens,

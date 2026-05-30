@@ -1,5 +1,6 @@
-import { injectable } from 'inversify';
+import { inject, injectable } from 'inversify';
 
+import { PATCH_POLICY_CONFIG_ID } from './BehaviorConfig';
 import type {
   AnyPatch,
   PatchDecision,
@@ -9,7 +10,9 @@ import type {
 
 @injectable()
 export class DefaultPatchPolicy implements PatchPolicy {
-  constructor(private readonly config: PatchPolicyConfig) {}
+  constructor(
+    @inject(PATCH_POLICY_CONFIG_ID) private readonly config: PatchPolicyConfig
+  ) {}
 
   evaluate(patch: AnyPatch): PatchDecision {
     if (patch.evidence.messageIds.length === 0) {

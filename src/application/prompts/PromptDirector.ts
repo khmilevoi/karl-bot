@@ -109,6 +109,7 @@ export class PromptDirector {
       .addBehaviorMessages(context.messages, {
         triggerMessageIds: context.triggerMessageIds,
         contextMessageIds: context.contextMessageIds,
+        batchMessageIds: context.batchMessageIds,
       })
       .build();
   }

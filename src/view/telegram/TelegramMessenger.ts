@@ -72,4 +72,14 @@ export class TelegramMessenger implements ChatMessenger {
   ): Promise<void> {
     await this._bot.api.sendMessage(chatId, text, extra);
   }
+
+  async reactToMessage(
+    chatId: number,
+    messageId: number,
+    emoji: string
+  ): Promise<void> {
+    await this._bot.api.setMessageReaction(chatId, messageId, [
+      { type: 'emoji', emoji: emoji as never },
+    ]);
+  }
 }
