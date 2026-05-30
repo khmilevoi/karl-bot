@@ -1,9 +1,9 @@
-# fly.toml app configuration file generated for arkadius-bot on 2025-07-09T15:06:59Z
+# fly.toml app configuration file generated for karl-bot on 2025-07-09T15:06:59Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = "arkadius-bot"
+app = "karl-bot"
 primary_region = "waw"
 
 [build]
@@ -24,4 +24,3 @@ memory = "1gb"
 cpu_kind = "shared"
 cpus = 1
 memory_mb = 1024
-
