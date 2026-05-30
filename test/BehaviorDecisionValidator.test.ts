@@ -62,13 +62,66 @@ describe('DefaultBehaviorDecisionValidator', () => {
   it('drops a react with a disallowed emoji', () => {
     const result = validator.validate(
       decision([
-        { type: 'react', intent: 'approval', emoji: '🔥', targetMessageId: 1 },
+        {
+          type: 'react',
+          intent: 'approval',
+          emoji: '🔥',
+          target: { scope: 'batch', pick: 'latest', index: null },
+        },
       ])
     );
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.decision.actions.length).toBe(0);
       expect(result.droppedActions[0]?.reason).toContain('emoji');
+    }
+  });
+
+  it('keeps multiple react actions for different semantic targets', () => {
+    const result = validator.validate(
+      decision([
+        {
+          type: 'react',
+          intent: 'approval',
+          emoji: '👍',
+          target: { scope: 'batch', pick: 'index', index: 0 },
+        },
+        {
+          type: 'react',
+          intent: 'acknowledgement',
+          emoji: '👎',
+          target: { scope: 'batch', pick: 'index', index: 1 },
+        },
+      ])
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.decision.actions.length).toBe(2);
+      expect(result.droppedActions.length).toBe(0);
+    }
+  });
+
+  it('drops duplicate react actions for the same semantic target', () => {
+    const result = validator.validate(
+      decision([
+        {
+          type: 'react',
+          intent: 'approval',
+          emoji: '👍',
+          target: { scope: 'trigger', pick: 'latest', index: null },
+        },
+        {
+          type: 'react',
+          intent: 'acknowledgement',
+          emoji: '👎',
+          target: { scope: 'trigger', pick: 'latest', index: null },
+        },
+      ])
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.decision.actions.length).toBe(1);
+      expect(result.droppedActions[0]?.reason).toContain('duplicate');
     }
   });
 

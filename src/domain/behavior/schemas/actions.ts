@@ -1,7 +1,5 @@
 import { z } from 'zod';
 
-import { messageIdSchema } from './primitives';
-
 export const replyActionSchema = z.object({
   type: z.literal('reply'),
   intent: z.enum([
@@ -15,11 +13,34 @@ export const replyActionSchema = z.object({
   replyTo: z.enum(['trigger', 'latest', 'none']),
 });
 
+export const messageSelectorScopeSchema = z.enum([
+  'trigger',
+  'batch',
+  'context',
+]);
+
+const nonIndexedMessageSelectorSchema = z.object({
+  scope: messageSelectorScopeSchema,
+  pick: z.enum(['latest', 'first', 'all']),
+  index: z.null(),
+});
+
+const indexedMessageSelectorSchema = z.object({
+  scope: messageSelectorScopeSchema,
+  pick: z.literal('index'),
+  index: z.number().int().min(0),
+});
+
+export const messageSelectorSchema = z.discriminatedUnion('pick', [
+  nonIndexedMessageSelectorSchema,
+  indexedMessageSelectorSchema,
+]);
+
 export const reactActionSchema = z.object({
   type: z.literal('react'),
   intent: z.enum(['approval', 'disapproval', 'mockery', 'acknowledgement']),
   emoji: z.string(),
-  targetMessageId: messageIdSchema,
+  target: messageSelectorSchema,
 });
 
 export const askQuestionActionSchema = z.object({
@@ -43,3 +64,4 @@ export const behaviorActionSchema = z.discriminatedUnion('type', [
 ]);
 
 export type BehaviorAction = z.infer<typeof behaviorActionSchema>;
+export type MessageSelector = z.infer<typeof messageSelectorSchema>;

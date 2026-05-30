@@ -1,6 +1,9 @@
 import { injectable } from 'inversify';
 
-import type { BehaviorAction } from '@/domain/behavior/schemas/actions';
+import type {
+  BehaviorAction,
+  MessageSelector,
+} from '@/domain/behavior/schemas/actions';
 import type { BehaviorDecision } from '@/domain/behavior/schemas/decision';
 import { behaviorDecisionSchema } from '@/domain/behavior/schemas/decision';
 
@@ -10,6 +13,10 @@ import type {
   BehaviorDecisionValidatorConfig,
   DroppedAction,
 } from './BehaviorDecisionValidator';
+
+function selectorKey(selector: MessageSelector): string {
+  return `${selector.scope}:${selector.pick}:${selector.index ?? ''}`;
+}
 
 @injectable()
 export class DefaultBehaviorDecisionValidator implements BehaviorDecisionValidator {
@@ -30,7 +37,8 @@ export class DefaultBehaviorDecisionValidator implements BehaviorDecisionValidat
     const decision = parsed.data;
     const kept: BehaviorAction[] = [];
     const dropped: DroppedAction[] = [];
-    const seenVisibleTypes = new Set<string>();
+    const seenSingleActionTypes = new Set<'reply' | 'ask_question'>();
+    const seenReactionTargets = new Set<string>();
 
     for (const action of decision.actions) {
       const drop = (reason: string): void => {
@@ -44,7 +52,7 @@ export class DefaultBehaviorDecisionValidator implements BehaviorDecisionValidat
           break;
         }
         case 'reply': {
-          if (seenVisibleTypes.has('reply')) {
+          if (seenSingleActionTypes.has('reply')) {
             drop('duplicate reply action dropped');
             break;
           }
@@ -56,25 +64,26 @@ export class DefaultBehaviorDecisionValidator implements BehaviorDecisionValidat
             drop(`reply text exceeds max length ${this.config.maxReplyLength}`);
             break;
           }
-          seenVisibleTypes.add('reply');
+          seenSingleActionTypes.add('reply');
           kept.push(action);
           break;
         }
         case 'react': {
-          if (seenVisibleTypes.has('react')) {
-            drop('duplicate react action dropped');
-            break;
-          }
           if (!this.config.allowedEmoji.includes(action.emoji)) {
             drop(`emoji "${action.emoji}" not in allowed set`);
             break;
           }
-          seenVisibleTypes.add('react');
+          const key = selectorKey(action.target);
+          if (seenReactionTargets.has(key)) {
+            drop('duplicate react target dropped');
+            break;
+          }
+          seenReactionTargets.add(key);
           kept.push(action);
           break;
         }
         case 'ask_question': {
-          if (seenVisibleTypes.has('ask_question')) {
+          if (seenSingleActionTypes.has('ask_question')) {
             drop('duplicate ask_question action dropped');
             break;
           }
@@ -82,7 +91,7 @@ export class DefaultBehaviorDecisionValidator implements BehaviorDecisionValidat
             drop('ask_question text is empty');
             break;
           }
-          seenVisibleTypes.add('ask_question');
+          seenSingleActionTypes.add('ask_question');
           kept.push(action);
           break;
         }
