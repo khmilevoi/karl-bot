@@ -37,12 +37,19 @@ class FakeMessageService
   extends InMemoryInterestMessageStore
   implements MessageService
 {
+  private nextId = 1;
+
   constructor() {
     super(createLoggerFactory());
   }
 
-  async addMessage(message: StoredMessage): Promise<void> {
+  async addMessage(message: StoredMessage): Promise<number> {
     super.addMessage(message);
+    return this.nextId++;
+  }
+
+  async getMessagesByIds(_ids: readonly number[]): Promise<ChatMessage[]> {
+    return [];
   }
 
   async getMessages(chatId: number): Promise<ChatMessage[]> {

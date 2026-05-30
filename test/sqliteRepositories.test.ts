@@ -108,23 +108,26 @@ describe('SQLite repositories', () => {
     await userRepo.upsert(
       new UserEntity(1, 'alice', 'Alice', 'Smith', 'neutral')
     );
-    await messageRepo.insert({
+    const firstId = await messageRepo.insert({
       chatId: 1,
       role: 'user',
       content: 'hi',
       userId: 1,
       messageId: 11,
     });
+    expect(firstId).toBe(1);
     await userRepo.upsert(new UserEntity(0, 'bot'));
-    await messageRepo.insert({
+    const secondId = await messageRepo.insert({
       chatId: 1,
       role: 'assistant',
       content: 'hello',
       userId: 0,
     });
+    expect(secondId).toBe(2);
     const messages = await messageRepo.findByChatId(1);
     expect(messages).toEqual([
       {
+        id: 1,
         role: 'user',
         content: 'hi',
         username: 'alice',
@@ -136,8 +139,16 @@ describe('SQLite repositories', () => {
         chatId: 1,
         attitude: 'neutral',
       },
-      { role: 'assistant', content: 'hello', username: 'bot', chatId: 1 },
+      {
+        id: 2,
+        role: 'assistant',
+        content: 'hello',
+        username: 'bot',
+        chatId: 1,
+      },
     ]);
+    const byIds = await messageRepo.findByIds([secondId, firstId]);
+    expect(byIds.map((m) => m.id)).toEqual([firstId, secondId]);
   });
 
   it('counts and retrieves last messages', async () => {
@@ -159,7 +170,13 @@ describe('SQLite repositories', () => {
     expect(await messageRepo.countByChatId(1)).toBe(2);
     const last = await messageRepo.findLastByChatId(1, 1);
     expect(last).toEqual([
-      { role: 'assistant', content: 'hello', username: 'bot', chatId: 1 },
+      {
+        id: 2,
+        role: 'assistant',
+        content: 'hello',
+        username: 'bot',
+        chatId: 1,
+      },
     ]);
   });
 

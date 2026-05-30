@@ -17,7 +17,7 @@ describe('RepositoryMessageService', () => {
       upsert: vi.fn(),
     } as unknown as UserRepository;
     const messageRepo: MessageRepository = {
-      insert: vi.fn(),
+      insert: vi.fn().mockResolvedValue(1),
     } as unknown as MessageRepository;
     const chatUserRepo: ChatUserRepository = {
       link: vi.fn(),
