@@ -45,7 +45,7 @@ export class ChatMemory implements ChatMemoryInterface {
     this.logger = this.loggerFactory.create('ChatMemory');
   }
 
-  public async addMessage(message: StoredMessage): Promise<void> {
+  public async addMessage(message: StoredMessage): Promise<number> {
     this.logger.debug(
       {
         chatId: this.chatId,
@@ -54,7 +54,10 @@ export class ChatMemory implements ChatMemoryInterface {
       },
       'Adding message'
     );
-    await this.messages.addMessage({ ...message, chatId: this.chatId });
+    const id = await this.messages.addMessage({
+      ...message,
+      chatId: this.chatId,
+    });
     this.localStore.addMessage({ ...message, chatId: this.chatId });
 
     // Проверяем лимит после добавления сообщения
@@ -86,6 +89,7 @@ export class ChatMemory implements ChatMemoryInterface {
       },
       'Summarization result'
     );
+    return id;
   }
 
   public getHistory(): Promise<ChatMessage[]> {

@@ -2,6 +2,7 @@ import { injectable } from 'inversify';
 import type { ChatModel } from 'openai/resources/shared';
 
 import type {
+  AiModelSlots,
   Env,
   EnvService,
   PromptFiles,
@@ -25,11 +26,25 @@ export class TestEnvService implements EnvService {
     });
   }
 
-  getModels(): { ask: ChatModel; summary: ChatModel; interest: ChatModel } {
+  getModels(): AiModelSlots {
     return {
-      ask: 'o3' as ChatModel,
-      summary: 'o3-mini' as ChatModel,
-      interest: 'o3-mini' as ChatModel,
+      triggerGate: { default: 'gpt-5.4-mini' as ChatModel },
+      behaviorDecision: {
+        default: 'gpt-5.4-mini' as ChatModel,
+        escalation: 'gpt-5.5' as ChatModel,
+      },
+      summarization: {
+        default: 'gpt-5.4-mini' as ChatModel,
+        escalation: 'gpt-5.5' as ChatModel,
+      },
+      stateEvolution: {
+        default: 'gpt-5.4-mini' as ChatModel,
+        escalation: 'gpt-5.5' as ChatModel,
+      },
+      errorRepair: {
+        default: 'gpt-5.4-mini' as ChatModel,
+        escalation: 'gpt-5.5' as ChatModel,
+      },
     };
   }
 
@@ -47,6 +62,14 @@ export class TestEnvService implements EnvService {
       assessUsers: 'prompts/assess_users_prompt.md',
       replyTrigger: 'prompts/reply_trigger_prompt.md',
       topicOfDaySystem: 'prompts/topic_of_day_system_prompt.md',
+      neutralCore: 'prompts/neutral_core_prompt.md',
+      behaviorGateSystem: 'prompts/behavior_gate_system_prompt.md',
+      behaviorDecisionSystem: 'prompts/behavior_decision_system_prompt.md',
+      personalityState: 'prompts/personality_state_prompt.md',
+      politicalState: 'prompts/political_state_prompt.md',
+      userProfiles: 'prompts/user_profiles_prompt.md',
+      truths: 'prompts/truths_prompt.md',
+      behaviorMessages: 'prompts/behavior_messages_prompt.md',
     };
   }
 

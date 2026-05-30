@@ -40,7 +40,7 @@ export class RepositoryMessageService implements MessageService {
     this.logger = this.loggerFactory.create('RepositoryMessageService');
   }
 
-  async addMessage(message: StoredMessage): Promise<void> {
+  async addMessage(message: StoredMessage): Promise<number> {
     this.logger.debug(
       {
         chatId: message.chatId,
@@ -59,7 +59,7 @@ export class RepositoryMessageService implements MessageService {
     );
     await this.userRepo.upsert(user);
     await this.chatUserRepo.link(message.chatId, storedUserId);
-    await this.messageRepo.insert({
+    return this.messageRepo.insert({
       ...message,
       userId: storedUserId,
     });
@@ -68,6 +68,11 @@ export class RepositoryMessageService implements MessageService {
   async getMessages(chatId: number): Promise<ChatMessage[]> {
     this.logger.debug({ chatId }, 'Fetching messages from database');
     return this.messageRepo.findByChatId(chatId);
+  }
+
+  async getMessagesByIds(ids: readonly number[]): Promise<ChatMessage[]> {
+    this.logger.debug({ count: ids.length }, 'Fetching messages by ids');
+    return this.messageRepo.findByIds(ids);
   }
 
   async getCount(chatId: number): Promise<number> {

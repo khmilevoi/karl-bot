@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ChatMessage } from '../src/domain/messages/ChatMessage';
 import type { ChatGPTService as ChatGPTServiceType } from '../src/infrastructure/external/ChatGPTService';
 import { TestEnvService } from '../src/infrastructure/config/TestEnvService';
+import { DEFAULT_BEHAVIOR_PIPELINE_CONFIG } from '../src/application/behavior/BehaviorConfig';
 import type { PromptDirector } from '../src/application/prompts/PromptDirector';
 import type { LoggerFactory } from '../src/application/interfaces/logging/LoggerFactory';
 
@@ -11,6 +12,7 @@ interface ChatGPTServiceConstructor {
   new (
     env: TestEnvService,
     prompts: PromptDirector,
+    behaviorConfig: typeof DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
     logger: LoggerFactory
   ): ChatGPTServiceType;
 }
@@ -64,6 +66,7 @@ describe('ChatGPTService', () => {
     service = new ChatGPTService(
       env,
       prompts as unknown as PromptDirector,
+      DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
       loggerFactory
     );
   });
@@ -107,7 +110,7 @@ describe('ChatGPTService', () => {
     expect(res).toBe('resp');
     expect(openaiCreate).toHaveBeenCalledTimes(1);
     expect(openaiCreate).toHaveBeenCalledWith({
-      model: env.getModels().ask,
+      model: env.getModels().behaviorDecision.default,
       messages: [
         { role: 'system', content: 'sys' },
         { role: 'user', content: 'answer' },
@@ -136,7 +139,7 @@ describe('ChatGPTService', () => {
     const res = await service.checkInterest(history, '');
     expect(res).toEqual({ messageId: '1', why: 'w' });
     expect(openaiCreate).toHaveBeenCalledWith({
-      model: env.getModels().interest,
+      model: env.getModels().triggerGate.default,
       messages: [{ role: 'user', content: 'interest' }],
     });
     expect(prompts.createInterestPrompt).toHaveBeenCalledWith(history);
@@ -172,7 +175,7 @@ describe('ChatGPTService', () => {
     ]);
     expect(res).toEqual([{ username: 'u', attitude: 'new' }]);
     expect(openaiCreate).toHaveBeenCalledWith({
-      model: env.getModels().summary,
+      model: env.getModels().summarization.default,
       messages: [{ role: 'user', content: 'assess' }],
     });
     expect(prompts.createAssessUsersPrompt).toHaveBeenCalledWith(history, [
@@ -193,7 +196,7 @@ describe('ChatGPTService', () => {
     const res = await service.generateTopicOfDay();
     expect(res).toBe('article');
     expect(openaiCreate).toHaveBeenCalledWith({
-      model: env.getModels().ask,
+      model: env.getModels().behaviorDecision.default,
       messages: [{ role: 'user', content: 'topic' }],
     });
     expect(prompts.createTopicOfDayPrompt).toHaveBeenCalled();
@@ -233,7 +236,7 @@ describe('ChatGPTService', () => {
     const res = await service.summarize(history, 'prev');
     expect(res).toBe('prev');
     expect(openaiCreate).toHaveBeenCalledWith({
-      model: env.getModels().summary,
+      model: env.getModels().summarization.default,
       messages: [{ role: 'user', content: 'summary' }],
     });
     expect(prompts.createSummaryPrompt).toHaveBeenCalledWith(history, 'prev');
@@ -246,7 +249,7 @@ describe('ChatGPTService', () => {
     const resAsk = await service.ask([]);
     expect(resAsk).toBe('resp');
     expect(openaiCreate).toHaveBeenCalledWith({
-      model: env.getModels().ask,
+      model: env.getModels().behaviorDecision.default,
       messages: [
         { role: 'system', content: 'sys' },
         { role: 'user', content: 'answer' },
@@ -264,7 +267,7 @@ describe('ChatGPTService', () => {
     const resSum = await service.summarize([]);
     expect(resSum).toBe('sum');
     expect(openaiCreate).toHaveBeenCalledWith({
-      model: env.getModels().summary,
+      model: env.getModels().summarization.default,
       messages: [{ role: 'user', content: 'summary' }],
     });
     expect(prompts.createSummaryPrompt).toHaveBeenCalledWith([], undefined);
@@ -281,6 +284,7 @@ describe('ChatGPTService', () => {
     const service1 = new ChatGPTService(
       env1,
       prompts as unknown as PromptDirector,
+      DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
       loggerFactory
     );
     await service1.ask([]);
@@ -292,6 +296,7 @@ describe('ChatGPTService', () => {
     const service2 = new ChatGPTService(
       env2,
       prompts as unknown as PromptDirector,
+      DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
       loggerFactory
     );
     await service2.ask([]);

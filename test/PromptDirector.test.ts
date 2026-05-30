@@ -5,6 +5,10 @@ import type {
   PromptBuilder,
   PromptBuilderFactory,
 } from '../src/application/prompts/PromptBuilder';
+import type {
+  BehaviorPromptContext,
+  BehaviorPromptMessage,
+} from '../src/application/prompts/PromptTypes';
 import type { ChatMessage } from '../src/domain/messages/ChatMessage';
 import type { TriggerReason } from '../src/domain/triggers/Trigger';
 
@@ -62,6 +66,38 @@ function createBuilder() {
     }),
     addTopicOfDaySystem: vi.fn(() => {
       calls.push('addTopicOfDaySystem');
+      return builder;
+    }),
+    addNeutralCore: vi.fn(() => {
+      calls.push('addNeutralCore');
+      return builder;
+    }),
+    addBehaviorGateSystem: vi.fn(() => {
+      calls.push('addBehaviorGateSystem');
+      return builder;
+    }),
+    addBehaviorDecisionSystem: vi.fn(() => {
+      calls.push('addBehaviorDecisionSystem');
+      return builder;
+    }),
+    addPersonalityState: vi.fn(() => {
+      calls.push('addPersonalityState');
+      return builder;
+    }),
+    addPoliticalState: vi.fn(() => {
+      calls.push('addPoliticalState');
+      return builder;
+    }),
+    addUserProfiles: vi.fn(() => {
+      calls.push('addUserProfiles');
+      return builder;
+    }),
+    addTruths: vi.fn(() => {
+      calls.push('addTruths');
+      return builder;
+    }),
+    addBehaviorMessages: vi.fn(() => {
+      calls.push('addBehaviorMessages');
       return builder;
     }),
     build: vi.fn(async () => {
@@ -203,6 +239,69 @@ describe('PromptDirector', () => {
       'addTopicOfDaySystem',
       'build',
     ]);
+  });
+
+  it('creates behavior gate prompt', async () => {
+    const builder = createBuilder();
+    const factory: PromptBuilderFactory = () => builder;
+    const director = new PromptDirector(factory);
+    const messages: BehaviorPromptMessage[] = [
+      {
+        id: 1,
+        chatId: 10,
+        role: 'user',
+        content: 'hi',
+        userId: 7,
+      } as BehaviorPromptMessage,
+    ];
+    await director.createBehaviorGatePrompt(messages);
+
+    expect(builder.calls).toEqual([
+      'addBehaviorGateSystem',
+      'addBehaviorMessages',
+      'build',
+    ]);
+    expect(builder.addBehaviorMessages).toHaveBeenCalledWith(messages);
+  });
+
+  it('creates behavior decision prompt in correct order', async () => {
+    const builder = createBuilder();
+    const factory: PromptBuilderFactory = () => builder;
+    const director = new PromptDirector(factory);
+    const context: BehaviorPromptContext = {
+      summary: 'prev-summary',
+      messages: [
+        {
+          id: 1,
+          chatId: 10,
+          role: 'user',
+          content: 'hi',
+          userId: 7,
+        } as BehaviorPromptMessage,
+      ],
+      triggerMessageIds: [1],
+      contextMessageIds: [],
+      state: {
+        personality: {} as any,
+        political: {} as any,
+        profiles: [],
+        truths: [],
+      },
+    };
+    await director.createBehaviorDecisionPrompt(context);
+
+    expect(builder.calls).toEqual([
+      'addNeutralCore',
+      'addBehaviorDecisionSystem',
+      'addAskSummary',
+      'addPersonalityState',
+      'addPoliticalState',
+      'addUserProfiles',
+      'addTruths',
+      'addBehaviorMessages',
+      'build',
+    ]);
+    expect(builder.addAskSummary).toHaveBeenCalledWith('prev-summary');
   });
 
   it('creates topic of day prompt with context', async () => {

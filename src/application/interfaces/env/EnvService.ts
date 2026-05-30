@@ -24,11 +24,36 @@ export interface PromptFiles {
   assessUsers: string;
   replyTrigger: string;
   topicOfDaySystem: string;
+  neutralCore: string;
+  behaviorGateSystem: string;
+  behaviorDecisionSystem: string;
+  personalityState: string;
+  politicalState: string;
+  userProfiles: string;
+  truths: string;
+  behaviorMessages: string;
+}
+
+export interface SingleModelSlot {
+  default: ChatModel;
+}
+
+export interface EscalatingModelSlot {
+  default: ChatModel;
+  escalation: ChatModel;
+}
+
+export interface AiModelSlots {
+  triggerGate: SingleModelSlot;
+  behaviorDecision: EscalatingModelSlot;
+  summarization: EscalatingModelSlot;
+  stateEvolution: EscalatingModelSlot;
+  errorRepair: EscalatingModelSlot;
 }
 
 export interface EnvService {
   readonly env: Env;
-  getModels(): { ask: ChatModel; summary: ChatModel; interest: ChatModel };
+  getModels(): AiModelSlots;
   getPromptFiles(): PromptFiles;
   getBotName(): string;
   getDialogueTimeoutMs(): number;

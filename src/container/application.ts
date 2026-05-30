@@ -9,6 +9,35 @@ import {
   type AIService,
 } from '../application/interfaces/ai/AIService';
 import {
+  AI_ERROR_LOGGER_ID,
+  type AiErrorLogger,
+} from '../application/behavior/AiErrorLogger';
+import {
+  BEHAVIOR_AI_SERVICE_ID,
+  type BehaviorAiService,
+} from '../application/behavior/BehaviorAiService';
+import {
+  BEHAVIOR_PIPELINE_CONFIG_ID,
+  DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
+  type BehaviorPipelineConfig,
+} from '../application/behavior/BehaviorConfig';
+import {
+  BEHAVIOR_CONTEXT_ASSEMBLER_ID,
+  type BehaviorContextAssembler,
+} from '../application/behavior/BehaviorContextAssembler';
+import {
+  BEHAVIOR_EVENT_LOGGER_ID,
+  type BehaviorEventLogger,
+} from '../application/behavior/BehaviorEventLogger';
+import {
+  BEHAVIOR_PIPELINE_ID,
+  type BehaviorPipeline,
+} from '../application/behavior/BehaviorPipeline';
+import { DefaultAiErrorLogger } from '../application/behavior/DefaultAiErrorLogger';
+import { DefaultBehaviorContextAssembler } from '../application/behavior/DefaultBehaviorContextAssembler';
+import { DefaultBehaviorEventLogger } from '../application/behavior/DefaultBehaviorEventLogger';
+import { DefaultBehaviorPipeline } from '../application/behavior/DefaultBehaviorPipeline';
+import {
   CHAT_APPROVAL_SERVICE_ID,
   type ChatApprovalService,
 } from '../application/interfaces/chat/ChatApprovalService';
@@ -152,8 +181,37 @@ export const register = (container: Container): void => {
     .inSingletonScope();
 
   container
+    .bind<BehaviorPipelineConfig>(BEHAVIOR_PIPELINE_CONFIG_ID)
+    .toConstantValue(DEFAULT_BEHAVIOR_PIPELINE_CONFIG);
+
+  container
     .bind<AIService>(AI_SERVICE_ID)
     .to(ChatGPTService)
+    .inSingletonScope();
+
+  container
+    .bind<BehaviorAiService>(BEHAVIOR_AI_SERVICE_ID)
+    .to(ChatGPTService)
+    .inSingletonScope();
+
+  container
+    .bind<BehaviorContextAssembler>(BEHAVIOR_CONTEXT_ASSEMBLER_ID)
+    .to(DefaultBehaviorContextAssembler)
+    .inSingletonScope();
+
+  container
+    .bind<BehaviorEventLogger>(BEHAVIOR_EVENT_LOGGER_ID)
+    .to(DefaultBehaviorEventLogger)
+    .inSingletonScope();
+
+  container
+    .bind<AiErrorLogger>(AI_ERROR_LOGGER_ID)
+    .to(DefaultAiErrorLogger)
+    .inSingletonScope();
+
+  container
+    .bind<BehaviorPipeline>(BEHAVIOR_PIPELINE_ID)
+    .to(DefaultBehaviorPipeline)
     .inSingletonScope();
 
   container

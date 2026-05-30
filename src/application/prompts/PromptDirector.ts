@@ -8,7 +8,11 @@ import {
   type PromptBuilderFactory,
 } from './PromptBuilder';
 import type { PromptMessage } from './PromptMessage';
-import type { PromptChatUser } from './PromptTypes';
+import type {
+  BehaviorPromptContext,
+  BehaviorPromptMessage,
+  PromptChatUser,
+} from './PromptTypes';
 
 @injectable()
 export class PromptDirector {
@@ -80,6 +84,33 @@ export class PromptDirector {
       builder.addChatUsers(params.users);
     }
     return builder.build();
+  }
+
+  async createBehaviorGatePrompt(
+    messages: BehaviorPromptMessage[]
+  ): Promise<PromptMessage[]> {
+    return this.builderFactory()
+      .addBehaviorGateSystem()
+      .addBehaviorMessages(messages)
+      .build();
+  }
+
+  async createBehaviorDecisionPrompt(
+    context: BehaviorPromptContext
+  ): Promise<PromptMessage[]> {
+    return this.builderFactory()
+      .addNeutralCore()
+      .addBehaviorDecisionSystem()
+      .addAskSummary(context.summary)
+      .addPersonalityState(context.state.personality)
+      .addPoliticalState(context.state.political)
+      .addUserProfiles(context.state.profiles)
+      .addTruths(context.state.truths)
+      .addBehaviorMessages(context.messages, {
+        triggerMessageIds: context.triggerMessageIds,
+        contextMessageIds: context.contextMessageIds,
+      })
+      .build();
   }
 
   private extractChatUsers(

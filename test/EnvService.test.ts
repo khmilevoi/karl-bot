@@ -43,9 +43,11 @@ describe('EnvService', () => {
     setRequiredEnv();
     const env = new TestEnvService();
     expect(env.getModels()).toEqual({
-      ask: 'o3',
-      summary: 'o3-mini',
-      interest: 'o3-mini',
+      triggerGate: { default: 'gpt-5.4-mini' },
+      behaviorDecision: { default: 'gpt-5.4-mini', escalation: 'gpt-5.5' },
+      summarization: { default: 'gpt-5.4-mini', escalation: 'gpt-5.5' },
+      stateEvolution: { default: 'gpt-5.4-mini', escalation: 'gpt-5.5' },
+      errorRepair: { default: 'gpt-5.4-mini', escalation: 'gpt-5.5' },
     });
   });
 
@@ -65,6 +67,14 @@ describe('EnvService', () => {
       assessUsers: 'prompts/assess_users_prompt.md',
       replyTrigger: 'prompts/reply_trigger_prompt.md',
       topicOfDaySystem: 'prompts/topic_of_day_system_prompt.md',
+      neutralCore: 'prompts/neutral_core_prompt.md',
+      behaviorGateSystem: 'prompts/behavior_gate_system_prompt.md',
+      behaviorDecisionSystem: 'prompts/behavior_decision_system_prompt.md',
+      personalityState: 'prompts/personality_state_prompt.md',
+      politicalState: 'prompts/political_state_prompt.md',
+      userProfiles: 'prompts/user_profiles_prompt.md',
+      truths: 'prompts/truths_prompt.md',
+      behaviorMessages: 'prompts/behavior_messages_prompt.md',
     });
   });
 
