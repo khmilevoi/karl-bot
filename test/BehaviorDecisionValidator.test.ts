@@ -21,7 +21,12 @@ describe('DefaultBehaviorDecisionValidator', () => {
   it('accepts a valid decision with no drops', () => {
     const result = validator.validate(
       decision([
-        { type: 'reply', intent: 'banter', text: 'hi', replyTo: 'none' },
+        {
+          type: 'reply',
+          intent: 'banter',
+          text: 'hi',
+          target: { kind: 'none' },
+        },
       ])
     );
     expect(result.ok).toBe(true);
@@ -38,7 +43,7 @@ describe('DefaultBehaviorDecisionValidator', () => {
           type: 'reply',
           intent: 'banter',
           text: 'x'.repeat(50),
-          replyTo: 'none',
+          target: { kind: 'none' },
         },
       ])
     );
@@ -51,11 +56,39 @@ describe('DefaultBehaviorDecisionValidator', () => {
 
   it('drops an empty reply', () => {
     const result = validator.validate(
-      decision([{ type: 'reply', intent: 'banter', text: '', replyTo: 'none' }])
+      decision([
+        {
+          type: 'reply',
+          intent: 'banter',
+          text: '',
+          target: { kind: 'none' },
+        },
+      ])
     );
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.decision.actions.length).toBe(0);
+    }
+  });
+
+  it('accepts a reply that targets a single semantic message selector', () => {
+    const result = validator.validate(
+      decision([
+        {
+          type: 'reply',
+          intent: 'direct_answer',
+          text: 'answer',
+          target: {
+            kind: 'message',
+            selector: { scope: 'batch', pick: 'index', index: 0 },
+          },
+        },
+      ])
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.decision.actions.length).toBe(1);
+      expect(result.droppedActions.length).toBe(0);
     }
   });
 
@@ -128,8 +161,18 @@ describe('DefaultBehaviorDecisionValidator', () => {
   it('keeps the first action of a type and drops duplicates', () => {
     const result = validator.validate(
       decision([
-        { type: 'reply', intent: 'banter', text: 'one', replyTo: 'none' },
-        { type: 'reply', intent: 'argument', text: 'two', replyTo: 'none' },
+        {
+          type: 'reply',
+          intent: 'banter',
+          text: 'one',
+          target: { kind: 'none' },
+        },
+        {
+          type: 'reply',
+          intent: 'argument',
+          text: 'two',
+          target: { kind: 'none' },
+        },
       ])
     );
     expect(result.ok).toBe(true);
@@ -149,7 +192,12 @@ describe('DefaultBehaviorDecisionValidator', () => {
           intent: 'compress_context',
           reason: 'long',
         },
-        { type: 'reply', intent: 'support', text: 'ok', replyTo: 'none' },
+        {
+          type: 'reply',
+          intent: 'support',
+          text: 'ok',
+          target: { kind: 'none' },
+        },
       ])
     );
     expect(result.ok).toBe(true);

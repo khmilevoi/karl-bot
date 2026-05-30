@@ -1,5 +1,54 @@
 import { z } from 'zod';
 
+export const messageSelectorScopeSchema = z.enum([
+  'trigger',
+  'batch',
+  'context',
+]);
+
+const nonIndexedSingleMessageSelectorSchema = z.object({
+  scope: messageSelectorScopeSchema,
+  pick: z.enum(['latest', 'first']),
+  index: z.null(),
+});
+
+const indexedMessageSelectorSchema = z.object({
+  scope: messageSelectorScopeSchema,
+  pick: z.literal('index'),
+  index: z.number().int().min(0),
+});
+
+export const singleMessageSelectorSchema = z.discriminatedUnion('pick', [
+  nonIndexedSingleMessageSelectorSchema,
+  indexedMessageSelectorSchema,
+]);
+
+const allMessageSelectorSchema = z.object({
+  scope: messageSelectorScopeSchema,
+  pick: z.literal('all'),
+  index: z.null(),
+});
+
+export const messageSelectorSchema = z.discriminatedUnion('pick', [
+  nonIndexedSingleMessageSelectorSchema,
+  indexedMessageSelectorSchema,
+  allMessageSelectorSchema,
+]);
+
+const noReplyTargetSchema = z.object({
+  kind: z.literal('none'),
+});
+
+const messageReplyTargetSchema = z.object({
+  kind: z.literal('message'),
+  selector: singleMessageSelectorSchema,
+});
+
+export const replyTargetSchema = z.discriminatedUnion('kind', [
+  noReplyTargetSchema,
+  messageReplyTargetSchema,
+]);
+
 export const replyActionSchema = z.object({
   type: z.literal('reply'),
   intent: z.enum([
@@ -10,31 +59,8 @@ export const replyActionSchema = z.object({
     'correction',
   ]),
   text: z.string(),
-  replyTo: z.enum(['trigger', 'latest', 'none']),
+  target: replyTargetSchema,
 });
-
-export const messageSelectorScopeSchema = z.enum([
-  'trigger',
-  'batch',
-  'context',
-]);
-
-const nonIndexedMessageSelectorSchema = z.object({
-  scope: messageSelectorScopeSchema,
-  pick: z.enum(['latest', 'first', 'all']),
-  index: z.null(),
-});
-
-const indexedMessageSelectorSchema = z.object({
-  scope: messageSelectorScopeSchema,
-  pick: z.literal('index'),
-  index: z.number().int().min(0),
-});
-
-export const messageSelectorSchema = z.discriminatedUnion('pick', [
-  nonIndexedMessageSelectorSchema,
-  indexedMessageSelectorSchema,
-]);
 
 export const reactActionSchema = z.object({
   type: z.literal('react'),
@@ -65,3 +91,5 @@ export const behaviorActionSchema = z.discriminatedUnion('type', [
 
 export type BehaviorAction = z.infer<typeof behaviorActionSchema>;
 export type MessageSelector = z.infer<typeof messageSelectorSchema>;
+export type ReplyTarget = z.infer<typeof replyTargetSchema>;
+export type SingleMessageSelector = z.infer<typeof singleMessageSelectorSchema>;
