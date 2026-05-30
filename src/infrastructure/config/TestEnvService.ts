@@ -2,6 +2,7 @@ import { injectable } from 'inversify';
 import type { ChatModel } from 'openai/resources/shared';
 
 import type {
+  AiModelSlots,
   Env,
   EnvService,
   PromptFiles,
@@ -25,11 +26,25 @@ export class TestEnvService implements EnvService {
     });
   }
 
-  getModels(): { ask: ChatModel; summary: ChatModel; interest: ChatModel } {
+  getModels(): AiModelSlots {
     return {
-      ask: 'o3' as ChatModel,
-      summary: 'o3-mini' as ChatModel,
-      interest: 'o3-mini' as ChatModel,
+      triggerGate: { default: 'gpt-5.4-mini' as ChatModel },
+      behaviorDecision: {
+        default: 'gpt-5.4-mini' as ChatModel,
+        escalation: 'gpt-5.5' as ChatModel,
+      },
+      summarization: {
+        default: 'gpt-5.4-mini' as ChatModel,
+        escalation: 'gpt-5.5' as ChatModel,
+      },
+      stateEvolution: {
+        default: 'gpt-5.4-mini' as ChatModel,
+        escalation: 'gpt-5.5' as ChatModel,
+      },
+      errorRepair: {
+        default: 'gpt-5.4-mini' as ChatModel,
+        escalation: 'gpt-5.5' as ChatModel,
+      },
     };
   }
 

@@ -43,9 +43,11 @@ describe('EnvService', () => {
     setRequiredEnv();
     const env = new TestEnvService();
     expect(env.getModels()).toEqual({
-      ask: 'o3',
-      summary: 'o3-mini',
-      interest: 'o3-mini',
+      triggerGate: { default: 'gpt-5.4-mini' },
+      behaviorDecision: { default: 'gpt-5.4-mini', escalation: 'gpt-5.5' },
+      summarization: { default: 'gpt-5.4-mini', escalation: 'gpt-5.5' },
+      stateEvolution: { default: 'gpt-5.4-mini', escalation: 'gpt-5.5' },
+      errorRepair: { default: 'gpt-5.4-mini', escalation: 'gpt-5.5' },
     });
   });
 

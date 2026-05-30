@@ -21,9 +21,10 @@ import type { TriggerReason } from '@/domain/triggers/Trigger';
 @injectable()
 export class ChatGPTService implements AIService {
   private openai: OpenAI;
-  private readonly askModel: ChatModel;
-  private readonly summaryModel: ChatModel;
-  private readonly interestModel: ChatModel;
+  private readonly triggerGateModel: ChatModel;
+  private readonly behaviorDecisionModel: ChatModel;
+  private readonly behaviorDecisionEscalationModel: ChatModel;
+  private readonly summarizationModel: ChatModel;
   private readonly logger: Logger;
 
   constructor(
@@ -34,9 +35,10 @@ export class ChatGPTService implements AIService {
     const env = this.envService.env;
     this.openai = new OpenAI({ apiKey: env.OPENAI_KEY });
     const models = this.envService.getModels();
-    this.askModel = models.ask;
-    this.summaryModel = models.summary;
-    this.interestModel = models.interest;
+    this.triggerGateModel = models.triggerGate.default;
+    this.behaviorDecisionModel = models.behaviorDecision.default;
+    this.behaviorDecisionEscalationModel = models.behaviorDecision.escalation;
+    this.summarizationModel = models.summarization.default;
     this.logger = this.loggerFactory.create('ChatGPTService');
     this.logger.debug('ChatGPTService initialized');
   }
@@ -63,7 +65,7 @@ export class ChatGPTService implements AIService {
     const start = Date.now();
     try {
       const completion = await this.openai.chat.completions.create({
-        model: this.askModel,
+        model: this.behaviorDecisionModel,
         messages,
       });
       const elapsedMs = Date.now() - start;
@@ -83,7 +85,12 @@ export class ChatGPTService implements AIService {
     } catch (err) {
       const elapsedMs = Date.now() - start;
       this.logger.error(
-        { err, model: this.askModel, messages: messages.length, elapsedMs },
+        {
+          err,
+          model: this.behaviorDecisionModel,
+          messages: messages.length,
+          elapsedMs,
+        },
         'Chat completion request failed'
       );
       throw err;
@@ -105,7 +112,7 @@ export class ChatGPTService implements AIService {
     const start = Date.now();
     try {
       const completion = await this.openai.chat.completions.create({
-        model: this.interestModel,
+        model: this.triggerGateModel,
         messages,
       });
       const elapsedMs = Date.now() - start;
@@ -141,7 +148,7 @@ export class ChatGPTService implements AIService {
       this.logger.error(
         {
           err,
-          model: this.interestModel,
+          model: this.triggerGateModel,
           messages: messages.length,
           elapsedMs,
         },
@@ -169,7 +176,7 @@ export class ChatGPTService implements AIService {
     const start = Date.now();
     try {
       const completion = await this.openai.chat.completions.create({
-        model: this.summaryModel,
+        model: this.summarizationModel,
         messages: reqMessages,
       });
       const elapsedMs = Date.now() - start;
@@ -202,7 +209,7 @@ export class ChatGPTService implements AIService {
       this.logger.error(
         {
           err,
-          model: this.summaryModel,
+          model: this.summarizationModel,
           messages: reqMessages.length,
           elapsedMs,
         },
@@ -227,7 +234,7 @@ export class ChatGPTService implements AIService {
     const start = Date.now();
     try {
       const completion = await this.openai.chat.completions.create({
-        model: this.askModel,
+        model: this.behaviorDecisionModel,
         messages,
       });
       const elapsedMs = Date.now() - start;
@@ -247,7 +254,12 @@ export class ChatGPTService implements AIService {
     } catch (err) {
       const elapsedMs = Date.now() - start;
       this.logger.error(
-        { err, model: this.askModel, messages: messages.length, elapsedMs },
+        {
+          err,
+          model: this.behaviorDecisionModel,
+          messages: messages.length,
+          elapsedMs,
+        },
         'Topic of day request failed'
       );
       throw err;
@@ -270,7 +282,7 @@ export class ChatGPTService implements AIService {
     const start = Date.now();
     try {
       const completion = await this.openai.chat.completions.create({
-        model: this.summaryModel,
+        model: this.summarizationModel,
         messages,
       });
       const elapsedMs = Date.now() - start;
@@ -290,7 +302,12 @@ export class ChatGPTService implements AIService {
     } catch (err) {
       const elapsedMs = Date.now() - start;
       this.logger.error(
-        { err, model: this.summaryModel, messages: messages.length, elapsedMs },
+        {
+          err,
+          model: this.summarizationModel,
+          messages: messages.length,
+          elapsedMs,
+        },
         'Summarization request failed'
       );
       throw err;
