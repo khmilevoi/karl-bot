@@ -138,6 +138,27 @@ describe('DefaultBehaviorContextAssembler', () => {
     expect(ctx.messages.map((m) => m.id)).toEqual([1, 2, 3]);
   });
 
+  it('includes batch message ids in selected lookup and context', async () => {
+    const selected: ChatMessage[] = [
+      { id: 1, chatId: 1, role: 'user', content: 'trigger' },
+      { id: 2, chatId: 1, role: 'user', content: 'context' },
+      { id: 4, chatId: 1, role: 'user', content: 'batch' },
+    ];
+    const { assembler, messages } = makeAssembler({ selected });
+
+    const ctx = await assembler.assemble({
+      chatId: 1,
+      triggerMessageIds: [1],
+      contextMessageIds: [2],
+      batchMessageIds: [4],
+      gate,
+    });
+
+    expect(messages.getMessagesByIds).toHaveBeenCalledWith([1, 2, 4]);
+    expect(ctx.batchMessageIds).toEqual([4]);
+    expect(ctx.messages.map((m) => m.id)).toEqual([1, 2, 4]);
+  });
+
   it('includes summary, profiles, and truths', async () => {
     const { assembler } = makeAssembler({ summary: 'prev-summary' });
     const ctx = await assembler.assemble({

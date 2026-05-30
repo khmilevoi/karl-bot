@@ -114,7 +114,11 @@ export class DefaultBehaviorPipeline implements BehaviorPipeline {
       return { kind: 'ignored', gate };
     }
 
-    return this.decide(batch.chatId, gate);
+    return this.decide(
+      batch.chatId,
+      gate,
+      batch.messages.map((message) => message.id)
+    );
   }
 
   private async processDirectTrigger(
@@ -133,12 +137,17 @@ export class DefaultBehaviorPipeline implements BehaviorPipeline {
       stateImpactRisk: 'medium',
     };
 
-    return this.decide(chatId, gate);
+    return this.decide(
+      chatId,
+      gate,
+      drained.map((m) => m.id)
+    );
   }
 
   private async decide(
     chatId: number,
-    gate: BehaviorGateDecision
+    gate: BehaviorGateDecision,
+    batchMessageIds: number[]
   ): Promise<BehaviorPipelineResult> {
     let context: BehaviorDecisionContext;
     try {
@@ -146,6 +155,7 @@ export class DefaultBehaviorPipeline implements BehaviorPipeline {
         chatId,
         triggerMessageIds: gate.triggerMessageIds,
         contextMessageIds: gate.contextMessageIds,
+        batchMessageIds,
         gate,
       });
     } catch (error) {
@@ -160,6 +170,7 @@ export class DefaultBehaviorPipeline implements BehaviorPipeline {
         inputRef: {
           triggerMessageIds: gate.triggerMessageIds,
           contextMessageIds: gate.contextMessageIds,
+          batchMessageIds,
         },
         fixHint: 'Check context assembler and repositories',
       });
@@ -181,6 +192,7 @@ export class DefaultBehaviorPipeline implements BehaviorPipeline {
         inputRef: {
           triggerMessageIds: gate.triggerMessageIds,
           contextMessageIds: gate.contextMessageIds,
+          batchMessageIds,
         },
         fixHint: 'Check OpenAI API connectivity and decision schema',
       });

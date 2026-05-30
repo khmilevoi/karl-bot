@@ -300,12 +300,20 @@ export class PromptBuilder {
       const template = await this.templates.loadTemplate('behaviorMessages');
       const triggerSet = new Set(markers?.triggerMessageIds ?? []);
       const contextSet = new Set(markers?.contextMessageIds ?? []);
+      const batchSet = new Set(markers?.batchMessageIds ?? []);
       const lines = messages.map((m) => {
-        const marker = triggerSet.has(m.id)
-          ? ' [TRIGGER]'
-          : contextSet.has(m.id)
-            ? ' [GATE_CONTEXT]'
-            : '';
+        const markerParts = [];
+        if (triggerSet.has(m.id)) {
+          markerParts.push('[TRIGGER]');
+        }
+        if (contextSet.has(m.id)) {
+          markerParts.push('[GATE_CONTEXT]');
+        }
+        if (batchSet.has(m.id)) {
+          markerParts.push('[BATCH]');
+        }
+        const marker =
+          markerParts.length > 0 ? ` ${markerParts.join(' ')}` : '';
         const fullName =
           m.fullName ??
           ([m.firstName, m.lastName].filter(Boolean).join(' ') || 'N/A');

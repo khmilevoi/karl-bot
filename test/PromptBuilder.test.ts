@@ -143,18 +143,27 @@ describe('PromptBuilder', () => {
         content: 'hi',
         userId: 0,
       } as BehaviorPromptMessage,
+      {
+        id: 3,
+        chatId: 10,
+        role: 'user',
+        content: 'batch',
+        userId: 8,
+      } as BehaviorPromptMessage,
     ];
     const builder = new PromptBuilder(templates);
     const result = await builder
       .addBehaviorMessages(msgs, {
         triggerMessageIds: [1],
         contextMessageIds: [2],
+        batchMessageIds: [3],
       })
       .build();
     expect(result[0].role).toBe('user');
     expect(result[0].content).toContain('[storeId:1]');
     expect(result[0].content).toContain('[TRIGGER]');
     expect(result[0].content).toContain('[GATE_CONTEXT]');
+    expect(result[0].content).toContain('[BATCH]');
   });
 
   it('clears steps after build', async () => {

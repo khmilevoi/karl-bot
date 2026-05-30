@@ -89,10 +89,16 @@ export class DefaultBehaviorContextAssembler implements BehaviorContextAssembler
   async assemble(
     input: BehaviorContextAssemblerInput
   ): Promise<BehaviorDecisionContext> {
-    const { chatId, triggerMessageIds, contextMessageIds, gate } = input;
+    const {
+      batchMessageIds = [],
+      chatId,
+      contextMessageIds,
+      gate,
+      triggerMessageIds,
+    } = input;
 
     const selectedIds = [
-      ...new Set([...triggerMessageIds, ...contextMessageIds]),
+      ...new Set([...triggerMessageIds, ...contextMessageIds, ...batchMessageIds]),
     ];
 
     const [
@@ -133,6 +139,7 @@ export class DefaultBehaviorContextAssembler implements BehaviorContextAssembler
       messages: mergedMessages,
       triggerMessageIds,
       contextMessageIds,
+      batchMessageIds,
       state: {
         personality: personality ?? defaultPersonality(chatId, now),
         political: political ?? defaultPolitical(chatId, now),

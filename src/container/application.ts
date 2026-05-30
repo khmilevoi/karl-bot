@@ -17,10 +17,19 @@ import {
   type BehaviorAiService,
 } from '../application/behavior/BehaviorAiService';
 import {
+  BEHAVIOR_DECISION_VALIDATOR_CONFIG_ID,
   BEHAVIOR_PIPELINE_CONFIG_ID,
+  DEFAULT_BEHAVIOR_DECISION_VALIDATOR_CONFIG,
   DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
+  DEFAULT_PATCH_POLICY_CONFIG,
+  PATCH_POLICY_CONFIG_ID,
   type BehaviorPipelineConfig,
 } from '../application/behavior/BehaviorConfig';
+import {
+  BEHAVIOR_DECISION_VALIDATOR_ID,
+  type BehaviorDecisionValidator,
+  type BehaviorDecisionValidatorConfig,
+} from '../application/behavior/BehaviorDecisionValidator';
 import {
   BEHAVIOR_CONTEXT_ASSEMBLER_ID,
   type BehaviorContextAssembler,
@@ -35,8 +44,15 @@ import {
 } from '../application/behavior/BehaviorPipeline';
 import { DefaultAiErrorLogger } from '../application/behavior/DefaultAiErrorLogger';
 import { DefaultBehaviorContextAssembler } from '../application/behavior/DefaultBehaviorContextAssembler';
+import { DefaultBehaviorDecisionValidator } from '../application/behavior/DefaultBehaviorDecisionValidator';
 import { DefaultBehaviorEventLogger } from '../application/behavior/DefaultBehaviorEventLogger';
 import { DefaultBehaviorPipeline } from '../application/behavior/DefaultBehaviorPipeline';
+import { DefaultPatchPolicy } from '../application/behavior/DefaultPatchPolicy';
+import {
+  PATCH_POLICY_ID,
+  type PatchPolicy,
+  type PatchPolicyConfig,
+} from '../application/behavior/PatchPolicy';
 import {
   CHAT_APPROVAL_SERVICE_ID,
   type ChatApprovalService,
@@ -185,6 +201,16 @@ export const register = (container: Container): void => {
     .toConstantValue(DEFAULT_BEHAVIOR_PIPELINE_CONFIG);
 
   container
+    .bind<BehaviorDecisionValidatorConfig>(
+      BEHAVIOR_DECISION_VALIDATOR_CONFIG_ID
+    )
+    .toConstantValue(DEFAULT_BEHAVIOR_DECISION_VALIDATOR_CONFIG);
+
+  container
+    .bind<PatchPolicyConfig>(PATCH_POLICY_CONFIG_ID)
+    .toConstantValue(DEFAULT_PATCH_POLICY_CONFIG);
+
+  container
     .bind<AIService>(AI_SERVICE_ID)
     .to(ChatGPTService)
     .inSingletonScope();
@@ -197,6 +223,16 @@ export const register = (container: Container): void => {
   container
     .bind<BehaviorContextAssembler>(BEHAVIOR_CONTEXT_ASSEMBLER_ID)
     .to(DefaultBehaviorContextAssembler)
+    .inSingletonScope();
+
+  container
+    .bind<BehaviorDecisionValidator>(BEHAVIOR_DECISION_VALIDATOR_ID)
+    .to(DefaultBehaviorDecisionValidator)
+    .inSingletonScope();
+
+  container
+    .bind<PatchPolicy>(PATCH_POLICY_ID)
+    .to(DefaultPatchPolicy)
     .inSingletonScope();
 
   container

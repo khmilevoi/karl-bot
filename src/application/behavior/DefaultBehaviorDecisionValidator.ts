@@ -1,4 +1,4 @@
-import { injectable } from 'inversify';
+import { inject, injectable } from 'inversify';
 
 import type {
   BehaviorAction,
@@ -13,6 +13,7 @@ import type {
   BehaviorDecisionValidatorConfig,
   DroppedAction,
 } from './BehaviorDecisionValidator';
+import { BEHAVIOR_DECISION_VALIDATOR_CONFIG_ID } from './BehaviorConfig';
 
 function selectorKey(selector: MessageSelector): string {
   return `${selector.scope}:${selector.pick}:${selector.index ?? ''}`;
@@ -20,7 +21,10 @@ function selectorKey(selector: MessageSelector): string {
 
 @injectable()
 export class DefaultBehaviorDecisionValidator implements BehaviorDecisionValidator {
-  constructor(private readonly config: BehaviorDecisionValidatorConfig) {}
+  constructor(
+    @inject(BEHAVIOR_DECISION_VALIDATOR_CONFIG_ID)
+    private readonly config: BehaviorDecisionValidatorConfig
+  ) {}
 
   validate(raw: unknown): BehaviorDecisionValidationResult {
     const parsed = behaviorDecisionSchema.safeParse(raw);
