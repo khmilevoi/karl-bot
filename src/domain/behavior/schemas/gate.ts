@@ -12,7 +12,7 @@ export const gateReasonSchema = z.enum([
   'conflict',
   'strong_emotion',
   'political_claim',
-  'attitude_to_carl',
+  'attitude_to_bot',
   'user_relationship_signal',
   'group_truth_candidate',
   'personality_signal',
