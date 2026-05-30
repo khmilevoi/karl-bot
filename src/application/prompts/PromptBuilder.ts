@@ -7,7 +7,17 @@ import {
 import type { ChatMessage } from '@/domain/messages/ChatMessage';
 
 import type { PromptMessage } from './PromptMessage';
-import type { PromptChatUser } from './PromptTypes';
+import type {
+  BehaviorMessageMarkers,
+  BehaviorPromptMessage,
+  PromptChatUser,
+} from './PromptTypes';
+import type {
+  BotPersonalityState,
+  BotPoliticalState,
+  BotTruth,
+  UserSocialProfile,
+} from '@/domain/behavior/schemas/state';
 
 @injectable()
 export class PromptBuilder {
@@ -193,6 +203,126 @@ export class PromptBuilder {
       }
     }
     return this;
+  }
+
+  addNeutralCore(): this {
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate('neutralCore');
+      return [{ role: 'system', content: template }];
+    });
+    return this;
+  }
+
+  addBehaviorGateSystem(): this {
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate('behaviorGateSystem');
+      return [{ role: 'system', content: template }];
+    });
+    return this;
+  }
+
+  addBehaviorDecisionSystem(): this {
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate(
+        'behaviorDecisionSystem'
+      );
+      return [{ role: 'system', content: template }];
+    });
+    return this;
+  }
+
+  addPersonalityState(state: BotPersonalityState): this {
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate('personalityState');
+      return [
+        {
+          role: 'system',
+          content: template.replace(
+            '{{personalityStateJson}}',
+            this.stringify(state)
+          ),
+        },
+      ];
+    });
+    return this;
+  }
+
+  addPoliticalState(state: BotPoliticalState): this {
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate('politicalState');
+      return [
+        {
+          role: 'system',
+          content: template.replace(
+            '{{politicalStateJson}}',
+            this.stringify(state)
+          ),
+        },
+      ];
+    });
+    return this;
+  }
+
+  addUserProfiles(profiles: UserSocialProfile[]): this {
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate('userProfiles');
+      return [
+        {
+          role: 'system',
+          content: template.replace(
+            '{{userProfilesJson}}',
+            this.stringify(profiles)
+          ),
+        },
+      ];
+    });
+    return this;
+  }
+
+  addTruths(truths: BotTruth[]): this {
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate('truths');
+      return [
+        {
+          role: 'system',
+          content: template.replace('{{truthsJson}}', this.stringify(truths)),
+        },
+      ];
+    });
+    return this;
+  }
+
+  addBehaviorMessages(
+    messages: BehaviorPromptMessage[],
+    markers?: BehaviorMessageMarkers
+  ): this {
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate('behaviorMessages');
+      const triggerSet = new Set(markers?.triggerMessageIds ?? []);
+      const contextSet = new Set(markers?.contextMessageIds ?? []);
+      const lines = messages.map((m) => {
+        const marker = triggerSet.has(m.id)
+          ? ' [TRIGGER]'
+          : contextSet.has(m.id)
+            ? ' [GATE_CONTEXT]'
+            : '';
+        const fullName =
+          m.fullName ??
+          ([m.firstName, m.lastName].filter(Boolean).join(' ') || 'N/A');
+        return `[storeId:${m.id}] [telegramId:${m.messageId ?? 'N/A'}] [userId:${m.userId ?? 0}] [username:${m.username ?? 'N/A'}] [fullName:${fullName}] [role:${m.role}]${marker}\n${m.content}`;
+      });
+      return [
+        {
+          role: 'user',
+          content: template.replace('{{behaviorMessages}}', lines.join('\n\n')),
+        },
+      ];
+    });
+    return this;
+  }
+
+  private stringify(value: unknown): string {
+    return JSON.stringify(value, null, 2);
   }
 
   async build(): Promise<PromptMessage[]> {

@@ -24,6 +24,14 @@ export interface PromptFiles {
   assessUsers: string;
   replyTrigger: string;
   topicOfDaySystem: string;
+  neutralCore: string;
+  behaviorGateSystem: string;
+  behaviorDecisionSystem: string;
+  personalityState: string;
+  politicalState: string;
+  userProfiles: string;
+  truths: string;
+  behaviorMessages: string;
 }
 
 export interface SingleModelSlot {

@@ -1,0 +1,3 @@
+Current bot truths:
+
+{{truthsJson}}
