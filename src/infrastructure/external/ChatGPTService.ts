@@ -15,11 +15,38 @@ import {
 import type { PromptDirector } from '@/application/prompts/PromptDirector';
 import { PROMPT_DIRECTOR_ID } from '@/application/prompts/PromptDirector';
 import type { PromptMessage } from '@/application/prompts/PromptMessage';
+import type { BehaviorAiService } from '@/application/behavior/BehaviorAiService';
+import {
+  BEHAVIOR_PIPELINE_CONFIG_ID,
+  type BehaviorPipelineConfig,
+} from '@/application/behavior/BehaviorConfig';
+import type {
+  AiCallMetadata,
+  AiCallUsage,
+  BehaviorAiDecisionResult,
+  BehaviorDecisionContext,
+  GateAiResult,
+  StoredBehaviorMessage,
+} from '@/application/behavior/BehaviorTypes';
 import type { ChatMessage } from '@/domain/messages/ChatMessage';
 import type { TriggerReason } from '@/domain/triggers/Trigger';
+import {
+  behaviorDecisionJsonSchema,
+  behaviorDecisionSchema,
+} from '@/domain/behavior/schemas/decision';
+import {
+  behaviorGateDecisionSchema,
+  behaviorGateJsonSchema,
+} from '@/domain/behavior/schemas/gate';
+
+type EscalationReason =
+  | 'gate_state_impact_high'
+  | 'schema_validation_failed'
+  | 'low_confidence'
+  | 'conflicting_visible_actions';
 
 @injectable()
-export class ChatGPTService implements AIService {
+export class ChatGPTService implements AIService, BehaviorAiService {
   private openai: OpenAI;
   private readonly triggerGateModel: ChatModel;
   private readonly behaviorDecisionModel: ChatModel;
@@ -30,6 +57,8 @@ export class ChatGPTService implements AIService {
   constructor(
     @inject(ENV_SERVICE_ID) private readonly envService: EnvService,
     @inject(PROMPT_DIRECTOR_ID) private readonly prompts: PromptDirector,
+    @inject(BEHAVIOR_PIPELINE_CONFIG_ID)
+    private readonly behaviorConfig: BehaviorPipelineConfig,
     @inject(LOGGER_FACTORY_ID) private loggerFactory: LoggerFactory
   ) {
     const env = this.envService.env;
@@ -41,6 +70,191 @@ export class ChatGPTService implements AIService {
     this.summarizationModel = models.summarization.default;
     this.logger = this.loggerFactory.create('ChatGPTService');
     this.logger.debug('ChatGPTService initialized');
+  }
+
+  public async evaluateGate(
+    messages: StoredBehaviorMessage[]
+  ): Promise<GateAiResult> {
+    const prompt = await this.prompts.createBehaviorGatePrompt(messages);
+    const openaiMessages = this.toOpenAiMessages(prompt);
+    const start = Date.now();
+
+    const completion = await this.openai.chat.completions.create({
+      model: this.triggerGateModel,
+      messages: openaiMessages,
+      response_format: {
+        type: 'json_schema',
+        json_schema: behaviorGateJsonSchema,
+      },
+    });
+
+    const latencyMs = Date.now() - start;
+    const content = completion.choices[0]?.message?.content ?? '{}';
+    void this.logPrompt('behaviorGate', openaiMessages, content);
+
+    const raw: unknown = this.parseJsonContent(content);
+    const parsed = behaviorGateDecisionSchema.safeParse(raw);
+    if (!parsed.success) {
+      throw new Error(
+        parsed.error.issues
+          .map((i) => `${i.path.join('.')}: ${i.message}`)
+          .join('; ')
+      );
+    }
+
+    return {
+      decision: parsed.data,
+      metadata: this.buildMetadata(
+        'triggerGate',
+        this.triggerGateModel,
+        false,
+        null,
+        latencyMs,
+        completion.usage
+      ),
+    };
+  }
+
+  public async decideBehavior(
+    context: BehaviorDecisionContext
+  ): Promise<BehaviorAiDecisionResult> {
+    const preEscalate = context.gate.stateImpactRisk === 'high';
+    const initialModel = preEscalate
+      ? this.behaviorDecisionEscalationModel
+      : this.behaviorDecisionModel;
+    const preEscalationReason: EscalationReason | null = preEscalate
+      ? 'gate_state_impact_high'
+      : null;
+
+    const prompt = await this.prompts.createBehaviorDecisionPrompt(context);
+    const openaiMessages = this.toOpenAiMessages(prompt);
+
+    const attempt = async (
+      model: ChatModel,
+      escalationReason: EscalationReason | null
+    ): Promise<BehaviorAiDecisionResult> => {
+      const start = Date.now();
+      const completion = await this.openai.chat.completions.create({
+        model,
+        messages: openaiMessages,
+        response_format: {
+          type: 'json_schema',
+          json_schema: behaviorDecisionJsonSchema,
+        },
+      });
+      const latencyMs = Date.now() - start;
+      const content = completion.choices[0]?.message?.content ?? '{}';
+      const logType =
+        escalationReason != null
+          ? 'behaviorDecisionEscalated'
+          : 'behaviorDecision';
+      void this.logPrompt(logType, openaiMessages, content);
+
+      let raw: unknown;
+      try {
+        raw = this.parseJsonContent(content);
+      } catch {
+        const reason: EscalationReason = 'schema_validation_failed';
+        if (model !== this.behaviorDecisionEscalationModel) {
+          return attempt(this.behaviorDecisionEscalationModel, reason);
+        }
+        throw new Error(
+          `Failed to parse decideBehavior JSON response: ${content.slice(0, 200)}`
+        );
+      }
+
+      const parsed = behaviorDecisionSchema.safeParse(raw);
+      if (!parsed.success) {
+        const reason: EscalationReason = 'schema_validation_failed';
+        if (model !== this.behaviorDecisionEscalationModel) {
+          return attempt(this.behaviorDecisionEscalationModel, reason);
+        }
+        throw new Error(
+          parsed.error.issues
+            .map((i) => `${i.path.join('.')}: ${i.message}`)
+            .join('; ')
+        );
+      }
+
+      const decision = parsed.data;
+      const escalateReason = this.checkDecisionEscalation(decision.confidence);
+      if (
+        escalateReason != null &&
+        model !== this.behaviorDecisionEscalationModel
+      ) {
+        return attempt(this.behaviorDecisionEscalationModel, escalateReason);
+      }
+
+      const conflicting = this.checkConflictingVisibleActions(decision.actions);
+      if (conflicting && model !== this.behaviorDecisionEscalationModel) {
+        return attempt(
+          this.behaviorDecisionEscalationModel,
+          'conflicting_visible_actions'
+        );
+      }
+
+      return {
+        decision,
+        metadata: this.buildMetadata(
+          'behaviorDecision',
+          model,
+          escalationReason != null,
+          escalationReason,
+          latencyMs,
+          completion.usage
+        ),
+      };
+    };
+
+    return attempt(initialModel, preEscalationReason);
+  }
+
+  private checkDecisionEscalation(confidence: number): EscalationReason | null {
+    if (confidence < this.behaviorConfig.minDecisionConfidence) {
+      return 'low_confidence';
+    }
+    return null;
+  }
+
+  private checkConflictingVisibleActions(actions: { type: string }[]): boolean {
+    const visibleTypes = actions
+      .map((a) => a.type)
+      .filter((t) => t !== 'summarize_thread');
+    return new Set(visibleTypes).size < visibleTypes.length;
+  }
+
+  private parseJsonContent(content: string): unknown {
+    return JSON.parse(content);
+  }
+
+  private buildMetadata(
+    modelSlot: string,
+    selectedModel: ChatModel,
+    escalated: boolean,
+    escalationReason: EscalationReason | null,
+    latencyMs: number,
+    usage:
+      | {
+          prompt_tokens?: number;
+          completion_tokens?: number;
+          total_tokens?: number;
+        }
+      | null
+      | undefined
+  ): AiCallMetadata {
+    const usageResult: AiCallUsage = {
+      promptTokens: usage?.prompt_tokens ?? null,
+      completionTokens: usage?.completion_tokens ?? null,
+      totalTokens: usage?.total_tokens ?? null,
+    };
+    return {
+      modelSlot,
+      selectedModel,
+      escalated,
+      escalationReason,
+      latencyMs,
+      usage: usageResult,
+    };
   }
 
   public async ask(

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ChatMessage } from '../src/domain/messages/ChatMessage';
 import type { ChatGPTService as ChatGPTServiceType } from '../src/infrastructure/external/ChatGPTService';
 import { TestEnvService } from '../src/infrastructure/config/TestEnvService';
+import { DEFAULT_BEHAVIOR_PIPELINE_CONFIG } from '../src/application/behavior/BehaviorConfig';
 import type { PromptDirector } from '../src/application/prompts/PromptDirector';
 import type { LoggerFactory } from '../src/application/interfaces/logging/LoggerFactory';
 
@@ -11,6 +12,7 @@ interface ChatGPTServiceConstructor {
   new (
     env: TestEnvService,
     prompts: PromptDirector,
+    behaviorConfig: typeof DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
     logger: LoggerFactory
   ): ChatGPTServiceType;
 }
@@ -64,6 +66,7 @@ describe('ChatGPTService', () => {
     service = new ChatGPTService(
       env,
       prompts as unknown as PromptDirector,
+      DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
       loggerFactory
     );
   });
@@ -281,6 +284,7 @@ describe('ChatGPTService', () => {
     const service1 = new ChatGPTService(
       env1,
       prompts as unknown as PromptDirector,
+      DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
       loggerFactory
     );
     await service1.ask([]);
@@ -292,6 +296,7 @@ describe('ChatGPTService', () => {
     const service2 = new ChatGPTService(
       env2,
       prompts as unknown as PromptDirector,
+      DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
       loggerFactory
     );
     await service2.ask([]);
