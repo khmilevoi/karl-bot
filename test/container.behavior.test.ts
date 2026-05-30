@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { BEHAVIOR_DECISION_VALIDATOR_ID } from '../src/application/behavior/BehaviorDecisionValidator';
+import { BEHAVIOR_EXECUTOR_ID } from '../src/application/behavior/BehaviorExecutor';
 import { BEHAVIOR_PIPELINE_ID } from '../src/application/behavior/BehaviorPipeline';
+import { BEHAVIOR_RATE_LIMITER_ID } from '../src/application/behavior/BehaviorRateLimiter';
+import { BEHAVIOR_SUMMARIZATION_QUEUE_ID } from '../src/application/behavior/BehaviorSummarizationQueue';
 import { PATCH_POLICY_ID } from '../src/application/behavior/PatchPolicy';
+import { STATE_PATCH_APPLICATOR_ID } from '../src/application/behavior/StatePatchApplicator';
 import { container } from '../src/container';
 
 describe('behavior DI', () => {
@@ -53,5 +57,12 @@ describe('behavior DI', () => {
         },
       })
     ).toEqual({ outcome: 'accept', reason: 'patch accepted' });
+  });
+
+  it('resolves phase 3 behavior services', () => {
+    expect(container.get(BEHAVIOR_RATE_LIMITER_ID)).toBeTruthy();
+    expect(container.get(BEHAVIOR_SUMMARIZATION_QUEUE_ID)).toBeTruthy();
+    expect(container.get(BEHAVIOR_EXECUTOR_ID)).toBeTruthy();
+    expect(container.get(STATE_PATCH_APPLICATOR_ID)).toBeTruthy();
   });
 });

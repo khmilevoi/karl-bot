@@ -19,10 +19,16 @@ import {
 import {
   BEHAVIOR_DECISION_VALIDATOR_CONFIG_ID,
   BEHAVIOR_PIPELINE_CONFIG_ID,
+  BEHAVIOR_RATE_LIMITER_CONFIG_ID,
+  BEHAVIOR_SUMMARIZATION_QUEUE_CONFIG_ID,
   DEFAULT_BEHAVIOR_DECISION_VALIDATOR_CONFIG,
   DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
+  DEFAULT_BEHAVIOR_RATE_LIMITER_CONFIG,
+  DEFAULT_BEHAVIOR_SUMMARIZATION_QUEUE_CONFIG,
   DEFAULT_PATCH_POLICY_CONFIG,
   PATCH_POLICY_CONFIG_ID,
+  type BehaviorRateLimiterConfig,
+  type BehaviorSummarizationQueueConfig,
   type BehaviorPipelineConfig,
 } from '../application/behavior/BehaviorConfig';
 import {
@@ -30,6 +36,10 @@ import {
   type BehaviorDecisionValidator,
   type BehaviorDecisionValidatorConfig,
 } from '../application/behavior/BehaviorDecisionValidator';
+import {
+  BEHAVIOR_EXECUTOR_ID,
+  type BehaviorExecutor,
+} from '../application/behavior/BehaviorExecutor';
 import {
   BEHAVIOR_CONTEXT_ASSEMBLER_ID,
   type BehaviorContextAssembler,
@@ -46,13 +56,32 @@ import { DefaultAiErrorLogger } from '../application/behavior/DefaultAiErrorLogg
 import { DefaultBehaviorContextAssembler } from '../application/behavior/DefaultBehaviorContextAssembler';
 import { DefaultBehaviorDecisionValidator } from '../application/behavior/DefaultBehaviorDecisionValidator';
 import { DefaultBehaviorEventLogger } from '../application/behavior/DefaultBehaviorEventLogger';
+import { DefaultBehaviorExecutor } from '../application/behavior/DefaultBehaviorExecutor';
 import { DefaultBehaviorPipeline } from '../application/behavior/DefaultBehaviorPipeline';
+import { DefaultBehaviorRateLimiter } from '../application/behavior/DefaultBehaviorRateLimiter';
+import { DefaultBehaviorSummarizationQueue } from '../application/behavior/DefaultBehaviorSummarizationQueue';
 import { DefaultPatchPolicy } from '../application/behavior/DefaultPatchPolicy';
+import { DefaultStatePatchApplicator } from '../application/behavior/DefaultStatePatchApplicator';
+import {
+  BEHAVIOR_RATE_LIMITER_ID,
+  type BehaviorRateLimiter,
+} from '../application/behavior/BehaviorRateLimiter';
+import {
+  BEHAVIOR_SUMMARIZATION_QUEUE_ID,
+  type BehaviorSummarizationQueue,
+} from '../application/behavior/BehaviorSummarizationQueue';
 import {
   PATCH_POLICY_ID,
   type PatchPolicy,
   type PatchPolicyConfig,
 } from '../application/behavior/PatchPolicy';
+import {
+  DEFAULT_STATE_PATCH_APPLICATOR_CONFIG,
+  STATE_PATCH_APPLICATOR_CONFIG_ID,
+  STATE_PATCH_APPLICATOR_ID,
+  type StatePatchApplicator,
+  type StatePatchApplicatorConfig,
+} from '../application/behavior/StatePatchApplicator';
 import {
   CHAT_APPROVAL_SERVICE_ID,
   type ChatApprovalService,
@@ -211,6 +240,20 @@ export const register = (container: Container): void => {
     .toConstantValue(DEFAULT_PATCH_POLICY_CONFIG);
 
   container
+    .bind<BehaviorRateLimiterConfig>(BEHAVIOR_RATE_LIMITER_CONFIG_ID)
+    .toConstantValue(DEFAULT_BEHAVIOR_RATE_LIMITER_CONFIG);
+
+  container
+    .bind<BehaviorSummarizationQueueConfig>(
+      BEHAVIOR_SUMMARIZATION_QUEUE_CONFIG_ID
+    )
+    .toConstantValue(DEFAULT_BEHAVIOR_SUMMARIZATION_QUEUE_CONFIG);
+
+  container
+    .bind<StatePatchApplicatorConfig>(STATE_PATCH_APPLICATOR_CONFIG_ID)
+    .toConstantValue(DEFAULT_STATE_PATCH_APPLICATOR_CONFIG);
+
+  container
     .bind<AIService>(AI_SERVICE_ID)
     .to(ChatGPTService)
     .inSingletonScope();
@@ -233,6 +276,26 @@ export const register = (container: Container): void => {
   container
     .bind<PatchPolicy>(PATCH_POLICY_ID)
     .to(DefaultPatchPolicy)
+    .inSingletonScope();
+
+  container
+    .bind<BehaviorRateLimiter>(BEHAVIOR_RATE_LIMITER_ID)
+    .to(DefaultBehaviorRateLimiter)
+    .inSingletonScope();
+
+  container
+    .bind<BehaviorSummarizationQueue>(BEHAVIOR_SUMMARIZATION_QUEUE_ID)
+    .to(DefaultBehaviorSummarizationQueue)
+    .inSingletonScope();
+
+  container
+    .bind<BehaviorExecutor>(BEHAVIOR_EXECUTOR_ID)
+    .to(DefaultBehaviorExecutor)
+    .inSingletonScope();
+
+  container
+    .bind<StatePatchApplicator>(STATE_PATCH_APPLICATOR_ID)
+    .to(DefaultStatePatchApplicator)
     .inSingletonScope();
 
   container
