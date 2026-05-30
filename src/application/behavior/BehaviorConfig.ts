@@ -71,3 +71,25 @@ export const DEFAULT_PATCH_POLICY_CONFIG: PatchPolicyConfig = {
 export const PATCH_POLICY_CONFIG_ID = Symbol.for(
   'PatchPolicyConfig'
 ) as ServiceIdentifier<PatchPolicyConfig>;
+
+export interface BehaviorRateLimiterConfig {
+  initiativeWindowMs: number;
+  maxInitiativesPerWindow: number;
+  reactionWindowMs: number;
+  maxReactionsPerWindow: number;
+  truthAddWindowMs: number;
+  maxTruthAddsPerWindow: number;
+}
+
+export const DEFAULT_BEHAVIOR_RATE_LIMITER_CONFIG: BehaviorRateLimiterConfig = {
+  initiativeWindowMs: 60_000,
+  maxInitiativesPerWindow: 3,
+  reactionWindowMs: 60_000,
+  maxReactionsPerWindow: 8,
+  truthAddWindowMs: 10 * 60_000,
+  maxTruthAddsPerWindow: 3,
+};
+
+export const BEHAVIOR_RATE_LIMITER_CONFIG_ID = Symbol.for(
+  'BehaviorRateLimiterConfig'
+) as ServiceIdentifier<BehaviorRateLimiterConfig>;
