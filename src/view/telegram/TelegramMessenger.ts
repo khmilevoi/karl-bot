@@ -1,5 +1,11 @@
 import { conversations } from '@grammyjs/conversations';
-import { Bot, type Context, GrammyError, HttpError, session } from 'grammy';
+import {
+  Bot,
+  type Context,
+  GrammyError,
+  HttpError,
+  session,
+} from 'grammy';
 import { inject, injectable } from 'inversify';
 
 import type { ChatMessenger } from '@/application/interfaces/chat/ChatMessenger';
@@ -71,5 +77,15 @@ export class TelegramMessenger implements ChatMessenger {
     extra?: object
   ): Promise<void> {
     await this._bot.api.sendMessage(chatId, text, extra);
+  }
+
+  async reactToMessage(
+    chatId: number,
+    messageId: number,
+    emoji: string
+  ): Promise<void> {
+    await this._bot.api.setMessageReaction(chatId, messageId, [
+      { type: 'emoji', emoji: emoji as never },
+    ]);
   }
 }
