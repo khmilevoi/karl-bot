@@ -1,6 +1,6 @@
 import { inject, injectable } from 'inversify';
 
-import type { BotTruth } from '@/domain/behavior/schemas/state';
+import { type BotTruth, botTruthSchema } from '@/domain/behavior/schemas/state';
 import {
   DB_PROVIDER_ID,
   type DbProvider,
@@ -23,17 +23,17 @@ interface TruthRow {
 }
 
 function toTruth(row: TruthRow): BotTruth {
-  return {
+  return botTruthSchema.parse({
     id: row.id,
     chatId: row.chat_id,
     text: row.text,
-    sourceMessageIds: JSON.parse(row.source_message_ids_json) as number[],
+    sourceMessageIds: JSON.parse(row.source_message_ids_json),
     confidence: row.confidence,
-    relatedTruthIds: JSON.parse(row.related_truth_ids_json) as number[],
-    contradictsTruthIds: JSON.parse(row.contradicts_truth_ids_json) as number[],
-    status: row.status as BotTruth['status'],
+    relatedTruthIds: JSON.parse(row.related_truth_ids_json),
+    contradictsTruthIds: JSON.parse(row.contradicts_truth_ids_json),
+    status: row.status,
     createdAt: row.created_at,
-  };
+  });
 }
 
 @injectable()

@@ -1,9 +1,8 @@
 import { inject, injectable } from 'inversify';
 
-import type {
-  BotPoliticalState,
-  PoliticalInfluence,
-  PoliticalPosition,
+import {
+  type BotPoliticalState,
+  botPoliticalStateSchema,
 } from '@/domain/behavior/schemas/state';
 import {
   DB_PROVIDER_ID,
@@ -35,16 +34,14 @@ export class SQLitePoliticalStateRepository implements PoliticalStateRepository 
     if (!row) {
       return undefined;
     }
-    return {
+    return botPoliticalStateSchema.parse({
       chatId: row.chat_id,
       ideologySummary: row.ideology_summary,
-      positions: JSON.parse(row.positions_json) as PoliticalPosition[],
-      uncertaintyAreas: JSON.parse(row.uncertainty_areas_json) as string[],
-      influenceHistory: JSON.parse(
-        row.influence_history_json
-      ) as PoliticalInfluence[],
+      positions: JSON.parse(row.positions_json),
+      uncertaintyAreas: JSON.parse(row.uncertainty_areas_json),
+      influenceHistory: JSON.parse(row.influence_history_json),
       lastUpdatedAt: row.last_updated_at,
-    };
+    });
   }
 
   async upsert(state: BotPoliticalState): Promise<void> {

@@ -108,6 +108,7 @@ Environment variables in `.env`:
 - Remove unused parameters when possible; otherwise prefix with underscore (`_param`)
 - Use `void` for fire-and-forget Promises to avoid blocking execution
 - Type object properties with `keyof` instead of casting to `any`
+- You should not define the "undefined" type yourself; you should use "null" instead. The "undefined" type should only be used implicitly via "?" or only as a value predefined by the system itself, not by your code.
 
 ## Development Workflow
 

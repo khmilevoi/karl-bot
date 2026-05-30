@@ -1,6 +1,9 @@
 import { inject, injectable } from 'inversify';
 
-import type { BotPersonalityState } from '@/domain/behavior/schemas/state';
+import {
+  type BotPersonalityState,
+  botPersonalityStateSchema,
+} from '@/domain/behavior/schemas/state';
 import {
   DB_PROVIDER_ID,
   type DbProvider,
@@ -32,17 +35,15 @@ export class SQLitePersonalityStateRepository implements PersonalityStateReposit
     if (!row) {
       return undefined;
     }
-    return {
+    return botPersonalityStateSchema.parse({
       chatId: row.chat_id,
-      identityNotes: JSON.parse(row.identity_notes_json) as string[],
-      values: JSON.parse(row.values_json) as string[],
-      speechStyle: JSON.parse(
-        row.speech_style_json
-      ) as BotPersonalityState['speechStyle'],
-      socialHabits: JSON.parse(row.social_habits_json) as string[],
-      recurringThemes: JSON.parse(row.recurring_themes_json) as string[],
+      identityNotes: JSON.parse(row.identity_notes_json),
+      values: JSON.parse(row.values_json),
+      speechStyle: JSON.parse(row.speech_style_json),
+      socialHabits: JSON.parse(row.social_habits_json),
+      recurringThemes: JSON.parse(row.recurring_themes_json),
       lastUpdatedAt: row.last_updated_at,
-    };
+    });
   }
 
   async upsert(state: BotPersonalityState): Promise<void> {

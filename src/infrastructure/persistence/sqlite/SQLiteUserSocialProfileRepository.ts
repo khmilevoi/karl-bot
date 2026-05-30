@@ -1,9 +1,8 @@
 import { inject, injectable } from 'inversify';
 
-import type {
-  PatternSignal,
-  SocialSignal,
-  UserSocialProfile,
+import {
+  type UserSocialProfile,
+  userSocialProfileSchema,
 } from '@/domain/behavior/schemas/state';
 import {
   DB_PROVIDER_ID,
@@ -29,23 +28,22 @@ interface ProfileRow {
 }
 
 function toProfile(row: ProfileRow): UserSocialProfile {
-  return {
+  return userSocialProfileSchema.parse({
     userId: row.user_id,
     chatId: row.chat_id,
     username: row.username,
-    affinityScore: row.affinity_score as UserSocialProfile['affinityScore'],
-    labels: JSON.parse(row.labels_json) as SocialSignal[],
-    patterns: JSON.parse(row.patterns_json) as PatternSignal[],
-    grudges: JSON.parse(row.grudges_json) as SocialSignal[],
-    trustLevel: row.trust_level as UserSocialProfile['trustLevel'],
-    preferredDistance:
-      row.preferred_distance as UserSocialProfile['preferredDistance'],
+    affinityScore: row.affinity_score,
+    labels: JSON.parse(row.labels_json),
+    patterns: JSON.parse(row.patterns_json),
+    grudges: JSON.parse(row.grudges_json),
+    trustLevel: row.trust_level,
+    preferredDistance: row.preferred_distance,
     communicationStyle: row.communication_style,
     conflictStyle: row.conflict_style,
     preferredTone: row.preferred_tone,
-    interests: JSON.parse(row.interests_json) as string[],
+    interests: JSON.parse(row.interests_json),
     updatedAt: row.updated_at,
-  };
+  });
 }
 
 @injectable()

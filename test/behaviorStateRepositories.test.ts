@@ -34,6 +34,7 @@ let personalityRepo: SQLitePersonalityStateRepository;
 let politicalRepo: SQLitePoliticalStateRepository;
 let profileRepo: SQLiteUserSocialProfileRepository;
 let truthRepo: SQLiteTruthRepository;
+let provider: SQLiteDbProviderImpl;
 
 beforeEach(async () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'behavior-state-'));
@@ -56,7 +57,7 @@ beforeEach(async () => {
   await db.run('INSERT INTO users (id, username) VALUES (10, ?)', 'alice');
   await db.close();
 
-  const provider = new SQLiteDbProviderImpl(env, createLoggerFactory());
+  provider = new SQLiteDbProviderImpl(env, createLoggerFactory());
   personalityRepo = new SQLitePersonalityStateRepository(provider);
   politicalRepo = new SQLitePoliticalStateRepository(provider);
   profileRepo = new SQLiteUserSocialProfileRepository(provider);
@@ -181,5 +182,89 @@ describe('behavior state repositories', () => {
       await truthRepo.update(t2);
     }
     expect((await truthRepo.findById(id2))?.status).toBe('stable');
+  });
+});
+
+describe('behavior state repositories reject corrupt rows on read', () => {
+  const now = '2026-05-29T00:00:00.000Z';
+
+  it('rejects a profile whose stored affinity score is out of range', async () => {
+    await profileRepo.upsert({
+      userId: 10,
+      chatId: 1,
+      username: 'alice',
+      affinityScore: 0,
+      labels: [],
+      patterns: [],
+      grudges: [],
+      trustLevel: 'low',
+      preferredDistance: 'cold',
+      communicationStyle: 'terse',
+      conflictStyle: 'aggressive',
+      preferredTone: 'blunt',
+      interests: [],
+      updatedAt: now,
+    });
+    const db = await provider.get();
+    await db.run(
+      'UPDATE user_social_profiles SET affinity_score = 99 WHERE chat_id = 1 AND user_id = 10'
+    );
+    await expect(profileRepo.findByChatAndUser(1, 10)).rejects.toThrow();
+  });
+
+  it('rejects a truth whose stored status is not a known enum value', async () => {
+    const id = await truthRepo.add({
+      chatId: 1,
+      text: 'pizza is best',
+      sourceMessageIds: [1],
+      confidence: 0.7,
+      relatedTruthIds: [],
+      contradictsTruthIds: [],
+      status: 'fresh',
+      createdAt: now,
+    });
+    const db = await provider.get();
+    await db.run('UPDATE bot_truths SET status = ? WHERE id = ?', 'bogus', id);
+    await expect(truthRepo.findById(id)).rejects.toThrow();
+  });
+
+  it('rejects a personality state with an invalid nested speech style', async () => {
+    await personalityRepo.upsert({
+      chatId: 1,
+      identityNotes: [],
+      values: [],
+      speechStyle: {
+        tone: 'dry',
+        humor: 'sarcastic',
+        verbosity: 'short',
+        formality: 'low',
+      },
+      socialHabits: [],
+      recurringThemes: [],
+      lastUpdatedAt: now,
+    });
+    const db = await provider.get();
+    await db.run(
+      'UPDATE bot_personality_states SET speech_style_json = ? WHERE chat_id = 1',
+      '{"tone":"dry","humor":"sarcastic","verbosity":"loud","formality":"low"}'
+    );
+    await expect(personalityRepo.findByChatId(1)).rejects.toThrow();
+  });
+
+  it('rejects a political state with a malformed stored position', async () => {
+    await politicalRepo.upsert({
+      chatId: 1,
+      ideologySummary: '',
+      positions: [],
+      uncertaintyAreas: [],
+      influenceHistory: [],
+      lastUpdatedAt: now,
+    });
+    const db = await provider.get();
+    await db.run(
+      'UPDATE bot_political_states SET positions_json = ? WHERE chat_id = 1',
+      '[{}]'
+    );
+    await expect(politicalRepo.findByChatId(1)).rejects.toThrow();
   });
 });
