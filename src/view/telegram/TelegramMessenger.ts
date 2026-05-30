@@ -1,11 +1,5 @@
 import { conversations } from '@grammyjs/conversations';
-import {
-  Bot,
-  type Context,
-  GrammyError,
-  HttpError,
-  session,
-} from 'grammy';
+import { Bot, type Context, GrammyError, HttpError, session } from 'grammy';
 import { inject, injectable } from 'inversify';
 
 import type { ChatMessenger } from '@/application/interfaces/chat/ChatMessenger';

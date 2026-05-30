@@ -20,7 +20,10 @@ import {
   BEHAVIOR_SUMMARIZATION_QUEUE_ID,
   type BehaviorSummarizationQueue,
 } from './BehaviorSummarizationQueue';
-import type { BehaviorActionResult, BehaviorDecisionContext } from './BehaviorTypes';
+import type {
+  BehaviorActionResult,
+  BehaviorDecisionContext,
+} from './BehaviorTypes';
 
 interface ResolvedMessageTarget {
   storedMessageId: number;
@@ -253,7 +256,10 @@ export class DefaultBehaviorExecutor implements BehaviorExecutor {
     context: BehaviorDecisionContext,
     selector: MessageSelector | SingleMessageSelector
   ): ResolvedMessageTarget[] {
-    const selectedIds = this.selectIds(this.scopeIds(context, selector.scope), selector);
+    const selectedIds = this.selectIds(
+      this.scopeIds(context, selector.scope),
+      selector
+    );
     const messagesById = new Map(
       context.messages.map((message) => [message.id, message])
     );

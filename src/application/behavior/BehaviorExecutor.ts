@@ -2,7 +2,10 @@ import type { ServiceIdentifier } from 'inversify';
 
 import type { BehaviorAction } from '@/domain/behavior/schemas/actions';
 
-import type { BehaviorActionResult, BehaviorDecisionContext } from './BehaviorTypes';
+import type {
+  BehaviorActionResult,
+  BehaviorDecisionContext,
+} from './BehaviorTypes';
 
 export interface BehaviorExecutor {
   execute(params: {

@@ -148,7 +148,10 @@ export class DefaultStatePatchApplicator implements StatePatchApplicator {
       );
       const profile =
         existing ?? this.defaultProfile(params.chatId, userId, params.nowIso);
-      const latestUsername = this.latestUsername(params.contextMessages, userId);
+      const latestUsername = this.latestUsername(
+        params.contextMessages,
+        userId
+      );
       if (latestUsername !== null && profile.username !== latestUsername) {
         profile.username = latestUsername;
       }
@@ -156,9 +159,7 @@ export class DefaultStatePatchApplicator implements StatePatchApplicator {
       let changed = false;
       const affinityDelta = acceptedPatches.reduce((sum, acceptedPatch) => {
         const { patch } = acceptedPatch;
-        return patch.type === 'user.adjust_affinity'
-          ? sum + patch.delta
-          : sum;
+        return patch.type === 'user.adjust_affinity' ? sum + patch.delta : sum;
       }, 0);
 
       if (affinityDelta !== 0) {
@@ -221,7 +222,9 @@ export class DefaultStatePatchApplicator implements StatePatchApplicator {
   ): boolean {
     switch (patch.type) {
       case 'user.add_label':
-        profile.labels.push(this.socialSignal(patch.label, patch.evidence.messageIds));
+        profile.labels.push(
+          this.socialSignal(patch.label, patch.evidence.messageIds)
+        );
         return true;
       case 'user.add_pattern':
         profile.patterns.push({
@@ -232,7 +235,9 @@ export class DefaultStatePatchApplicator implements StatePatchApplicator {
         });
         return true;
       case 'user.add_grudge':
-        profile.grudges.push(this.socialSignal(patch.text, patch.evidence.messageIds));
+        profile.grudges.push(
+          this.socialSignal(patch.text, patch.evidence.messageIds)
+        );
         return true;
       case 'user.contest_profile_signal':
         return this.contestSignal({
@@ -432,7 +437,7 @@ export class DefaultStatePatchApplicator implements StatePatchApplicator {
       .filter((message) => message.userId === userId && message.username)
       .sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
     return matching.length > 0
-      ? matching[matching.length - 1].username ?? null
+      ? (matching[matching.length - 1].username ?? null)
       : null;
   }
 
@@ -469,7 +474,10 @@ export class DefaultStatePatchApplicator implements StatePatchApplicator {
     }
   }
 
-  private socialSignal(text: string, evidenceMessageIds: number[]): SocialSignal {
+  private socialSignal(
+    text: string,
+    evidenceMessageIds: number[]
+  ): SocialSignal {
     return {
       text,
       evidenceMessageIds,

@@ -7,6 +7,7 @@ Allowed visible/runtime actions: reply, react, ask_question, summarize_thread. A
 Allowed reaction emoji are exactly: 👍 👎 ❤️ 😂 😮 😢 😡 👏 🤔 🤝 💀 🤡 😭 🔥 👀 🙏 ✨ 🥹 🫶 🫠. Do not use other reaction emoji.
 
 Message selector scopes:
+
 - trigger: only messages marked [TRIGGER].
 - context: only messages marked [GATE_CONTEXT].
 - batch: only messages marked [BATCH].

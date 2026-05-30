@@ -188,7 +188,14 @@ describe('DefaultStatePatchApplicator', () => {
       },
     ];
     const contextMessages: ChatMessage[] = [
-      { id: 1, chatId: 1, userId: 7, username: 'old', role: 'user', content: 'a' },
+      {
+        id: 1,
+        chatId: 1,
+        userId: 7,
+        username: 'old',
+        role: 'user',
+        content: 'a',
+      },
       {
         id: 7,
         chatId: 1,

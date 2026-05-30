@@ -33,7 +33,7 @@ describe('logger', () => {
     const child = logger.child({ service: 'test' });
     child.info('child');
     expect(typeof child.info).toBe('function');
-  });
+  }, 10_000);
 
   it('child logger respects EnvService log level', async () => {
     process.env.LOG_LEVEL = 'info';

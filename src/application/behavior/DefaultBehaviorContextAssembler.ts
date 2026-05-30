@@ -98,7 +98,11 @@ export class DefaultBehaviorContextAssembler implements BehaviorContextAssembler
     } = input;
 
     const selectedIds = [
-      ...new Set([...triggerMessageIds, ...contextMessageIds, ...batchMessageIds]),
+      ...new Set([
+        ...triggerMessageIds,
+        ...contextMessageIds,
+        ...batchMessageIds,
+      ]),
     ];
 
     const [

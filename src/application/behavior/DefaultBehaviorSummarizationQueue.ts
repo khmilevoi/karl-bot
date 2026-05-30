@@ -11,9 +11,7 @@ import type {
 } from './BehaviorSummarizationQueue';
 
 @injectable()
-export class DefaultBehaviorSummarizationQueue
-  implements BehaviorSummarizationQueue
-{
+export class DefaultBehaviorSummarizationQueue implements BehaviorSummarizationQueue {
   private readonly pendingByChat = new Map<
     number,
     BehaviorSummarizationRequest
