@@ -93,3 +93,16 @@ export const DEFAULT_BEHAVIOR_RATE_LIMITER_CONFIG: BehaviorRateLimiterConfig = {
 export const BEHAVIOR_RATE_LIMITER_CONFIG_ID = Symbol.for(
   'BehaviorRateLimiterConfig'
 ) as ServiceIdentifier<BehaviorRateLimiterConfig>;
+
+export interface BehaviorSummarizationQueueConfig {
+  enabled: boolean;
+}
+
+export const DEFAULT_BEHAVIOR_SUMMARIZATION_QUEUE_CONFIG: BehaviorSummarizationQueueConfig =
+  {
+    enabled: true,
+  };
+
+export const BEHAVIOR_SUMMARIZATION_QUEUE_CONFIG_ID = Symbol.for(
+  'BehaviorSummarizationQueueConfig'
+) as ServiceIdentifier<BehaviorSummarizationQueueConfig>;
