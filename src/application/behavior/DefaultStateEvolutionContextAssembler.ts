@@ -12,6 +12,12 @@ import type {
   BotPersonalityState,
   BotPoliticalState,
 } from '@/domain/behavior/schemas/state';
+import type { StateImpactRisk } from '@/domain/behavior/schemas/primitives';
+import type { BehaviorEventEntity } from '@/domain/entities/BehaviorEventEntity';
+import {
+  PERSONALITY_SIGNAL_REPOSITORY_ID,
+  type PersonalitySignalRepository,
+} from '@/domain/repositories/PersonalitySignalRepository';
 import {
   PERSONALITY_STATE_REPOSITORY_ID,
   type PersonalityStateRepository,
@@ -34,17 +40,35 @@ import {
 } from '@/domain/repositories/UserSocialProfileRepository';
 
 import {
-  BEHAVIOR_PIPELINE_CONFIG_ID,
-  type BehaviorPipelineConfig,
+  STATE_EVOLUTION_CONFIG_ID,
+  type StateEvolutionConfig,
 } from './BehaviorConfig';
 import type {
-  BehaviorContextAssembler,
-  BehaviorContextAssemblerInput,
-} from './BehaviorContextAssembler';
-import type {
-  BehaviorDecisionContext,
+  StateEvolutionContext,
   StoredBehaviorMessage,
 } from './BehaviorTypes';
+import type { StateEvolutionContextAssembler } from './StateEvolutionContextAssembler';
+
+const RISK_ORDER: Record<string, number> = {
+  none: 0,
+  low: 1,
+  medium: 2,
+  high: 3,
+};
+
+function maxRisk(events: readonly BehaviorEventEntity[]): StateImpactRisk {
+  let max = 0;
+  let result: StateImpactRisk = 'none';
+  for (const e of events) {
+    const risk = e.gateStateImpactRisk ?? 'none';
+    const order = RISK_ORDER[risk] ?? 0;
+    if (order > max) {
+      max = order;
+      result = risk as StateImpactRisk;
+    }
+  }
+  return result;
+}
 
 function defaultPersonality(chatId: number, now: string): BotPersonalityState {
   return {
@@ -81,10 +105,10 @@ function defaultPolitical(chatId: number, now: string): BotPoliticalState {
 }
 
 @injectable()
-export class DefaultBehaviorContextAssembler implements BehaviorContextAssembler {
+export class DefaultStateEvolutionContextAssembler implements StateEvolutionContextAssembler {
   constructor(
-    @inject(BEHAVIOR_PIPELINE_CONFIG_ID)
-    private readonly config: BehaviorPipelineConfig,
+    @inject(STATE_EVOLUTION_CONFIG_ID)
+    private readonly config: StateEvolutionConfig,
     @inject(MESSAGE_SERVICE_ID) private readonly messages: MessageService,
     @inject(SUMMARY_SERVICE_ID) private readonly summaries: SummaryService,
     @inject(PERSONALITY_STATE_REPOSITORY_ID)
@@ -95,27 +119,19 @@ export class DefaultBehaviorContextAssembler implements BehaviorContextAssembler
     private readonly profileRepo: UserSocialProfileRepository,
     @inject(USER_POLITICAL_PROFILE_REPOSITORY_ID)
     private readonly userPoliticalRepo: UserPoliticalProfileRepository,
-    @inject(TRUTH_REPOSITORY_ID) private readonly truthRepo: TruthRepository
+    @inject(TRUTH_REPOSITORY_ID) private readonly truthRepo: TruthRepository,
+    @inject(PERSONALITY_SIGNAL_REPOSITORY_ID)
+    private readonly personalitySignalRepo: PersonalitySignalRepository
   ) {}
 
-  async assemble(
-    input: BehaviorContextAssemblerInput
-  ): Promise<BehaviorDecisionContext> {
-    const {
-      batchMessageIds = [],
-      chatId,
-      contextMessageIds,
-      gate,
-      triggerMessageIds,
-    } = input;
+  async assemble(params: {
+    chatId: number;
+    events: readonly BehaviorEventEntity[];
+  }): Promise<StateEvolutionContext> {
+    const { chatId, events } = params;
 
-    const selectedIds = [
-      ...new Set([
-        ...triggerMessageIds,
-        ...contextMessageIds,
-        ...batchMessageIds,
-      ]),
-    ];
+    const selectedIds = this.extractSelectedIds(events);
+    const now = new Date().toISOString();
 
     const [
       recent,
@@ -126,8 +142,9 @@ export class DefaultBehaviorContextAssembler implements BehaviorContextAssembler
       profiles,
       userPolitical,
       truths,
+      personalitySignals,
     ] = await Promise.all([
-      this.messages.getLastMessages(chatId, this.config.recentHistoryLimit),
+      this.messages.getLastMessages(chatId, this.config.recentMessageLimit),
       selectedIds.length > 0
         ? this.messages.getMessagesByIds(selectedIds)
         : Promise.resolve([]),
@@ -137,27 +154,26 @@ export class DefaultBehaviorContextAssembler implements BehaviorContextAssembler
       this.profileRepo.findByChat(chatId),
       this.userPoliticalRepo.findByChat(chatId),
       this.truthRepo.findByChatId(chatId),
+      this.personalitySignalRepo.findByChatId(chatId),
     ]);
 
-    const now = new Date().toISOString();
     const mergedById = new Map<number, StoredBehaviorMessage>();
-
     for (const m of [...recent, ...selected]) {
       if (m.id != null && m.chatId != null) {
         mergedById.set(m.id, m as StoredBehaviorMessage);
       }
     }
-
     const mergedMessages = [...mergedById.values()].sort((a, b) => a.id - b.id);
 
     return {
       chatId,
-      gate,
+      maxStateImpactRisk: maxRisk(events),
+      personalitySignals,
       summary,
       messages: mergedMessages,
-      triggerMessageIds,
-      contextMessageIds,
-      batchMessageIds,
+      triggerMessageIds: [],
+      contextMessageIds: [],
+      batchMessageIds: [],
       state: {
         personality: personality ?? defaultPersonality(chatId, now),
         political: political ?? defaultPolitical(chatId, now),
@@ -166,5 +182,27 @@ export class DefaultBehaviorContextAssembler implements BehaviorContextAssembler
         userPolitical,
       },
     };
+  }
+
+  private extractSelectedIds(events: readonly BehaviorEventEntity[]): number[] {
+    const ids = new Set<number>();
+    for (const e of events) {
+      for (const id of this.parseIds(e.triggerMessageIdsJson)) {
+        ids.add(id);
+      }
+      for (const id of this.parseIds(e.contextMessageIdsJson)) {
+        ids.add(id);
+      }
+    }
+    return [...ids].sort((a, b) => a - b);
+  }
+
+  private parseIds(json: string): number[] {
+    try {
+      const parsed = JSON.parse(json);
+      return Array.isArray(parsed) ? (parsed as number[]) : [];
+    } catch {
+      return [];
+    }
   }
 }

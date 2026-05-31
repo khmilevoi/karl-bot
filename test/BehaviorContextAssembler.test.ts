@@ -8,6 +8,7 @@ import type { BehaviorGateDecision } from '../src/domain/behavior/schemas/gate';
 import type { PersonalityStateRepository } from '../src/domain/repositories/PersonalityStateRepository';
 import type { PoliticalStateRepository } from '../src/domain/repositories/PoliticalStateRepository';
 import type { TruthRepository } from '../src/domain/repositories/TruthRepository';
+import type { UserPoliticalProfileRepository } from '../src/domain/repositories/UserPoliticalProfileRepository';
 import type { UserSocialProfileRepository } from '../src/domain/repositories/UserSocialProfileRepository';
 import type { ChatMessage } from '../src/domain/messages/ChatMessage';
 
@@ -56,6 +57,12 @@ function makeAssembler(overrides: {
     upsert: vi.fn(),
   } as unknown as UserSocialProfileRepository;
 
+  const userPoliticalRepo: UserPoliticalProfileRepository = {
+    findByChat: vi.fn().mockResolvedValue([]),
+    findByChatAndUser: vi.fn(),
+    upsert: vi.fn(),
+  } as unknown as UserPoliticalProfileRepository;
+
   const truthRepo: TruthRepository = {
     findByChatId: vi.fn().mockResolvedValue([]),
     add: vi.fn(),
@@ -70,6 +77,7 @@ function makeAssembler(overrides: {
     personalityRepo,
     politicalRepo,
     profileRepo,
+    userPoliticalRepo,
     truthRepo
   );
 

@@ -106,3 +106,27 @@ export const DEFAULT_BEHAVIOR_SUMMARIZATION_QUEUE_CONFIG: BehaviorSummarizationQ
 export const BEHAVIOR_SUMMARIZATION_QUEUE_CONFIG_ID = Symbol.for(
   'BehaviorSummarizationQueueConfig'
 ) as ServiceIdentifier<BehaviorSummarizationQueueConfig>;
+
+export interface StateEvolutionConfig {
+  enabled: boolean;
+  eventThreshold: number;
+  highRiskEventThreshold: number;
+  cooldownMs: number;
+  maxIntervalMs: number;
+  recentMessageLimit: number;
+  sweepCron: string;
+}
+
+export const DEFAULT_STATE_EVOLUTION_CONFIG: StateEvolutionConfig = {
+  enabled: true,
+  eventThreshold: 8,
+  highRiskEventThreshold: 3,
+  cooldownMs: 5 * 60_000,
+  maxIntervalMs: 60 * 60_000,
+  recentMessageLimit: 60,
+  sweepCron: '*/5 * * * *',
+};
+
+export const STATE_EVOLUTION_CONFIG_ID = Symbol.for(
+  'StateEvolutionConfig'
+) as ServiceIdentifier<StateEvolutionConfig>;
