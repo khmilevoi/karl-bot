@@ -36,6 +36,29 @@ describe('migration 016 (state evolution tables)', () => {
     );
     await db.exec(up);
 
+    const botPersonalitySignalColumns = await db.all<Array<{ name: string }>>(
+      'PRAGMA table_info(bot_personality_signals)'
+    );
+    expect(botPersonalitySignalColumns.map(({ name }) => name)).toEqual(
+      expect.arrayContaining([
+        'id',
+        'chat_id',
+        'area',
+        'polarity',
+        'text',
+        'evidence_message_ids_json',
+        'status',
+        'created_at',
+      ])
+    );
+
+    const botPersonalitySignalsChatIndex = await db.all<
+      Array<{ name: string }>
+    >(
+      "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_bot_personality_signals_chat'"
+    );
+    expect(botPersonalitySignalsChatIndex).toHaveLength(1);
+
     const rows = await db.all<{ name: string }[]>(
       "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
     );
@@ -88,6 +111,11 @@ describe('migration 016 (state evolution tables)', () => {
     );
     await db.exec(up);
     await db.exec(down);
+
+    const signalChatIndexRowsAfterDown = await db.all<Array<{ name: string }>>(
+      "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_bot_personality_signals_chat'"
+    );
+    expect(signalChatIndexRowsAfterDown).toHaveLength(0);
 
     const rows = await db.all<{ name: string }[]>(
       "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
