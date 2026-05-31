@@ -29,3 +29,22 @@ export type Confidence = z.infer<typeof confidenceSchema>;
 export type MessageId = z.infer<typeof messageIdSchema>;
 export type Intensity = z.infer<typeof intensitySchema>;
 export type SignalStatus = z.infer<typeof signalStatusSchema>;
+
+const RISK_ORDER: Record<StateImpactRisk, number> = {
+  none: 0,
+  low: 1,
+  medium: 2,
+  high: 3,
+};
+
+export function maxRisk(
+  risks: ReadonlyArray<StateImpactRisk | null | undefined>
+): StateImpactRisk {
+  let result: StateImpactRisk = 'none';
+  for (const r of risks) {
+    if (r != null && RISK_ORDER[r] > RISK_ORDER[result]) {
+      result = r;
+    }
+  }
+  return result;
+}

@@ -54,6 +54,7 @@ export class SQLiteStateEvolutionCursorRepository implements StateEvolutionCurso
       `SELECT be.chat_id AS chat_id FROM behavior_events be
        LEFT JOIN state_evolution_cursors c ON c.chat_id = be.chat_id
        WHERE be.id > COALESCE(c.last_event_id, 0)
+         AND be.model_slot != 'stateEvolution'
        GROUP BY be.chat_id
        HAVING c.last_run_at IS NULL OR c.last_run_at <= ?`,
       notRunSinceIso

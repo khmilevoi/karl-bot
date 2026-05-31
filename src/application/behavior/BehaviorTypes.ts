@@ -9,6 +9,7 @@ import type {
   BehaviorGateDecision,
   GateReason,
 } from '@/domain/behavior/schemas/gate';
+import type { StateEvolutionDecision } from '@/domain/behavior/schemas/evolution';
 import type {
   EvolutionPatch,
   LiveStatePatch,
@@ -122,6 +123,6 @@ export interface StateEvolutionContext extends BehaviorPromptContext {
 }
 
 export interface StateEvolutionResult {
-  decision: import('@/domain/behavior/schemas/evolution').StateEvolutionDecision; // eslint-disable-line @typescript-eslint/consistent-type-imports
+  decision: StateEvolutionDecision;
   metadata: AiCallMetadata;
 }

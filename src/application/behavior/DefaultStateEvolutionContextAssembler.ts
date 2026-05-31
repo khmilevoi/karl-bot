@@ -12,7 +12,10 @@ import type {
   BotPersonalityState,
   BotPoliticalState,
 } from '@/domain/behavior/schemas/state';
-import type { StateImpactRisk } from '@/domain/behavior/schemas/primitives';
+import {
+  maxRisk,
+  type StateImpactRisk,
+} from '@/domain/behavior/schemas/primitives';
 import type { BehaviorEventEntity } from '@/domain/entities/BehaviorEventEntity';
 import {
   PERSONALITY_SIGNAL_REPOSITORY_ID,
@@ -48,27 +51,6 @@ import type {
   StoredBehaviorMessage,
 } from './BehaviorTypes';
 import type { StateEvolutionContextAssembler } from './StateEvolutionContextAssembler';
-
-const RISK_ORDER: Record<string, number> = {
-  none: 0,
-  low: 1,
-  medium: 2,
-  high: 3,
-};
-
-function maxRisk(events: readonly BehaviorEventEntity[]): StateImpactRisk {
-  let max = 0;
-  let result: StateImpactRisk = 'none';
-  for (const e of events) {
-    const risk = e.gateStateImpactRisk ?? 'none';
-    const order = RISK_ORDER[risk] ?? 0;
-    if (order > max) {
-      max = order;
-      result = risk as StateImpactRisk;
-    }
-  }
-  return result;
-}
 
 function defaultPersonality(chatId: number, now: string): BotPersonalityState {
   return {
@@ -167,7 +149,9 @@ export class DefaultStateEvolutionContextAssembler implements StateEvolutionCont
 
     return {
       chatId,
-      maxStateImpactRisk: maxRisk(events),
+      maxStateImpactRisk: maxRisk(
+        events.map((e) => e.gateStateImpactRisk as StateImpactRisk | null)
+      ),
       personalitySignals,
       summary,
       messages: mergedMessages,
