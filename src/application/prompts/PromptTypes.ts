@@ -2,6 +2,7 @@ import type {
   BotPersonalityState,
   BotPoliticalState,
   BotTruth,
+  UserPoliticalProfile,
   UserSocialProfile,
 } from '@/domain/behavior/schemas/state';
 import type { ChatMessage } from '@/domain/messages/ChatMessage';
@@ -22,6 +23,7 @@ export interface BehaviorPromptState {
   political: BotPoliticalState;
   profiles: UserSocialProfile[];
   truths: BotTruth[];
+  userPolitical: UserPoliticalProfile[];
 }
 
 export interface BehaviorMessageMarkers {

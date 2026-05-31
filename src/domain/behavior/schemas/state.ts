@@ -57,12 +57,54 @@ export const politicalInfluenceSchema = z.object({
   createdAt: z.string(),
 });
 
+export const personalitySignalSchema = z.object({
+  area: z.enum([
+    'identity',
+    'values',
+    'speech_style',
+    'social_habits',
+    'themes',
+  ]),
+  polarity: z.enum(['reinforce', 'contest', 'soften']),
+  text: z.string(),
+  evidenceMessageIds: z.array(messageIdSchema),
+  status: signalStatusSchema,
+  createdAt: z.string(),
+});
+
+export const politicalCompassSchema = z.object({
+  economic: z.number(),
+  social: z.number(),
+  economicConfidence: z.number(),
+  socialConfidence: z.number(),
+});
+
+export const politicalNoteSchema = z.object({
+  text: z.string(),
+  evidenceMessageIds: z.array(messageIdSchema),
+  status: signalStatusSchema,
+});
+
+export const userPoliticalProfileSchema = z.object({
+  userId: z.number().int(),
+  chatId: z.number().int(),
+  notes: z.array(politicalNoteSchema),
+  compass: politicalCompassSchema,
+  updatedAt: z.string(),
+});
+
+export type PersonalitySignal = z.infer<typeof personalitySignalSchema>;
+export type PoliticalCompass = z.infer<typeof politicalCompassSchema>;
+export type PoliticalNote = z.infer<typeof politicalNoteSchema>;
+export type UserPoliticalProfile = z.infer<typeof userPoliticalProfileSchema>;
+
 export const botPoliticalStateSchema = z.object({
   chatId: z.number().int(),
   ideologySummary: z.string(),
   positions: z.array(politicalPositionSchema),
   uncertaintyAreas: z.array(z.string()),
   influenceHistory: z.array(politicalInfluenceSchema),
+  compass: politicalCompassSchema,
   lastUpdatedAt: z.string(),
 });
 

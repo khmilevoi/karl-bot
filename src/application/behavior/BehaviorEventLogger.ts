@@ -1,10 +1,13 @@
 import type { ServiceIdentifier } from 'inversify';
 
+import type { StateImpactRisk } from '@/domain/behavior/schemas/primitives';
+
 import type {
   BehaviorActionResult,
   BehaviorAiDecisionResult,
   BehaviorDecisionContext,
   BehaviorPatchResult,
+  StateEvolutionResult,
 } from './BehaviorTypes';
 
 export interface BehaviorEventLogger {
@@ -13,6 +16,12 @@ export interface BehaviorEventLogger {
     result: BehaviorAiDecisionResult;
     actionResults?: BehaviorActionResult[];
     patchResults?: BehaviorPatchResult[];
+  }): Promise<number>;
+  logEvolution(params: {
+    chatId: number;
+    result: StateEvolutionResult;
+    patchResults: BehaviorPatchResult[];
+    maxStateImpactRisk: StateImpactRisk;
   }): Promise<number>;
 }
 

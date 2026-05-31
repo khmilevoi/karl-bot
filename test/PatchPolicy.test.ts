@@ -102,4 +102,55 @@ describe('DefaultPatchPolicy', () => {
     };
     expect(policy.evaluate(patch).outcome).toBe('accept');
   });
+
+  it('rejects user.add_political_note with no evidence message ids', () => {
+    const patch: AnyPatch = {
+      type: 'user.add_political_note',
+      userId: 10,
+      text: 'supports free trade',
+      evidence: ev(0.7, []),
+    };
+    expect(policy.evaluate(patch).outcome).toBe('reject');
+  });
+
+  it('rejects user.add_political_note with a hard-boundary term in text', () => {
+    const patch: AnyPatch = {
+      type: 'user.add_political_note',
+      userId: 10,
+      text: 'wants to exterminate all opponents',
+      evidence: ev(0.7),
+    };
+    const decision = policy.evaluate(patch);
+    expect(decision.outcome).toBe('reject');
+  });
+
+  it('accepts a well-evidenced user.add_political_note', () => {
+    const patch: AnyPatch = {
+      type: 'user.add_political_note',
+      userId: 10,
+      text: 'mentioned concern about government overreach',
+      evidence: ev(0.8),
+    };
+    expect(policy.evaluate(patch).outcome).toBe('accept');
+  });
+
+  it('rejects user.contest_political_note with a boundary term in target.text', () => {
+    const patch: AnyPatch = {
+      type: 'user.contest_political_note',
+      userId: 10,
+      target: { text: 'exterminate the opposition' },
+      evidence: ev(0.8),
+    };
+    expect(policy.evaluate(patch).outcome).toBe('reject');
+  });
+
+  it('accepts a well-evidenced user.contest_political_note', () => {
+    const patch: AnyPatch = {
+      type: 'user.contest_political_note',
+      userId: 10,
+      target: { text: 'supports free trade' },
+      evidence: ev(0.8),
+    };
+    expect(policy.evaluate(patch).outcome).toBe('accept');
+  });
 });

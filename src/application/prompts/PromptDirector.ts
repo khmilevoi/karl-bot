@@ -13,6 +13,7 @@ import type {
   BehaviorPromptMessage,
   PromptChatUser,
 } from './PromptTypes';
+import type { StateEvolutionContext } from '../behavior/BehaviorTypes';
 
 @injectable()
 export class PromptDirector {
@@ -105,12 +106,30 @@ export class PromptDirector {
       .addPersonalityState(context.state.personality)
       .addPoliticalState(context.state.political)
       .addUserProfiles(context.state.profiles)
+      .addUserPoliticalProfiles(context.state.userPolitical)
       .addTruths(context.state.truths)
       .addBehaviorMessages(context.messages, {
         triggerMessageIds: context.triggerMessageIds,
         contextMessageIds: context.contextMessageIds,
         batchMessageIds: context.batchMessageIds,
       })
+      .build();
+  }
+
+  async createStateEvolutionPrompt(
+    context: StateEvolutionContext
+  ): Promise<PromptMessage[]> {
+    return this.builderFactory()
+      .addNeutralCore()
+      .addStateEvolutionSystem()
+      .addAskSummary(context.summary)
+      .addPersonalityState(context.state.personality)
+      .addPersonalitySignals(context.personalitySignals)
+      .addPoliticalState(context.state.political)
+      .addUserProfiles(context.state.profiles)
+      .addUserPoliticalProfiles(context.state.userPolitical)
+      .addTruths(context.state.truths)
+      .addBehaviorMessages(context.messages)
       .build();
   }
 

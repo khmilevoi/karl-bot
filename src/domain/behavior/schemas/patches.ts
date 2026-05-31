@@ -144,7 +144,30 @@ export const politicalPatchSchema = z.discriminatedUnion('type', [
   politicsAddUncertaintyPatchSchema,
 ]);
 
+export const userAddPoliticalNotePatchSchema = z.object({
+  type: z.literal('user.add_political_note'),
+  userId: z.number().int(),
+  text: z.string(),
+  evidence: patchEvidenceSchema,
+});
+
+export const userContestPoliticalNotePatchSchema = z.object({
+  type: z.literal('user.contest_political_note'),
+  userId: z.number().int(),
+  target: z.object({ text: z.string() }),
+  evidence: patchEvidenceSchema,
+});
+
+export const userPoliticalPatchSchema = z.discriminatedUnion('type', [
+  userAddPoliticalNotePatchSchema,
+  userContestPoliticalNotePatchSchema,
+]);
+
+export type UserPoliticalPatch = z.infer<typeof userPoliticalPatchSchema>;
+
 export const evolutionPatchSchema = z.discriminatedUnion('type', [
+  userAddPoliticalNotePatchSchema,
+  userContestPoliticalNotePatchSchema,
   personalityPatchSchema,
   politicsAddPositionPatchSchema,
   politicsAdjustPositionPatchSchema,

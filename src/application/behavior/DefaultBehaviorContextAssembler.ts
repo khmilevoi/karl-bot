@@ -25,6 +25,10 @@ import {
   type TruthRepository,
 } from '@/domain/repositories/TruthRepository';
 import {
+  USER_POLITICAL_PROFILE_REPOSITORY_ID,
+  type UserPoliticalProfileRepository,
+} from '@/domain/repositories/UserPoliticalProfileRepository';
+import {
   USER_SOCIAL_PROFILE_REPOSITORY_ID,
   type UserSocialProfileRepository,
 } from '@/domain/repositories/UserSocialProfileRepository';
@@ -63,6 +67,12 @@ function defaultPolitical(chatId: number, now: string): BotPoliticalState {
   return {
     chatId,
     ideologySummary: '',
+    compass: {
+      economic: 0,
+      social: 0,
+      economicConfidence: 0,
+      socialConfidence: 0,
+    },
     positions: [],
     uncertaintyAreas: [],
     influenceHistory: [],
@@ -83,6 +93,8 @@ export class DefaultBehaviorContextAssembler implements BehaviorContextAssembler
     private readonly politicalRepo: PoliticalStateRepository,
     @inject(USER_SOCIAL_PROFILE_REPOSITORY_ID)
     private readonly profileRepo: UserSocialProfileRepository,
+    @inject(USER_POLITICAL_PROFILE_REPOSITORY_ID)
+    private readonly userPoliticalRepo: UserPoliticalProfileRepository,
     @inject(TRUTH_REPOSITORY_ID) private readonly truthRepo: TruthRepository
   ) {}
 
@@ -112,6 +124,7 @@ export class DefaultBehaviorContextAssembler implements BehaviorContextAssembler
       personality,
       political,
       profiles,
+      userPolitical,
       truths,
     ] = await Promise.all([
       this.messages.getLastMessages(chatId, this.config.recentHistoryLimit),
@@ -122,6 +135,7 @@ export class DefaultBehaviorContextAssembler implements BehaviorContextAssembler
       this.personalityRepo.findByChatId(chatId),
       this.politicalRepo.findByChatId(chatId),
       this.profileRepo.findByChat(chatId),
+      this.userPoliticalRepo.findByChat(chatId),
       this.truthRepo.findByChatId(chatId),
     ]);
 
@@ -149,6 +163,7 @@ export class DefaultBehaviorContextAssembler implements BehaviorContextAssembler
         political: political ?? defaultPolitical(chatId, now),
         profiles,
         truths,
+        userPolitical,
       },
     };
   }

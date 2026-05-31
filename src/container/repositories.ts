@@ -69,11 +69,26 @@ import {
   USER_SOCIAL_PROFILE_REPOSITORY_ID,
   type UserSocialProfileRepository,
 } from '../domain/repositories/UserSocialProfileRepository';
+import {
+  PERSONALITY_SIGNAL_REPOSITORY_ID,
+  type PersonalitySignalRepository,
+} from '../domain/repositories/PersonalitySignalRepository';
+import {
+  STATE_EVOLUTION_CURSOR_REPOSITORY_ID,
+  type StateEvolutionCursorRepository,
+} from '../domain/repositories/StateEvolutionCursorRepository';
+import {
+  USER_POLITICAL_PROFILE_REPOSITORY_ID,
+  type UserPoliticalProfileRepository,
+} from '../domain/repositories/UserPoliticalProfileRepository';
 import { SQLiteAiErrorEventRepository } from '../infrastructure/persistence/sqlite/SQLiteAiErrorEventRepository';
 import { SQLiteBehaviorEventRepository } from '../infrastructure/persistence/sqlite/SQLiteBehaviorEventRepository';
+import { SQLitePersonalitySignalRepository } from '../infrastructure/persistence/sqlite/SQLitePersonalitySignalRepository';
 import { SQLitePersonalityStateRepository } from '../infrastructure/persistence/sqlite/SQLitePersonalityStateRepository';
 import { SQLitePoliticalStateRepository } from '../infrastructure/persistence/sqlite/SQLitePoliticalStateRepository';
+import { SQLiteStateEvolutionCursorRepository } from '../infrastructure/persistence/sqlite/SQLiteStateEvolutionCursorRepository';
 import { SQLiteTruthRepository } from '../infrastructure/persistence/sqlite/SQLiteTruthRepository';
+import { SQLiteUserPoliticalProfileRepository } from '../infrastructure/persistence/sqlite/SQLiteUserPoliticalProfileRepository';
 import { SQLiteUserSocialProfileRepository } from '../infrastructure/persistence/sqlite/SQLiteUserSocialProfileRepository';
 
 export const register = (container: Container): void => {
@@ -136,5 +151,17 @@ export const register = (container: Container): void => {
   container
     .bind<AiErrorEventRepository>(AI_ERROR_EVENT_REPOSITORY_ID)
     .to(SQLiteAiErrorEventRepository)
+    .inSingletonScope();
+  container
+    .bind<PersonalitySignalRepository>(PERSONALITY_SIGNAL_REPOSITORY_ID)
+    .to(SQLitePersonalitySignalRepository)
+    .inSingletonScope();
+  container
+    .bind<StateEvolutionCursorRepository>(STATE_EVOLUTION_CURSOR_REPOSITORY_ID)
+    .to(SQLiteStateEvolutionCursorRepository)
+    .inSingletonScope();
+  container
+    .bind<UserPoliticalProfileRepository>(USER_POLITICAL_PROFILE_REPOSITORY_ID)
+    .to(SQLiteUserPoliticalProfileRepository)
     .inSingletonScope();
 };

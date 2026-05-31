@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync } from 'fs';
+import { mkdtempSync, readFileSync, readdirSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
 import { open } from 'sqlite';
@@ -53,6 +53,15 @@ beforeEach(async () => {
       'utf8'
     )
   );
+  const compassMigration =
+    readdirSync('migrations').find((file) => /^016_.*\.up\.sql$/.test(file)) ??
+    null;
+  if (compassMigration == null) {
+    throw new Error('Missing migration 016 for political compass');
+  }
+  await db.exec(
+    readFileSync(path.join('migrations', compassMigration), 'utf8')
+  );
   await db.run('INSERT INTO chats (chat_id) VALUES (1)');
   await db.run('INSERT INTO users (id, username) VALUES (10, ?)', 'alice');
   await db.close();
@@ -95,6 +104,12 @@ describe('behavior state repositories', () => {
     await politicalRepo.upsert({
       chatId: 1,
       ideologySummary: 'leans communitarian',
+      compass: {
+        economic: 3,
+        social: -2,
+        economicConfidence: 0.4,
+        socialConfidence: 0.3,
+      },
       positions: [
         {
           id: 1,
@@ -114,6 +129,12 @@ describe('behavior state repositories', () => {
       lastUpdatedAt: now,
     });
     const loaded = await politicalRepo.findByChatId(1);
+    expect(loaded?.compass).toEqual({
+      economic: 3,
+      social: -2,
+      economicConfidence: 0.4,
+      socialConfidence: 0.3,
+    });
     expect(loaded?.positions[0]?.topic).toBe('taxes');
     expect(loaded?.uncertaintyAreas).toEqual(['trade']);
   });
@@ -255,6 +276,12 @@ describe('behavior state repositories reject corrupt rows on read', () => {
     await politicalRepo.upsert({
       chatId: 1,
       ideologySummary: '',
+      compass: {
+        economic: 0,
+        social: 0,
+        economicConfidence: 0,
+        socialConfidence: 0,
+      },
       positions: [],
       uncertaintyAreas: [],
       influenceHistory: [],

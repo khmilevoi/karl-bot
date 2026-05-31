@@ -9,6 +9,7 @@ import type { BehaviorExecutor } from '../src/application/behavior/BehaviorExecu
 import type { BehaviorEventLogger } from '../src/application/behavior/BehaviorEventLogger';
 import type { AiErrorLogger } from '../src/application/behavior/AiErrorLogger';
 import type { StatePatchApplicator } from '../src/application/behavior/StatePatchApplicator';
+import type { StateEvolutionTrigger } from '../src/application/behavior/StateEvolutionTrigger';
 import type {
   StoredBehaviorMessage,
   DirectBehaviorTrigger,
@@ -105,6 +106,7 @@ const mockContext: BehaviorDecisionContext = {
     political: {} as any,
     profiles: [],
     truths: [],
+    userPolitical: [],
   },
 };
 
@@ -116,6 +118,7 @@ function makePipeline(overrides: {
   applicator?: Partial<StatePatchApplicator>;
   eventLogger?: Partial<BehaviorEventLogger>;
   errorLogger?: Partial<AiErrorLogger>;
+  evolutionTrigger?: Partial<StateEvolutionTrigger>;
 }) {
   const ai: BehaviorAiService = {
     evaluateGate: vi.fn().mockResolvedValue(gateTrue),
@@ -157,6 +160,11 @@ function makePipeline(overrides: {
     ...overrides.errorLogger,
   } as unknown as AiErrorLogger;
 
+  const evolutionTrigger: StateEvolutionTrigger = {
+    maybeSchedule: vi.fn().mockResolvedValue(undefined),
+    ...overrides.evolutionTrigger,
+  } as unknown as StateEvolutionTrigger;
+
   const pipeline = new DefaultBehaviorPipeline(
     config,
     ai,
@@ -166,6 +174,7 @@ function makePipeline(overrides: {
     applicator,
     eventLogger,
     errorLogger,
+    evolutionTrigger,
     createLoggerFactory()
   );
 
@@ -178,6 +187,7 @@ function makePipeline(overrides: {
     applicator,
     eventLogger,
     errorLogger,
+    evolutionTrigger,
   };
 }
 
@@ -222,6 +232,9 @@ describe('DefaultBehaviorPipeline', () => {
       } as unknown as StatePatchApplicator,
       eventLogger2,
       errorLogger2,
+      {
+        maybeSchedule: vi.fn().mockResolvedValue(undefined),
+      } as unknown as StateEvolutionTrigger,
       createLoggerFactory()
     );
 
@@ -249,6 +262,9 @@ describe('DefaultBehaviorPipeline', () => {
       { applyPatches: vi.fn() } as unknown as StatePatchApplicator,
       { logDecision: vi.fn() } as unknown as BehaviorEventLogger,
       { log: vi.fn() } as unknown as AiErrorLogger,
+      {
+        maybeSchedule: vi.fn().mockResolvedValue(undefined),
+      } as unknown as StateEvolutionTrigger,
       createLoggerFactory()
     );
 
@@ -422,6 +438,9 @@ describe('DefaultBehaviorPipeline', () => {
       { applyPatches: vi.fn() } as unknown as StatePatchApplicator,
       { logDecision: vi.fn() } as unknown as BehaviorEventLogger,
       errorLogger,
+      {
+        maybeSchedule: vi.fn().mockResolvedValue(undefined),
+      } as unknown as StateEvolutionTrigger,
       createLoggerFactory()
     );
 
@@ -455,6 +474,9 @@ describe('DefaultBehaviorPipeline', () => {
       { applyPatches: vi.fn() } as unknown as StatePatchApplicator,
       { logDecision: vi.fn() } as unknown as BehaviorEventLogger,
       errorLogger,
+      {
+        maybeSchedule: vi.fn().mockResolvedValue(undefined),
+      } as unknown as StateEvolutionTrigger,
       createLoggerFactory()
     );
 
@@ -463,5 +485,26 @@ describe('DefaultBehaviorPipeline', () => {
     expect(errorLogger.log).toHaveBeenCalledWith(
       expect.objectContaining({ source: 'behavior_decision_openai' })
     );
+  });
+
+  it('calls evolutionTrigger.maybeSchedule after a decided result', async () => {
+    const smallConfig = { ...config, batchSizeCap: 1 };
+    const maybeSchedule = vi.fn().mockResolvedValue(undefined);
+    const { pipeline } = makePipeline({
+      evolutionTrigger: { maybeSchedule },
+    });
+
+    const result = await (pipeline as any).decide(
+      1,
+      { ...gateTrue.decision, stateImpactRisk: 'medium' },
+      [makeMsg(1)]
+    );
+
+    // give the fire-and-forget void promise a tick to settle
+    await new Promise((r) => setTimeout(r, 0));
+
+    if (result.kind === 'decided') {
+      expect(maybeSchedule).toHaveBeenCalledWith(1, 'medium');
+    }
   });
 });

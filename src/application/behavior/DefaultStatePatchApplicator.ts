@@ -1,20 +1,36 @@
 import { inject, injectable } from 'inversify';
 
 import type {
+  EvolutionPatch,
   LiveStatePatch,
   TruthPatch,
   UserProfilePatch,
 } from '@/domain/behavior/schemas/patches';
 import type {
+  BotPoliticalState,
   BotTruth,
   PatternSignal,
+  PoliticalPosition,
   SocialSignal,
+  UserPoliticalProfile,
   UserSocialProfile,
 } from '@/domain/behavior/schemas/state';
+import {
+  PERSONALITY_SIGNAL_REPOSITORY_ID,
+  type PersonalitySignalRepository,
+} from '@/domain/repositories/PersonalitySignalRepository';
+import {
+  POLITICAL_STATE_REPOSITORY_ID,
+  type PoliticalStateRepository,
+} from '@/domain/repositories/PoliticalStateRepository';
 import {
   TRUTH_REPOSITORY_ID,
   type TruthRepository,
 } from '@/domain/repositories/TruthRepository';
+import {
+  USER_POLITICAL_PROFILE_REPOSITORY_ID,
+  type UserPoliticalProfileRepository,
+} from '@/domain/repositories/UserPoliticalProfileRepository';
 import {
   USER_SOCIAL_PROFILE_REPOSITORY_ID,
   type UserSocialProfileRepository,
@@ -50,7 +66,13 @@ export class DefaultStatePatchApplicator implements StatePatchApplicator {
     @inject(TRUTH_REPOSITORY_ID) private readonly truthRepo: TruthRepository,
     @inject(PATCH_POLICY_ID) private readonly patchPolicy: PatchPolicy,
     @inject(BEHAVIOR_RATE_LIMITER_ID)
-    private readonly rateLimiter: BehaviorRateLimiter
+    private readonly rateLimiter: BehaviorRateLimiter,
+    @inject(PERSONALITY_SIGNAL_REPOSITORY_ID)
+    private readonly personalitySignalRepo: PersonalitySignalRepository,
+    @inject(POLITICAL_STATE_REPOSITORY_ID)
+    private readonly politicalRepo: PoliticalStateRepository,
+    @inject(USER_POLITICAL_PROFILE_REPOSITORY_ID)
+    private readonly userPoliticalRepo: UserPoliticalProfileRepository
   ) {}
 
   async applyPatches(params: {
@@ -344,6 +366,411 @@ export class DefaultStatePatchApplicator implements StatePatchApplicator {
         return this.appliedTruth(patch.type, chatId, replacementId);
       }
     }
+  }
+
+  async applyEvolutionPatches(params: {
+    chatId: number;
+    patches: readonly EvolutionPatch[];
+    reviewedByStrongModel: boolean;
+    nowIso?: string;
+  }): Promise<BehaviorPatchResult[]> {
+    const { chatId, patches, reviewedByStrongModel } = params;
+    const nowIso = params.nowIso ?? new Date().toISOString();
+
+    // Load political state once lazily (set if any patch modifies it)
+    let political: BotPoliticalState | null = null;
+    let politicalChanged = false;
+
+    // Load user political profiles lazily per userId
+    const userPoliticalMap = new Map<number, UserPoliticalProfile>();
+    const userPoliticalChanged = new Set<number>();
+
+    const results: BehaviorPatchResult[] = [];
+
+    for (const patch of patches) {
+      const decision = this.patchPolicy.evaluate(patch);
+
+      switch (patch.type) {
+        case 'personality.add_signal': {
+          if (decision.outcome !== 'accept') {
+            results.push({
+              patchType: patch.type,
+              outcome: 'rejected',
+              reason: decision.reason,
+            });
+            break;
+          }
+          await this.personalitySignalRepo.add({
+            chatId,
+            area: patch.area,
+            polarity: patch.polarity,
+            text: patch.text,
+            evidenceMessageIds: this.uniqueIds(patch.evidence.messageIds),
+            status: 'active',
+            createdAt: nowIso,
+          });
+          results.push({
+            patchType: patch.type,
+            outcome: 'applied',
+            reason: null,
+            stateRef: { kind: 'bot_personality_signal', chatId },
+          });
+          break;
+        }
+
+        case 'politics.add_uncertainty': {
+          if (decision.outcome !== 'accept') {
+            results.push({
+              patchType: patch.type,
+              outcome: 'rejected',
+              reason: decision.reason,
+            });
+            break;
+          }
+          political ??= await this.loadPolitical(chatId, nowIso);
+          const uArea = `${patch.topic}: ${patch.summary}`;
+          if (!political.uncertaintyAreas.includes(uArea)) {
+            political.uncertaintyAreas.push(uArea);
+            politicalChanged = true;
+          }
+          results.push({
+            patchType: patch.type,
+            outcome: 'applied',
+            reason: null,
+            stateRef: { kind: 'bot_political_state', chatId },
+          });
+          break;
+        }
+
+        case 'politics.add_position': {
+          if (decision.outcome === 'reject') {
+            results.push({
+              patchType: patch.type,
+              outcome: 'rejected',
+              reason: decision.reason,
+            });
+            break;
+          }
+          if (decision.outcome === 'to_uncertainty') {
+            political ??= await this.loadPolitical(chatId, nowIso);
+            const uText = `${patch.topic}: ${patch.stance}`;
+            if (!political.uncertaintyAreas.includes(uText)) {
+              political.uncertaintyAreas.push(uText);
+              politicalChanged = true;
+            }
+            results.push({
+              patchType: patch.type,
+              outcome: 'to_uncertainty',
+              reason: decision.reason,
+              stateRef: { kind: 'bot_political_state', chatId },
+            });
+            break;
+          }
+          // escalate or accept
+          if (decision.outcome === 'escalate' && !reviewedByStrongModel) {
+            results.push({
+              patchType: patch.type,
+              outcome: 'escalated',
+              reason: decision.reason,
+            });
+            break;
+          }
+          political ??= await this.loadPolitical(chatId, nowIso);
+          const posId = this.nextPositionId(political.positions);
+          const newPos: PoliticalPosition = {
+            id: posId,
+            topic: patch.topic,
+            stance: patch.stance,
+            intensity: patch.requestedIntensity,
+            confidence: this.clampConfidence(patch.evidence.confidence),
+            status: 'active',
+            evidenceMessageIds: this.uniqueIds(patch.evidence.messageIds),
+            opposingEvidenceMessageIds: [],
+            origin: 'chat_discussion',
+            updatedAt: nowIso,
+          };
+          political.positions.push(newPos);
+          political.influenceHistory.push({
+            source: 'chat_discussion',
+            summary: `${patch.topic}: ${patch.stance}`,
+            evidenceMessageIds: this.uniqueIds(patch.evidence.messageIds),
+            confidence: this.clampConfidence(patch.evidence.confidence),
+            createdAt: nowIso,
+          });
+          politicalChanged = true;
+          results.push({
+            patchType: patch.type,
+            outcome: 'applied',
+            reason: null,
+            stateRef: { kind: 'bot_political_state', chatId },
+          });
+          break;
+        }
+
+        case 'politics.adjust_position': {
+          if (decision.outcome === 'reject') {
+            results.push({
+              patchType: patch.type,
+              outcome: 'rejected',
+              reason: decision.reason,
+            });
+            break;
+          }
+          political ??= await this.loadPolitical(chatId, nowIso);
+          const target = political.positions.find(
+            (p) => p.id === patch.positionId && p.status !== 'reversed'
+          );
+          if (!target) {
+            results.push({
+              patchType: patch.type,
+              outcome: 'rejected',
+              reason: 'target_not_found',
+            });
+            break;
+          }
+          const { direction } = patch;
+          const newIntensity =
+            direction === 'radicalize'
+              ? this.stepIntensityUp(target.intensity)
+              : direction === 'soften'
+                ? this.stepIntensityDown(target.intensity)
+                : target.intensity;
+          if (newIntensity === 'radical' && !reviewedByStrongModel) {
+            results.push({
+              patchType: patch.type,
+              outcome: 'escalated',
+              reason: 'radical adjustment requires strong-model review',
+            });
+            break;
+          }
+          target.intensity = newIntensity;
+          target.updatedAt = nowIso;
+          switch (direction) {
+            case 'radicalize':
+              target.status = 'active';
+              target.evidenceMessageIds = this.uniqueIds([
+                ...target.evidenceMessageIds,
+                ...patch.evidence.messageIds,
+              ]);
+              break;
+            case 'soften':
+              target.status = 'softened';
+              target.evidenceMessageIds = this.uniqueIds([
+                ...target.evidenceMessageIds,
+                ...patch.evidence.messageIds,
+              ]);
+              break;
+            case 'contest':
+              target.status = 'contested';
+              target.opposingEvidenceMessageIds = this.uniqueIds([
+                ...target.opposingEvidenceMessageIds,
+                ...patch.evidence.messageIds,
+              ]);
+              break;
+            case 'reverse':
+              target.status = 'reversed';
+              target.opposingEvidenceMessageIds = this.uniqueIds([
+                ...target.opposingEvidenceMessageIds,
+                ...patch.evidence.messageIds,
+              ]);
+              break;
+          }
+          political.influenceHistory.push({
+            source: 'chat_discussion',
+            summary: `${target.topic}: ${direction}`,
+            evidenceMessageIds: this.uniqueIds(patch.evidence.messageIds),
+            confidence: this.clampConfidence(patch.evidence.confidence),
+            createdAt: nowIso,
+          });
+          politicalChanged = true;
+          results.push({
+            patchType: patch.type,
+            outcome: 'applied',
+            reason: null,
+            stateRef: { kind: 'bot_political_state', chatId },
+          });
+          break;
+        }
+
+        case 'user.add_political_note': {
+          if (decision.outcome !== 'accept') {
+            results.push({
+              patchType: patch.type,
+              outcome: 'rejected',
+              reason: decision.reason,
+            });
+            break;
+          }
+          const { userId } = patch;
+          const profile =
+            userPoliticalMap.get(userId) ??
+            (await this.loadUserPolitical(chatId, userId, nowIso));
+          userPoliticalMap.set(userId, profile);
+          profile.notes.push({
+            text: patch.text,
+            evidenceMessageIds: this.uniqueIds(patch.evidence.messageIds),
+            status: 'active',
+          });
+          userPoliticalChanged.add(userId);
+          results.push({
+            patchType: patch.type,
+            outcome: 'applied',
+            reason: null,
+            stateRef: { kind: 'user_political_profile', chatId, userId },
+          });
+          break;
+        }
+
+        case 'user.contest_political_note': {
+          if (decision.outcome !== 'accept') {
+            results.push({
+              patchType: patch.type,
+              outcome: 'rejected',
+              reason: decision.reason,
+            });
+            break;
+          }
+          const { userId } = patch;
+          const prof =
+            userPoliticalMap.get(userId) ??
+            (await this.loadUserPolitical(chatId, userId, nowIso));
+          userPoliticalMap.set(userId, prof);
+          const note = this.findLatestActiveNote(prof.notes, patch.target.text);
+          if (!note) {
+            results.push({
+              patchType: patch.type,
+              outcome: 'rejected',
+              reason: 'target_not_found',
+            });
+            break;
+          }
+          note.evidenceMessageIds = this.uniqueIds([
+            ...note.evidenceMessageIds,
+            ...patch.evidence.messageIds,
+          ]);
+          note.status = note.status === 'active' ? 'contested' : 'inactive';
+          userPoliticalChanged.add(userId);
+          results.push({
+            patchType: patch.type,
+            outcome: 'applied',
+            reason: null,
+            stateRef: { kind: 'user_political_profile', chatId, userId },
+          });
+          break;
+        }
+
+        default:
+          results.push({
+            patchType: (patch as EvolutionPatch).type,
+            outcome: 'rejected',
+            reason: 'unknown evolution patch type',
+          });
+      }
+    }
+
+    // Persist changes
+    if (politicalChanged && political !== null) {
+      political.lastUpdatedAt = nowIso;
+      await this.politicalRepo.upsert(political);
+    }
+    for (const [userId, profile] of userPoliticalMap) {
+      if (userPoliticalChanged.has(userId)) {
+        profile.updatedAt = nowIso;
+        await this.userPoliticalRepo.upsert(profile);
+      }
+    }
+
+    return results;
+  }
+
+  private async loadPolitical(
+    chatId: number,
+    nowIso: string
+  ): Promise<BotPoliticalState> {
+    return (
+      (await this.politicalRepo.findByChatId(chatId)) ?? {
+        chatId,
+        ideologySummary: '',
+        compass: {
+          economic: 0,
+          social: 0,
+          economicConfidence: 0,
+          socialConfidence: 0,
+        },
+        positions: [],
+        uncertaintyAreas: [],
+        influenceHistory: [],
+        lastUpdatedAt: nowIso,
+      }
+    );
+  }
+
+  private async loadUserPolitical(
+    chatId: number,
+    userId: number,
+    nowIso: string
+  ): Promise<UserPoliticalProfile> {
+    return (
+      (await this.userPoliticalRepo.findByChatAndUser(chatId, userId)) ?? {
+        chatId,
+        userId,
+        notes: [],
+        compass: {
+          economic: 0,
+          social: 0,
+          economicConfidence: 0,
+          socialConfidence: 0,
+        },
+        updatedAt: nowIso,
+      }
+    );
+  }
+
+  private nextPositionId(positions: PoliticalPosition[]): number {
+    return positions.reduce((max, p) => Math.max(max, p.id), 0) + 1;
+  }
+
+  private stepIntensityUp(
+    intensity: PoliticalPosition['intensity']
+  ): PoliticalPosition['intensity'] {
+    switch (intensity) {
+      case 'weak':
+        return 'moderate';
+      case 'moderate':
+        return 'strong';
+      case 'strong':
+        return 'radical';
+      case 'radical':
+        return 'radical';
+    }
+  }
+
+  private stepIntensityDown(
+    intensity: PoliticalPosition['intensity']
+  ): PoliticalPosition['intensity'] {
+    switch (intensity) {
+      case 'radical':
+        return 'strong';
+      case 'strong':
+        return 'moderate';
+      case 'moderate':
+        return 'weak';
+      case 'weak':
+        return 'weak';
+    }
+  }
+
+  private findLatestActiveNote(
+    notes: UserPoliticalProfile['notes'],
+    text: string
+  ): UserPoliticalProfile['notes'][number] | null {
+    for (let i = notes.length - 1; i >= 0; i -= 1) {
+      const note = notes[i];
+      if (note.text === text && note.status !== 'inactive') {
+        return note;
+      }
+    }
+    return null;
   }
 
   private async findMutableTruth(
