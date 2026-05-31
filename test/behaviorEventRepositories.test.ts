@@ -87,6 +87,45 @@ describe('behavior event repositories', () => {
     expect((await behaviorRepo.findByChatId(1)).length).toBe(1);
   });
 
+  it('findByChatIdAfter returns only events with id > afterId ordered by id', async () => {
+    const mkEvent = (slot: string) => ({
+      chatId: 1,
+      schemaVersion: 'v1',
+      gateReason: null,
+      gateConfidence: null,
+      gateStateImpactRisk: null,
+      triggerMessageIdsJson: '[]',
+      contextMessageIdsJson: '[]',
+      modelSlot: slot,
+      selectedModel: 'gpt-4o',
+      escalated: false,
+      escalationReason: null,
+      actionsJson: '[]',
+      actionResultsJson: '[]',
+      statePatchesJson: '[]',
+      patchResultsJson: '[]',
+      confidence: 0.5,
+      promptTokens: null,
+      completionTokens: null,
+      totalTokens: null,
+      latencyMs: null,
+      createdAt: new Date().toISOString(),
+    });
+    const id1 = await behaviorRepo.insert(mkEvent('behaviorDecision'));
+    const id2 = await behaviorRepo.insert(mkEvent('behaviorDecision'));
+    const id3 = await behaviorRepo.insert(mkEvent('stateEvolution'));
+
+    const after1 = await behaviorRepo.findByChatIdAfter(1, id1);
+    expect(after1.map((e) => e.id)).toEqual([id2, id3]);
+
+    const count = await behaviorRepo.countByChatIdAfter(1, id1);
+    expect(count).toBe(2);
+
+    const afterAll = await behaviorRepo.findByChatIdAfter(1, id3);
+    expect(afterAll).toHaveLength(0);
+    expect(await behaviorRepo.countByChatIdAfter(1, id3)).toBe(0);
+  });
+
   it('inserts and reads an AI error event with a null chatId', async () => {
     const id = await errorRepo.insert({
       chatId: null,

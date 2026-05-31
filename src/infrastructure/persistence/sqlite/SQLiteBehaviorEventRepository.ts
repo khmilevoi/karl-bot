@@ -116,4 +116,27 @@ export class SQLiteBehaviorEventRepository implements BehaviorEventRepository {
     );
     return rows.map(toEntity);
   }
+
+  async findByChatIdAfter(
+    chatId: number,
+    afterId: number
+  ): Promise<BehaviorEventEntity[]> {
+    const db = await this.dbProvider.get();
+    const rows = await db.all<BehaviorEventRow>(
+      'SELECT * FROM behavior_events WHERE chat_id = ? AND id > ? ORDER BY id',
+      chatId,
+      afterId
+    );
+    return rows.map(toEntity);
+  }
+
+  async countByChatIdAfter(chatId: number, afterId: number): Promise<number> {
+    const db = await this.dbProvider.get();
+    const row = await db.get<{ n: number }>(
+      'SELECT COUNT(*) AS n FROM behavior_events WHERE chat_id = ? AND id > ?',
+      chatId,
+      afterId
+    );
+    return row?.n ?? 0;
+  }
 }
