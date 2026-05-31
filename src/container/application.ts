@@ -26,10 +26,13 @@ import {
   DEFAULT_BEHAVIOR_RATE_LIMITER_CONFIG,
   DEFAULT_BEHAVIOR_SUMMARIZATION_QUEUE_CONFIG,
   DEFAULT_PATCH_POLICY_CONFIG,
+  DEFAULT_STATE_EVOLUTION_CONFIG,
   PATCH_POLICY_CONFIG_ID,
+  STATE_EVOLUTION_CONFIG_ID,
   type BehaviorRateLimiterConfig,
-  type BehaviorSummarizationQueueConfig,
   type BehaviorPipelineConfig,
+  type BehaviorSummarizationQueueConfig,
+  type StateEvolutionConfig,
 } from '../application/behavior/BehaviorConfig';
 import {
   BEHAVIOR_DECISION_VALIDATOR_ID,
@@ -61,7 +64,32 @@ import { DefaultBehaviorPipeline } from '../application/behavior/DefaultBehavior
 import { DefaultBehaviorRateLimiter } from '../application/behavior/DefaultBehaviorRateLimiter';
 import { DefaultBehaviorSummarizationQueue } from '../application/behavior/DefaultBehaviorSummarizationQueue';
 import { DefaultPatchPolicy } from '../application/behavior/DefaultPatchPolicy';
+import { DefaultStateEvolutionContextAssembler } from '../application/behavior/DefaultStateEvolutionContextAssembler';
+import { DefaultStateEvolutionPass } from '../application/behavior/DefaultStateEvolutionPass';
+import { DefaultStateEvolutionScheduler } from '../application/behavior/DefaultStateEvolutionScheduler';
+import { DefaultStateEvolutionTrigger } from '../application/behavior/DefaultStateEvolutionTrigger';
+import { DefaultStateEvolutionWorker } from '../application/behavior/DefaultStateEvolutionWorker';
 import { DefaultStatePatchApplicator } from '../application/behavior/DefaultStatePatchApplicator';
+import {
+  STATE_EVOLUTION_CONTEXT_ASSEMBLER_ID,
+  type StateEvolutionContextAssembler,
+} from '../application/behavior/StateEvolutionContextAssembler';
+import {
+  STATE_EVOLUTION_PASS_ID,
+  type StateEvolutionPass,
+} from '../application/behavior/StateEvolutionPass';
+import {
+  STATE_EVOLUTION_SCHEDULER_ID,
+  type StateEvolutionScheduler,
+} from '../application/behavior/StateEvolutionScheduler';
+import {
+  STATE_EVOLUTION_TRIGGER_ID,
+  type StateEvolutionTrigger,
+} from '../application/behavior/StateEvolutionTrigger';
+import {
+  STATE_EVOLUTION_WORKER_ID,
+  type StateEvolutionWorker,
+} from '../application/behavior/StateEvolutionWorker';
 import {
   BEHAVIOR_RATE_LIMITER_ID,
   type BehaviorRateLimiter,
@@ -254,6 +282,10 @@ export const register = (container: Container): void => {
     .toConstantValue(DEFAULT_STATE_PATCH_APPLICATOR_CONFIG);
 
   container
+    .bind<StateEvolutionConfig>(STATE_EVOLUTION_CONFIG_ID)
+    .toConstantValue(DEFAULT_STATE_EVOLUTION_CONFIG);
+
+  container
     .bind<AIService>(AI_SERVICE_ID)
     .to(ChatGPTService)
     .inSingletonScope();
@@ -311,6 +343,31 @@ export const register = (container: Container): void => {
   container
     .bind<BehaviorPipeline>(BEHAVIOR_PIPELINE_ID)
     .to(DefaultBehaviorPipeline)
+    .inSingletonScope();
+
+  container
+    .bind<StateEvolutionContextAssembler>(STATE_EVOLUTION_CONTEXT_ASSEMBLER_ID)
+    .to(DefaultStateEvolutionContextAssembler)
+    .inSingletonScope();
+
+  container
+    .bind<StateEvolutionPass>(STATE_EVOLUTION_PASS_ID)
+    .to(DefaultStateEvolutionPass)
+    .inSingletonScope();
+
+  container
+    .bind<StateEvolutionWorker>(STATE_EVOLUTION_WORKER_ID)
+    .to(DefaultStateEvolutionWorker)
+    .inSingletonScope();
+
+  container
+    .bind<StateEvolutionTrigger>(STATE_EVOLUTION_TRIGGER_ID)
+    .to(DefaultStateEvolutionTrigger)
+    .inSingletonScope();
+
+  container
+    .bind<StateEvolutionScheduler>(STATE_EVOLUTION_SCHEDULER_ID)
+    .to(DefaultStateEvolutionScheduler)
     .inSingletonScope();
 
   container
