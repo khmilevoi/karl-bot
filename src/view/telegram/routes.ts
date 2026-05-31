@@ -21,7 +21,6 @@ export interface Actions {
     status: string;
     config: {
       historyLimit: number;
-      interestInterval: number;
       topicTime: string | null;
       topicTimezone: string;
     };
@@ -45,18 +44,12 @@ export interface Actions {
 
   getChatConfig: (chatId: number) => Promise<{
     historyLimit: number;
-    interestInterval: number;
     topicTime: string | null;
     topicTimezone: string;
   }>;
   setHistoryLimit: (
     chatId: number,
     limit: number,
-    isAdmin: boolean
-  ) => Promise<void>;
-  setInterestInterval: (
-    chatId: number,
-    interval: number,
     isAdmin: boolean
   ) => Promise<void>;
   setTopicTime: (
@@ -186,35 +179,6 @@ export function makeConversations(
     });
   }
 
-  async function adminInterestInterval(
-    conversation: BotConversation,
-    ctx: BotContext
-  ): Promise<void> {
-    const adminChatId = ctx.chat?.id;
-    assert(adminChatId, 'No chat id');
-    const chatId = await conversation.external(
-      (ctx) => ctx.session?.selectedChatId
-    );
-    assert(chatId, 'No selected chat');
-
-    const result = await waitForInputOrCancel(
-      conversation,
-      ctx,
-      `Введите новый интервал интереса для чата ${chatId} (от 1 до 50):`,
-      (text) => {
-        const n = parseInt(text, 10);
-        return !isNaN(n) && n >= 1 && n <= 50 ? n : null;
-      }
-    );
-
-    if (result === null) return;
-
-    await actions.setInterestInterval(chatId, result, true);
-    await ctx.api.sendMessage(adminChatId, '✅ Интервал установлен', {
-      reply_markup: menuRefs.adminChat.menu,
-    });
-  }
-
   async function adminTopicTime(
     conversation: BotConversation,
     ctx: BotContext
@@ -283,31 +247,6 @@ export function makeConversations(
     });
   }
 
-  async function userInterestInterval(
-    conversation: BotConversation,
-    ctx: BotContext
-  ): Promise<void> {
-    const chatId = ctx.chat?.id;
-    assert(chatId, 'No chat id');
-
-    const result = await waitForInputOrCancel(
-      conversation,
-      ctx,
-      'Введите новый интервал интереса (от 1 до 50):',
-      (text) => {
-        const n = parseInt(text, 10);
-        return !isNaN(n) && n >= 1 && n <= 50 ? n : null;
-      }
-    );
-
-    if (result === null) return;
-
-    await actions.setInterestInterval(chatId, result, false);
-    await ctx.api.sendMessage(chatId, '✅ Интервал установлен', {
-      reply_markup: menuRefs.chatSettings.menu,
-    });
-  }
-
   async function userTopicTime(
     conversation: BotConversation,
     ctx: BotContext
@@ -349,10 +288,8 @@ export function makeConversations(
 
   return {
     adminHistoryLimit,
-    adminInterestInterval,
     adminTopicTime,
     userHistoryLimit,
-    userInterestInterval,
     userTopicTime,
   };
 }
@@ -393,10 +330,6 @@ function buildMenus(actions: Actions): {
         await ctx.conversation.enter('adminHistoryLimit');
       });
       range.row();
-      range.text('🎯 Интервал интереса', async (ctx) => {
-        await ctx.conversation.enter('adminInterestInterval');
-      });
-      range.row();
       range.text('📅 Время темы дня', async (ctx) => {
         await ctx.conversation.enter('adminTopicTime');
       });
@@ -417,12 +350,9 @@ function buildMenus(actions: Actions): {
       }
 
       range.row();
-      range.text(
-        `История: ${config.historyLimit} | Интервал: ${config.interestInterval}`,
-        async (ctx) => {
-          await ctx.answerCallbackQuery();
-        }
-      );
+      range.text(`История: ${config.historyLimit}`, async (ctx) => {
+        await ctx.answerCallbackQuery();
+      });
     })
     .row()
     .back('← Назад');
@@ -466,10 +396,6 @@ function buildMenus(actions: Actions): {
   const chatSettings = new Menu<BotContext>('chat_settings')
     .text('📝 Лимит истории', async (ctx) => {
       await ctx.conversation.enter('userHistoryLimit');
-    })
-    .row()
-    .text('🎯 Интервал интереса', async (ctx) => {
-      await ctx.conversation.enter('userInterestInterval');
     })
     .row()
     .text('📅 Время темы дня', async (ctx) => {
@@ -588,10 +514,8 @@ export function setupBotRouting(bot: Bot<BotContext>, actions: Actions): void {
   // Register conversation handlers
   const convs = makeConversations(actions, menuRefs);
   bot.use(createConversation(convs.adminHistoryLimit));
-  bot.use(createConversation(convs.adminInterestInterval));
   bot.use(createConversation(convs.adminTopicTime));
   bot.use(createConversation(convs.userHistoryLimit));
-  bot.use(createConversation(convs.userInterestInterval));
   bot.use(createConversation(convs.userTopicTime));
 
   // Commands

@@ -13,5 +13,4 @@ export interface ChatMessage {
   // Telegram message_id. Do not use this for behavior evidence references.
   messageId?: number;
   chatId?: number;
-  attitude?: string | null;
 }

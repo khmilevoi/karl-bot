@@ -85,7 +85,6 @@ describe('ChatGPTService behavior methods', () => {
       createBehaviorDecisionPrompt: vi
         .fn()
         .mockResolvedValue([{ role: 'system', content: 'decision' }]),
-      createAnswerPrompt: vi.fn().mockResolvedValue([]),
     };
 
     env = new TestEnvService();

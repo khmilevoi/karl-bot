@@ -16,18 +16,16 @@ export class SQLiteUserRepository implements UserRepository {
     const db = await this.dbProvider.get();
     await db.run(
       `
-        INSERT INTO users (id, username, first_name, last_name, attitude)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO users (id, username, first_name, last_name)
+        VALUES (?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET username   = excluded.username,
                                       first_name = excluded.first_name,
-                                      last_name  = excluded.last_name,
-                                      attitude   = COALESCE(NULLIF(TRIM(excluded.attitude), ''), attitude)
+                                      last_name  = excluded.last_name
       `,
       user.id,
       user.username ?? null,
       user.firstName ?? null,
-      user.lastName ?? null,
-      user.attitude ?? null
+      user.lastName ?? null
     );
   }
 
@@ -38,19 +36,12 @@ export class SQLiteUserRepository implements UserRepository {
       username: string | null;
       first_name: string | null;
       last_name: string | null;
-      attitude: string | null;
     }>(
-      'SELECT id, username, first_name, last_name, attitude FROM users WHERE id = ?',
+      'SELECT id, username, first_name, last_name FROM users WHERE id = ?',
       id
     );
     return row
-      ? new UserEntity(
-          row.id,
-          row.username,
-          row.first_name,
-          row.last_name,
-          row.attitude
-        )
+      ? new UserEntity(row.id, row.username, row.first_name, row.last_name)
       : undefined;
   }
 }

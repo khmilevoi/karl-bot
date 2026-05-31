@@ -10,11 +10,9 @@ describe('PromptBuilder', () => {
 
   beforeEach(() => {
     const map: Record<string, string> = {
-      persona: 'persona',
-      chatUser: 'U {{userName}} {{fullName}} {{attitude}}',
+      chatUser: 'U {{userName}} {{fullName}}',
       priorityRulesSystem: 'rules',
       previousSummary: 'sum {{prev}}',
-      replyTrigger: 'trigger {{triggerReason}} {{triggerMessage}}',
       userPrompt: 'U {{userMessage}}',
       topicOfDaySystem: 'topic',
       neutralCore: 'neutral-core',
@@ -38,27 +36,23 @@ describe('PromptBuilder', () => {
   it('builds prompt', async () => {
     const builder = new PromptBuilder(templates);
     const result = await builder
-      .addPersona()
       .addChatUsers([
-        { username: 'u1', fullName: 'F1', attitude: 'a1' },
-        { username: 'u2', fullName: 'F2', attitude: 'a2' },
+        { username: 'u1', fullName: 'F1' },
+        { username: 'u2', fullName: 'F2' },
       ])
       .addPriorityRulesSystem()
       .addTopicOfDaySystem()
       .addPreviousSummary('S')
-      .addReplyTrigger('why', 'msg')
       .build();
 
     expect(result).toEqual([
-      { role: 'system', content: 'persona' },
       {
         role: 'system',
-        content: 'Все пользователи чата:\nU u1 F1 a1\n\nU u2 F2 a2',
+        content: 'Все пользователи чата:\nU u1 F1\n\nU u2 F2',
       },
       { role: 'system', content: 'rules' },
       { role: 'system', content: 'topic' },
       { role: 'system', content: 'sum S' },
-      { role: 'system', content: 'trigger why msg' },
     ]);
   });
 
@@ -168,11 +162,11 @@ describe('PromptBuilder', () => {
 
   it('clears steps after build', async () => {
     const builder = new PromptBuilder(templates);
-    builder.addPersona();
+    builder.addNeutralCore();
     await builder.build();
-    builder.addPersona();
+    builder.addNeutralCore();
     await expect(builder.build()).resolves.toEqual([
-      { role: 'system', content: 'persona' },
+      { role: 'system', content: 'neutral-core' },
     ]);
   });
 });

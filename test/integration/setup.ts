@@ -14,35 +14,12 @@ import {
   AI_SERVICE_ID,
 } from '../../src/application/interfaces/ai/AIService';
 import type { ChatMessage } from '../../src/domain/messages/ChatMessage';
-import type { TriggerReason } from '../../src/domain/triggers/Trigger';
 import type { Context, Telegram } from 'telegraf';
 
 // Stable mock for AIService
 class MockAIService implements AIService {
-  async ask(
-    _history: ChatMessage[],
-    _summary?: string,
-    _triggerReason?: TriggerReason
-  ): Promise<string> {
-    return 'mocked answer';
-  }
-
   async summarize(_history: ChatMessage[], _prev?: string): Promise<string> {
     return 'mocked summary';
-  }
-
-  async checkInterest(
-    _history: ChatMessage[],
-    _summary: string
-  ): Promise<{ messageId: string; why: string } | null> {
-    return null;
-  }
-
-  async assessUsers(
-    _messages: ChatMessage[],
-    _prevAttitudes?: { username: string; attitude: string }[]
-  ): Promise<{ username: string; attitude: string }[]> {
-    return [];
   }
 
   async generateTopicOfDay(): Promise<string> {

@@ -3,6 +3,18 @@ import assert from 'node:assert';
 import { type Bot, InlineKeyboard, InputFile } from 'grammy';
 import { inject, injectable, LazyServiceIdentifier } from 'inversify';
 
+import {
+  BEHAVIOR_PIPELINE_ID,
+  type BehaviorPipeline,
+} from '@/application/behavior/BehaviorPipeline';
+import type {
+  DirectBehaviorTrigger,
+  StoredBehaviorMessage,
+} from '@/application/behavior/BehaviorTypes';
+import {
+  STATE_EVOLUTION_SCHEDULER_ID,
+  type StateEvolutionScheduler,
+} from '@/application/behavior/StateEvolutionScheduler';
 import type { AdminService } from '@/application/interfaces/admin/AdminService';
 import { ADMIN_SERVICE_ID } from '@/application/interfaces/admin/AdminService';
 import type { ChatApprovalService } from '@/application/interfaces/chat/ChatApprovalService';
@@ -13,12 +25,10 @@ import {
   CHAT_INFO_SERVICE_ID,
   type ChatInfoService,
 } from '@/application/interfaces/chat/ChatInfoService';
-import type { ChatMemoryManager } from '@/application/interfaces/chat/ChatMemoryManager';
-import { CHAT_MEMORY_MANAGER_ID } from '@/application/interfaces/chat/ChatMemoryManager';
 import type { ChatMessenger } from '@/application/interfaces/chat/ChatMessenger';
 import { CHAT_MESSENGER_ID } from '@/application/interfaces/chat/ChatMessenger';
-import type { ChatResponder } from '@/application/interfaces/chat/ChatResponder';
-import { CHAT_RESPONDER_ID } from '@/application/interfaces/chat/ChatResponder';
+import type { ChatResetService } from '@/application/interfaces/chat/ChatResetService';
+import { CHAT_RESET_SERVICE_ID } from '@/application/interfaces/chat/ChatResetService';
 import type { TriggerPipeline } from '@/application/interfaces/chat/TriggerPipeline';
 import { TRIGGER_PIPELINE_ID } from '@/application/interfaces/chat/TriggerPipeline';
 import type { Env, EnvService } from '@/application/interfaces/env/EnvService';
@@ -31,34 +41,18 @@ import {
 import type { MessageContextExtractor } from '@/application/interfaces/messages/MessageContextExtractor';
 import { MESSAGE_CONTEXT_EXTRACTOR_ID } from '@/application/interfaces/messages/MessageContextExtractor';
 import {
+  MESSAGE_SERVICE_ID,
+  type MessageService,
+} from '@/application/interfaces/messages/MessageService';
+import {
   TOPIC_OF_DAY_SCHEDULER_ID,
   type TopicOfDayScheduler,
 } from '@/application/interfaces/scheduler/TopicOfDayScheduler';
 import { MessageFactory } from '@/application/use-cases/messages/MessageFactory';
-import type { TriggerContext } from '@/domain/triggers/Trigger';
+import type { TriggerContext, TriggerResult } from '@/domain/triggers/Trigger';
 
 import type { BotContext } from './context';
 import { type Actions, setupBotRouting } from './routes';
-
-async function withTyping(
-  ctx: BotContext,
-  fn: () => Promise<void>
-): Promise<void> {
-  await ctx.replyWithChatAction('typing');
-  const chatId = ctx.chat?.id;
-
-  const timer = setInterval(() => {
-    if (chatId !== undefined) {
-      ctx.api.sendChatAction(chatId, 'typing').catch(() => {});
-    }
-  }, 4000);
-
-  try {
-    await fn();
-  } finally {
-    clearInterval(timer);
-  }
-}
 
 @injectable()
 export class MainService {
@@ -67,22 +61,27 @@ export class MainService {
   private readonly logger: Logger;
   private readonly messenger: ChatMessenger;
   private readonly scheduler: TopicOfDayScheduler;
+  private readonly stateEvolutionScheduler: StateEvolutionScheduler;
 
   constructor(
     @inject(ENV_SERVICE_ID) envService: EnvService,
-    @inject(CHAT_MEMORY_MANAGER_ID) private memories: ChatMemoryManager,
+    @inject(CHAT_RESET_SERVICE_ID) private resetService: ChatResetService,
     @inject(ADMIN_SERVICE_ID) private admin: AdminService,
     @inject(CHAT_APPROVAL_SERVICE_ID)
     private approvalService: ChatApprovalService,
     @inject(MESSAGE_CONTEXT_EXTRACTOR_ID)
     private extractor: MessageContextExtractor,
     @inject(TRIGGER_PIPELINE_ID) private pipeline: TriggerPipeline,
-    @inject(CHAT_RESPONDER_ID) private responder: ChatResponder,
+    @inject(MESSAGE_SERVICE_ID) private messages: MessageService,
+    @inject(BEHAVIOR_PIPELINE_ID)
+    private behaviorPipeline: BehaviorPipeline,
     @inject(CHAT_INFO_SERVICE_ID) private chatInfo: ChatInfoService,
     @inject(CHAT_CONFIG_SERVICE_ID) private chatConfig: ChatConfigService,
     @inject(LOGGER_FACTORY_ID) loggerFactory: LoggerFactory,
     @inject(new LazyServiceIdentifier(() => TOPIC_OF_DAY_SCHEDULER_ID))
     scheduler: TopicOfDayScheduler,
+    @inject(new LazyServiceIdentifier(() => STATE_EVOLUTION_SCHEDULER_ID))
+    stateEvolutionScheduler: StateEvolutionScheduler,
     @inject(CHAT_MESSENGER_ID)
     messenger: ChatMessenger
   ) {
@@ -90,6 +89,7 @@ export class MainService {
     this.messenger = messenger;
     this.bot = messenger.bot as unknown as Bot<BotContext>;
     this.scheduler = scheduler;
+    this.stateEvolutionScheduler = stateEvolutionScheduler;
     this.logger = loggerFactory.create('MainService');
     this.logger.info(
       { ADMIN_CHAT_ID: this.env.ADMIN_CHAT_ID },
@@ -120,11 +120,6 @@ export class MainService {
       getChatConfig: (chatId: number) => this.chatConfig.getConfig(chatId),
       setHistoryLimit: (chatId: number, limit: number, _isAdmin: boolean) =>
         this.chatConfig.setHistoryLimit(chatId, limit),
-      setInterestInterval: (
-        chatId: number,
-        interval: number,
-        _isAdmin: boolean
-      ) => this.chatConfig.setInterestInterval(chatId, interval),
       setTopicTime: (chatId: number, time: string, timezone: string) =>
         this.chatConfig.setTopicTime(chatId, time, timezone),
       checkChatStatus: (chatId: number) =>
@@ -137,6 +132,12 @@ export class MainService {
   }
 
   public async launch(): Promise<void> {
+    try {
+      this.stateEvolutionScheduler.start();
+    } catch (error) {
+      this.logger.error({ error }, 'Failed to start state evolution scheduler');
+    }
+
     await Promise.all([
       this.messenger.launch().catch((error) => this.logger.error(error)),
       this.scheduler.start().catch((error) => this.logger.error(error)),
@@ -178,7 +179,6 @@ export class MainService {
     status: string;
     config: {
       historyLimit: number;
-      interestInterval: number;
       topicTime: string | null;
       topicTimezone: string;
     };
@@ -333,7 +333,7 @@ export class MainService {
     }
 
     try {
-      await this.memories.reset(chatId);
+      await this.resetService.reset(chatId);
       return 'ok';
     } catch (error) {
       this.logger.error({ error, chatId }, 'Failed to reset memory');
@@ -406,8 +406,12 @@ export class MainService {
 
     const meta = this.extractor.extract(ctx);
     const userMsg = MessageFactory.fromUser(ctx, meta);
-    const memory = await this.memories.get(chatId);
-    await memory.addMessage(userMsg);
+    const storedId = await this.messages.addMessage(userMsg);
+    const storedMessage: StoredBehaviorMessage = {
+      ...userMsg,
+      id: storedId,
+      chatId,
+    };
 
     const context: TriggerContext = {
       text: `${userMsg.content};`,
@@ -417,25 +421,33 @@ export class MainService {
 
     this.logger.debug({ chatId }, 'Checking triggers');
     const triggerResult = await this.pipeline.shouldRespond(ctx, context);
-    if (!triggerResult) {
-      this.logger.debug({ chatId }, 'No trigger matched');
-      return;
+    const directTrigger = triggerResult
+      ? this.toDirectBehaviorTrigger(triggerResult, storedMessage)
+      : null;
+    if (!directTrigger) {
+      this.logger.debug({ chatId }, 'No direct trigger matched');
     }
 
-    await withTyping(ctx, async () => {
-      this.logger.debug({ chatId }, 'Generating answer');
-      const answer = await this.responder.generate(
-        ctx,
-        chatId,
-        triggerResult.reason ?? undefined
-      );
-      this.logger.debug({ chatId }, 'Answer generated');
-
-      const replyId = triggerResult.replyToMessageId ?? userMsg.messageId;
-      void ctx.reply(answer, {
-        reply_parameters: replyId ? { message_id: replyId } : undefined,
-      });
-      this.logger.debug({ chatId }, 'Reply sent');
+    const result = await this.behaviorPipeline.handleStoredMessage({
+      message: storedMessage,
+      directTrigger,
     });
+    this.logger.debug({ chatId, resultKind: result.kind }, 'Behavior handled');
+  }
+
+  private toDirectBehaviorTrigger(
+    triggerResult: TriggerResult,
+    message: StoredBehaviorMessage
+  ): DirectBehaviorTrigger {
+    return {
+      reason: 'direct_trigger',
+      why:
+        triggerResult.reason?.why ??
+        triggerResult.reason?.message ??
+        'direct trigger matched',
+      triggerMessageId: message.id,
+      replyToTelegramMessageId:
+        triggerResult.replyToMessageId ?? message.messageId ?? null,
+    };
   }
 }

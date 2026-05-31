@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { DefaultBehaviorSummarizationQueue } from '../src/application/behavior/DefaultBehaviorSummarizationQueue';
-import type { BehaviorSummarizationQueueConfig } from '../src/application/behavior/BehaviorConfig';
+import {
+  DEFAULT_BEHAVIOR_SUMMARIZATION_QUEUE_CONFIG,
+  type BehaviorSummarizationQueueConfig,
+} from '../src/application/behavior/BehaviorConfig';
 
 const enabledConfig: BehaviorSummarizationQueueConfig = {
   enabled: true,
@@ -19,6 +22,18 @@ function request(reason: string) {
 }
 
 describe('DefaultBehaviorSummarizationQueue', () => {
+  it('defers requests by default in phase 5', () => {
+    const queue = new DefaultBehaviorSummarizationQueue(
+      DEFAULT_BEHAVIOR_SUMMARIZATION_QUEUE_CONFIG
+    );
+
+    expect(queue.enqueueOrBump(request('first'))).toEqual({
+      outcome: 'deferred',
+      reason: 'summarize_thread worker deferred until dedicated plan',
+    });
+    expect(queue.peek(1)).toBeNull();
+  });
+
   it('queues the first summarize-thread request for a chat', () => {
     const queue = new DefaultBehaviorSummarizationQueue(enabledConfig);
 
@@ -44,7 +59,7 @@ describe('DefaultBehaviorSummarizationQueue', () => {
 
     expect(queue.enqueueOrBump(request('first'))).toEqual({
       outcome: 'deferred',
-      reason: 'summarization queue disabled',
+      reason: 'summarize_thread worker deferred until dedicated plan',
     });
     expect(queue.peek(1)).toBeNull();
   });

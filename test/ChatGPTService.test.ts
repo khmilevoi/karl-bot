@@ -33,16 +33,6 @@ describe('ChatGPTService', () => {
     vi.doMock('openai', () => ({ default: vi.fn(() => openaiMock) }));
 
     prompts = {
-      createAnswerPrompt: vi.fn().mockResolvedValue([
-        { role: 'system', content: 'sys' },
-        { role: 'user', content: 'answer' },
-      ]),
-      createInterestPrompt: vi
-        .fn()
-        .mockResolvedValue([{ role: 'user', content: 'interest' }]),
-      createAssessUsersPrompt: vi
-        .fn()
-        .mockResolvedValue([{ role: 'user', content: 'assess' }]),
       createSummaryPrompt: vi
         .fn()
         .mockResolvedValue([{ role: 'user', content: 'summary' }]),
@@ -76,119 +66,6 @@ describe('ChatGPTService', () => {
     delete process.env.LOG_PROMPTS;
   });
 
-  it('ask forms messages and respects triggerReason', async () => {
-    openaiCreate.mockResolvedValue({
-      choices: [{ message: { content: 'resp' } }],
-    });
-    const history: ChatMessage[] = [
-      {
-        role: 'user',
-        content: 'hi',
-        messageId: 1,
-        username: 'u',
-        fullName: 'First Last',
-        firstName: 'First',
-        lastName: 'Last',
-        replyText: 'r',
-        quoteText: 'q',
-        attitude: 'good',
-      },
-      { role: 'assistant', content: 'yo' },
-      {
-        role: 'user',
-        content: 'again',
-        messageId: 2,
-        username: 'u',
-        fullName: 'First Last',
-        firstName: 'First',
-        lastName: 'Last',
-        attitude: 'good',
-      },
-    ];
-    const triggerReason = { why: 'why', message: 'msg' };
-    const res = await service.ask(history, 'sum', triggerReason);
-    expect(res).toBe('resp');
-    expect(openaiCreate).toHaveBeenCalledTimes(1);
-    expect(openaiCreate).toHaveBeenCalledWith({
-      model: env.getModels().behaviorDecision.default,
-      messages: [
-        { role: 'system', content: 'sys' },
-        { role: 'user', content: 'answer' },
-      ],
-    });
-    expect(prompts.createAnswerPrompt).toHaveBeenCalledWith(
-      history,
-      'sum',
-      triggerReason
-    );
-  });
-
-  it('checkInterest parses JSON response and handles errors', async () => {
-    openaiCreate.mockResolvedValue({
-      choices: [{ message: { content: '{"messageId":"1","why":"w"}' } }],
-    });
-    const history: ChatMessage[] = [
-      {
-        role: 'user',
-        content: 'm',
-        messageId: 1,
-        username: 'u',
-        fullName: 'U',
-      },
-    ];
-    const res = await service.checkInterest(history, '');
-    expect(res).toEqual({ messageId: '1', why: 'w' });
-    expect(openaiCreate).toHaveBeenCalledWith({
-      model: env.getModels().triggerGate.default,
-      messages: [{ role: 'user', content: 'interest' }],
-    });
-    expect(prompts.createInterestPrompt).toHaveBeenCalledWith(history);
-
-    openaiCreate.mockResolvedValueOnce({
-      choices: [{ message: { content: 'not-json' } }],
-    });
-    const res2 = await service.checkInterest(history, '');
-    expect(res2).toBeNull();
-  });
-
-  it('assessUsers adds previous attitudes and parses response', async () => {
-    openaiCreate.mockResolvedValue({
-      choices: [
-        {
-          message: { content: '[{"username":"u","attitude":"new"}]' },
-        },
-      ],
-    });
-    const history: ChatMessage[] = [
-      {
-        role: 'user',
-        content: 'h',
-        messageId: 1,
-        username: 'u',
-        fullName: 'First Last',
-        firstName: 'First',
-        lastName: 'Last',
-      },
-    ];
-    const res = await service.assessUsers(history, [
-      { username: 'u', attitude: 'old' },
-    ]);
-    expect(res).toEqual([{ username: 'u', attitude: 'new' }]);
-    expect(openaiCreate).toHaveBeenCalledWith({
-      model: env.getModels().summarization.default,
-      messages: [{ role: 'user', content: 'assess' }],
-    });
-    expect(prompts.createAssessUsersPrompt).toHaveBeenCalledWith(history, [
-      { username: 'u', attitude: 'old' },
-    ]);
-
-    openaiCreate.mockResolvedValueOnce({
-      choices: [{ message: { content: 'oops' } }],
-    });
-    const res2 = await service.assessUsers(history);
-    expect(res2).toEqual([]);
-  });
-
   it('generateTopicOfDay sends prompt', async () => {
     openaiCreate.mockResolvedValue({
       choices: [{ message: { content: 'article' } }],
@@ -209,12 +86,12 @@ describe('ChatGPTService', () => {
     const res = await service.generateTopicOfDay({
       chatTitle: 'Chat',
       summary: 'S',
-      users: [{ username: 'u', fullName: 'F', attitude: 'a' }],
+      users: [{ username: 'u', fullName: 'F' }],
     });
     expect(res).toBe('article');
     expect(prompts.createTopicOfDayPrompt).toHaveBeenCalledWith({
       chatTitle: 'Chat',
-      users: [{ username: 'u', fullName: 'F', attitude: 'a' }],
+      users: [{ username: 'u', fullName: 'F' }],
       summary: 'S',
     });
   });
@@ -242,25 +119,7 @@ describe('ChatGPTService', () => {
     expect(prompts.createSummaryPrompt).toHaveBeenCalledWith(history, 'prev');
   });
 
-  it('ask without optional params and summarize without prev', async () => {
-    openaiCreate.mockResolvedValueOnce({
-      choices: [{ message: { content: 'resp' } }],
-    });
-    const resAsk = await service.ask([]);
-    expect(resAsk).toBe('resp');
-    expect(openaiCreate).toHaveBeenCalledWith({
-      model: env.getModels().behaviorDecision.default,
-      messages: [
-        { role: 'system', content: 'sys' },
-        { role: 'user', content: 'answer' },
-      ],
-    });
-    expect(prompts.createAnswerPrompt).toHaveBeenCalledWith(
-      [],
-      undefined,
-      undefined
-    );
-
+  it('summarize works without previous summary', async () => {
     openaiCreate.mockResolvedValueOnce({
       choices: [{ message: { content: 'sum' } }],
     });
@@ -287,7 +146,7 @@ describe('ChatGPTService', () => {
       DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
       loggerFactory
     );
-    await service1.ask([]);
+    await service1.summarize([]);
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
     expect(appendSpy).not.toHaveBeenCalled();
 
@@ -299,7 +158,7 @@ describe('ChatGPTService', () => {
       DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
       loggerFactory
     );
-    await service2.ask([]);
+    await service2.summarize([]);
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
     expect(appendSpy).toHaveBeenCalled();
   });

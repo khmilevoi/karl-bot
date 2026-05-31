@@ -12,17 +12,13 @@ export interface Env {
 }
 
 export interface PromptFiles {
-  persona: string;
   askSummary: string;
   summarizationSystem: string;
   previousSummary: string;
-  checkInterest: string;
   userPrompt: string;
   userPromptSystem: string;
   chatUser: string;
   priorityRulesSystem: string;
-  assessUsers: string;
-  replyTrigger: string;
   topicOfDaySystem: string;
   neutralCore: string;
   behaviorGateSystem: string;
