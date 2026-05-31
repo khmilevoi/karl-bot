@@ -7,7 +7,10 @@ import type {
   BehaviorGateDecision,
   GateReason,
 } from '@/domain/behavior/schemas/gate';
-import type { LiveStatePatch } from '@/domain/behavior/schemas/patches';
+import type {
+  EvolutionPatch,
+  LiveStatePatch,
+} from '@/domain/behavior/schemas/patches';
 import type { ChatMessage } from '@/domain/messages/ChatMessage';
 
 export interface StoredBehaviorMessage extends ChatMessage {
@@ -74,7 +77,9 @@ export type BehaviorPatchOutcome =
   | 'applied'
   | 'rejected'
   | 'rate_limited'
-  | 'failed';
+  | 'failed'
+  | 'escalated'
+  | 'to_uncertainty';
 
 export type BehaviorPatchStateRef =
   | {
@@ -86,10 +91,23 @@ export type BehaviorPatchStateRef =
       kind: 'bot_truth';
       chatId: number;
       truthId: number;
+    }
+  | {
+      kind: 'bot_personality_signal';
+      chatId: number;
+    }
+  | {
+      kind: 'bot_political_state';
+      chatId: number;
+    }
+  | {
+      kind: 'user_political_profile';
+      chatId: number;
+      userId: number;
     };
 
 export interface BehaviorPatchResult {
-  patchType: LiveStatePatch['type'];
+  patchType: LiveStatePatch['type'] | EvolutionPatch['type'];
   outcome: BehaviorPatchOutcome;
   reason: string | null;
   stateRef?: BehaviorPatchStateRef | null;

@@ -1,6 +1,9 @@
 import type { ServiceIdentifier } from 'inversify';
 
-import type { LiveStatePatch } from '@/domain/behavior/schemas/patches';
+import type {
+  EvolutionPatch,
+  LiveStatePatch,
+} from '@/domain/behavior/schemas/patches';
 import type { ChatMessage } from '@/domain/messages/ChatMessage';
 
 import type { BehaviorPatchResult } from './BehaviorTypes';
@@ -21,6 +24,12 @@ export interface StatePatchApplicator {
     contextMessages: readonly ChatMessage[];
     nowIso?: string;
     nowMs?: number;
+  }): Promise<BehaviorPatchResult[]>;
+  applyEvolutionPatches(params: {
+    chatId: number;
+    patches: readonly EvolutionPatch[];
+    reviewedByStrongModel: boolean;
+    nowIso?: string;
   }): Promise<BehaviorPatchResult[]>;
 }
 
