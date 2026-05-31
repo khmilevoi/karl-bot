@@ -16,7 +16,6 @@ describe('RepositoryChatConfigService', () => {
     expect(config).toEqual({
       chatId: 1,
       historyLimit: 50,
-      interestInterval: 25,
       topicTime: '09:00',
       topicTimezone: 'UTC',
     });
@@ -27,7 +26,6 @@ describe('RepositoryChatConfigService', () => {
     const existing: ChatConfigEntity = {
       chatId: 1,
       historyLimit: 50,
-      interestInterval: 25,
       topicTime: '09:00',
       topicTimezone: 'UTC',
     };
@@ -41,32 +39,10 @@ describe('RepositoryChatConfigService', () => {
     expect(repo.upsert).toHaveBeenCalledWith({ ...existing, historyLimit: 10 });
   });
 
-  it('sets interest interval', async () => {
-    const existing: ChatConfigEntity = {
-      chatId: 1,
-      historyLimit: 50,
-      interestInterval: 25,
-      topicTime: '09:00',
-      topicTimezone: 'UTC',
-    };
-    const repo: ChatConfigRepository = {
-      findById: vi.fn(async () => existing),
-      upsert: vi.fn(async () => {}),
-      findAll: vi.fn(async () => []),
-    };
-    const service = new RepositoryChatConfigService(repo);
-    await service.setInterestInterval(1, 20);
-    expect(repo.upsert).toHaveBeenCalledWith({
-      ...existing,
-      interestInterval: 20,
-    });
-  });
-
   it('sets topic time', async () => {
     const existing: ChatConfigEntity = {
       chatId: 1,
       historyLimit: 50,
-      interestInterval: 25,
       topicTime: '09:00',
       topicTimezone: 'UTC',
     };
@@ -88,7 +64,6 @@ describe('RepositoryChatConfigService', () => {
     const existing: ChatConfigEntity = {
       chatId: 1,
       historyLimit: 50,
-      interestInterval: 25,
       topicTime: '09:00',
       topicTimezone: 'UTC',
     };
@@ -114,14 +89,12 @@ describe('RepositoryChatConfigService', () => {
         {
           chatId: 1,
           historyLimit: 50,
-          interestInterval: 25,
           topicTime: '10:30',
           topicTimezone: 'UTC',
         },
         {
           chatId: 2,
           historyLimit: 50,
-          interestInterval: 25,
           topicTime: null,
           topicTimezone: 'UTC',
         },

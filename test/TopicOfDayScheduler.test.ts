@@ -154,7 +154,6 @@ describe('TopicOfDayScheduler', () => {
     const repoConfig = {
       chatId: 1,
       historyLimit: 50,
-      interestInterval: 25,
       topicTime: '09:00',
       topicTimezone: 'UTC',
     };

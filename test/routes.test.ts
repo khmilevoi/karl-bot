@@ -152,6 +152,20 @@ describe('adminTopicTime conversation', () => {
   });
 });
 
+describe('makeConversations', () => {
+  it('does not expose retired interest interval conversations', () => {
+    const actions = {} as unknown as Actions;
+    const menuRefs = {
+      chatSettings: { menu: {} as any, title: '' },
+      adminChat: { menu: {} as any, title: '' },
+    };
+    const convs = makeConversations(actions, menuRefs);
+
+    expect(convs).not.toHaveProperty('adminInterestInterval');
+    expect(convs).not.toHaveProperty('userInterestInterval');
+  });
+});
+
 describe('setupBotRouting /start routing', () => {
   const fullActions = (isAdmin: (id: number) => boolean): Actions =>
     ({
@@ -171,7 +185,6 @@ describe('setupBotRouting /start routing', () => {
       hasUserAccess: vi.fn(),
       getChatConfig: vi.fn(),
       setHistoryLimit: vi.fn(),
-      setInterestInterval: vi.fn(),
       setTopicTime: vi.fn(),
       checkChatStatus: vi.fn(),
       processMessage: vi.fn(),

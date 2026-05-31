@@ -28,14 +28,6 @@ export class PromptBuilder {
     private readonly templates: PromptTemplateService
   ) {}
 
-  addPersona(): this {
-    this.steps.push(async () => {
-      const persona = await this.templates.loadTemplate('persona');
-      return [{ role: 'system', content: persona }];
-    });
-    return this;
-  }
-
   addAskSummary(summary?: string): this {
     if (!summary) {
       return this;
@@ -66,14 +58,6 @@ export class PromptBuilder {
       return [
         { role: 'system', content: template.replace('{{prev}}', summary) },
       ];
-    });
-    return this;
-  }
-
-  addCheckInterest(): this {
-    this.steps.push(async () => {
-      const template = await this.templates.loadTemplate('checkInterest');
-      return [{ role: 'system', content: template }];
     });
     return this;
   }
@@ -121,7 +105,6 @@ export class PromptBuilder {
           template
             .replace('{{userName}}', u.username)
             .replace('{{fullName}}', u.fullName)
-            .replace('{{attitude}}', u.attitude)
         )
         .join('\n\n');
       return [
@@ -149,32 +132,6 @@ export class PromptBuilder {
         params?.chatTitle ?? 'этого чата'
       );
       return [{ role: 'system', content }];
-    });
-    return this;
-  }
-
-  addAssessUsers(): this {
-    this.steps.push(async () => {
-      const template = await this.templates.loadTemplate('assessUsers');
-      return [{ role: 'system', content: template }];
-    });
-    return this;
-  }
-
-  addReplyTrigger(reason?: string, message?: string): this {
-    if (!reason || !message) {
-      return this;
-    }
-    this.steps.push(async () => {
-      const template = await this.templates.loadTemplate('replyTrigger');
-      return [
-        {
-          role: 'system',
-          content: template
-            .replace('{{triggerReason}}', reason)
-            .replace('{{triggerMessage}}', message),
-        },
-      ];
     });
     return this;
   }

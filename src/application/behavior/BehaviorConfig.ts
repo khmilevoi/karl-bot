@@ -100,7 +100,7 @@ export interface BehaviorSummarizationQueueConfig {
 
 export const DEFAULT_BEHAVIOR_SUMMARIZATION_QUEUE_CONFIG: BehaviorSummarizationQueueConfig =
   {
-    enabled: true,
+    enabled: false,
   };
 
 export const BEHAVIOR_SUMMARIZATION_QUEUE_CONFIG_ID = Symbol.for(

@@ -89,7 +89,6 @@ describe('ChatGPTService proposeStateEvolution', () => {
       createStateEvolutionPrompt: vi
         .fn()
         .mockResolvedValue([{ role: 'system', content: 'evolution' }]),
-      createAnswerPrompt: vi.fn().mockResolvedValue([]),
     };
 
     env = new TestEnvService();

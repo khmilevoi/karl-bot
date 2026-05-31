@@ -40,10 +40,11 @@ let messageRepo: SQLiteMessageRepository;
 let summaryRepo: SQLiteSummaryRepository;
 let accessKeyRepo: SQLiteAccessKeyRepository;
 let chatUserRepo: SQLiteChatUserRepository;
+let dbFile: string;
 
 beforeEach(async () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'sqlite-'));
-  const dbFile = path.join(dir, 'test.db');
+  dbFile = path.join(dir, 'test.db');
   process.env.DATABASE_URL = `file://${dbFile}`;
   const env = new TestEnvService();
   const filename = parseDatabaseUrl(env.env.DATABASE_URL);
@@ -53,8 +54,7 @@ beforeEach(async () => {
         id INTEGER PRIMARY KEY,
         username TEXT,
         first_name TEXT,
-        last_name TEXT,
-        attitude TEXT
+        last_name TEXT
       );
       CREATE TABLE chats (
         chat_id INTEGER PRIMARY KEY,
@@ -70,6 +70,7 @@ beforeEach(async () => {
         reply_text TEXT,
         reply_username TEXT,
         quote_text TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1,
         FOREIGN KEY(user_id) REFERENCES users(id),
         FOREIGN KEY(chat_id) REFERENCES chats(chat_id)
       );
@@ -105,9 +106,7 @@ beforeEach(async () => {
 describe('SQLite repositories', () => {
   it('adds and retrieves messages', async () => {
     await chatRepo.upsert(new ChatEntity(1));
-    await userRepo.upsert(
-      new UserEntity(1, 'alice', 'Alice', 'Smith', 'neutral')
-    );
+    await userRepo.upsert(new UserEntity(1, 'alice', 'Alice', 'Smith'));
     const firstId = await messageRepo.insert({
       chatId: 1,
       role: 'user',
@@ -137,7 +136,6 @@ describe('SQLite repositories', () => {
         userId: 1,
         messageId: 11,
         chatId: 1,
-        attitude: 'neutral',
       },
       {
         id: 2,
@@ -180,18 +178,39 @@ describe('SQLite repositories', () => {
     ]);
   });
 
-  it('clears messages', async () => {
+  it('soft-deletes messages from normal history while preserving id lookup', async () => {
     await chatRepo.upsert(new ChatEntity(1));
     await userRepo.upsert(new UserEntity(1, 'alice'));
-    await messageRepo.insert({
+    const messageId = await messageRepo.insert({
       chatId: 1,
       role: 'user',
       content: 'hi',
       userId: 1,
     });
     await messageRepo.clearByChatId(1);
+
+    const db = await open({ filename: dbFile, driver: sqlite3.Database });
+    const row = await db.get<{ is_active: number }>(
+      'SELECT is_active FROM messages WHERE id = ?',
+      messageId
+    );
+    await db.close();
+
+    expect(row).toEqual({ is_active: 0 });
     const messages = await messageRepo.findByChatId(1);
     expect(messages).toEqual([]);
+    expect(await messageRepo.countByChatId(1)).toBe(0);
+    expect(await messageRepo.findLastByChatId(1, 1)).toEqual([]);
+    expect(await messageRepo.findByIds([messageId])).toEqual([
+      {
+        id: messageId,
+        role: 'user',
+        content: 'hi',
+        username: 'alice',
+        userId: 1,
+        chatId: 1,
+      },
+    ]);
   });
 
   it('stores and retrieves summary', async () => {
@@ -217,11 +236,8 @@ describe('SQLite repositories', () => {
   });
 
   it('stores and updates users', async () => {
-    await userRepo.upsert(
-      new UserEntity(42, 'alice', 'Alice', 'Smith', 'neutral')
-    );
-    const user = new UserEntity(42, 'alice2', 'Alicia', 'Johnson', 'hostile');
-    user.setAttitude('friendly');
+    await userRepo.upsert(new UserEntity(42, 'alice', 'Alice', 'Smith'));
+    const user = new UserEntity(42, 'alice2', 'Alicia', 'Johnson');
     await userRepo.upsert(user);
     const fetched = await userRepo.findById(42);
     expect(fetched).toEqual(user);

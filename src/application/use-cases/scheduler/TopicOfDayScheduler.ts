@@ -109,7 +109,6 @@ export class TopicOfDaySchedulerImpl implements TopicOfDayScheduler {
         return {
           username: u.username ?? 'N/A',
           fullName,
-          attitude: u.attitude ?? 'N/A',
         };
       });
       const article = await this.ai.generateTopicOfDay({

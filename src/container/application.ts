@@ -123,10 +123,6 @@ import {
   type ChatInfoService,
 } from '../application/interfaces/chat/ChatInfoService';
 import {
-  CHAT_MEMORY_MANAGER_ID,
-  type ChatMemoryManager as ChatMemoryManagerInterface,
-} from '../application/interfaces/chat/ChatMemoryManager';
-import {
   CHAT_MESSENGER_ID,
   type ChatMessenger,
 } from '../application/interfaces/chat/ChatMessenger';
@@ -134,10 +130,6 @@ import {
   CHAT_RESET_SERVICE_ID,
   type ChatResetService,
 } from '../application/interfaces/chat/ChatResetService';
-import {
-  CHAT_RESPONDER_ID,
-  type ChatResponder,
-} from '../application/interfaces/chat/ChatResponder';
 import {
   CHAT_USER_SERVICE_ID,
   type ChatUserService,
@@ -147,10 +139,6 @@ import {
   type DialogueManager,
 } from '../application/interfaces/chat/DialogueManager';
 import {
-  HISTORY_SUMMARIZER_ID,
-  type HistorySummarizer,
-} from '../application/interfaces/chat/HistorySummarizer';
-import {
   TRIGGER_PIPELINE_ID,
   type TriggerPipeline,
 } from '../application/interfaces/chat/TriggerPipeline';
@@ -159,17 +147,9 @@ import {
   type EnvService,
 } from '../application/interfaces/env/EnvService';
 import {
-  INTEREST_CHECKER_ID,
-  type InterestChecker,
-} from '../application/interfaces/interest/InterestChecker';
-import {
   LOGGER_FACTORY_ID,
   type LoggerFactory,
 } from '../application/interfaces/logging/LoggerFactory';
-import {
-  INTEREST_MESSAGE_STORE_ID,
-  type InterestMessageStore,
-} from '../application/interfaces/messages/InterestMessageStore';
 import {
   MESSAGE_CONTEXT_EXTRACTOR_ID,
   type MessageContextExtractor,
@@ -200,19 +180,14 @@ import {
   PromptDirector,
 } from '../application/prompts/PromptDirector';
 import { AdminServiceImpl } from '../application/use-cases/admin/AdminServiceImpl';
-import { ChatMemoryManager as ChatMemoryManagerImpl } from '../application/use-cases/chat/ChatMemory';
 import { DefaultChatApprovalService } from '../application/use-cases/chat/DefaultChatApprovalService';
 import { DefaultChatResetService } from '../application/use-cases/chat/DefaultChatResetService';
-import { DefaultChatResponder } from '../application/use-cases/chat/DefaultChatResponder';
 import { DefaultDialogueManager } from '../application/use-cases/chat/DefaultDialogueManager';
-import { DefaultHistorySummarizer } from '../application/use-cases/chat/DefaultHistorySummarizer';
 import { DefaultTriggerPipeline } from '../application/use-cases/chat/DefaultTriggerPipeline';
 import { RepositoryChatConfigService } from '../application/use-cases/chat/RepositoryChatConfigService';
 import { RepositoryChatInfoService } from '../application/use-cases/chat/RepositoryChatInfoService';
 import { RepositoryChatUserService } from '../application/use-cases/chat/RepositoryChatUserService';
-import { DefaultInterestChecker } from '../application/use-cases/interest/DefaultInterestChecker';
 import { DefaultMessageContextExtractor } from '../application/use-cases/messages/DefaultMessageContextExtractor';
-import { InMemoryInterestMessageStore } from '../application/use-cases/messages/InMemoryInterestMessageStore';
 import { RepositoryMessageService } from '../application/use-cases/messages/RepositoryMessageService';
 import { TopicOfDaySchedulerImpl } from '../application/use-cases/scheduler/TopicOfDayScheduler';
 import { RepositorySummaryService } from '../application/use-cases/summaries/RepositorySummaryService';
@@ -376,18 +351,8 @@ export const register = (container: Container): void => {
     .inSingletonScope();
 
   container
-    .bind<InterestMessageStore>(INTEREST_MESSAGE_STORE_ID)
-    .to(InMemoryInterestMessageStore)
-    .inSingletonScope();
-
-  container
     .bind<SummaryService>(SUMMARY_SERVICE_ID)
     .to(RepositorySummaryService)
-    .inSingletonScope();
-
-  container
-    .bind<HistorySummarizer>(HISTORY_SUMMARIZER_ID)
-    .to(DefaultHistorySummarizer)
     .inSingletonScope();
 
   container
@@ -416,18 +381,8 @@ export const register = (container: Container): void => {
     .inSingletonScope();
 
   container
-    .bind<InterestChecker>(INTEREST_CHECKER_ID)
-    .to(DefaultInterestChecker)
-    .inSingletonScope();
-
-  container
     .bind<AdminService>(ADMIN_SERVICE_ID)
     .to(AdminServiceImpl)
-    .inSingletonScope();
-
-  container
-    .bind<ChatMemoryManagerInterface>(CHAT_MEMORY_MANAGER_ID)
-    .to(ChatMemoryManagerImpl)
     .inSingletonScope();
 
   container
@@ -443,11 +398,6 @@ export const register = (container: Container): void => {
   container
     .bind<TriggerPipeline>(TRIGGER_PIPELINE_ID)
     .to(DefaultTriggerPipeline)
-    .inSingletonScope();
-
-  container
-    .bind<ChatResponder>(CHAT_RESPONDER_ID)
-    .to(DefaultChatResponder)
     .inSingletonScope();
 
   container

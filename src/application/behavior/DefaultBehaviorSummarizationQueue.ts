@@ -10,6 +10,9 @@ import type {
   BehaviorSummarizationRequest,
 } from './BehaviorSummarizationQueue';
 
+const SUMMARIZE_THREAD_DEFERRED_REASON =
+  'summarize_thread worker deferred until dedicated plan';
+
 @injectable()
 export class DefaultBehaviorSummarizationQueue implements BehaviorSummarizationQueue {
   private readonly pendingByChat = new Map<
@@ -28,7 +31,7 @@ export class DefaultBehaviorSummarizationQueue implements BehaviorSummarizationQ
     if (!this.config.enabled) {
       return {
         outcome: 'deferred',
-        reason: 'summarization queue disabled',
+        reason: SUMMARIZE_THREAD_DEFERRED_REASON,
       };
     }
 

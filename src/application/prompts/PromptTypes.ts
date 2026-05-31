@@ -10,7 +10,6 @@ import type { ChatMessage } from '@/domain/messages/ChatMessage';
 export interface PromptChatUser {
   username: string;
   fullName: string;
-  attitude: string;
 }
 
 export interface BehaviorPromptMessage extends ChatMessage {

@@ -21,11 +21,10 @@ interface MessageRow {
   user_id: number | null;
   chat_id: number | null;
   message_id: number | null;
-  attitude: string | null;
 }
 
 const SELECT_MESSAGE_COLUMNS =
-  'SELECT m.id, m.role, m.content, u.username, u.first_name, u.last_name, u.attitude, m.reply_text, m.reply_username, m.quote_text, m.user_id, c.chat_id, m.message_id FROM messages m LEFT JOIN users u ON m.user_id = u.id LEFT JOIN chats c ON m.chat_id = c.chat_id';
+  'SELECT m.id, m.role, m.content, u.username, u.first_name, u.last_name, m.reply_text, m.reply_username, m.quote_text, m.user_id, c.chat_id, m.message_id FROM messages m LEFT JOIN users u ON m.user_id = u.id LEFT JOIN chats c ON m.chat_id = c.chat_id';
 
 function rowToMessage(r: MessageRow): ChatMessage {
   const entry: ChatMessage = {
@@ -44,7 +43,6 @@ function rowToMessage(r: MessageRow): ChatMessage {
   if (r.quote_text) entry.quoteText = r.quote_text;
   if (r.user_id) entry.userId = r.user_id;
   if (r.message_id) entry.messageId = r.message_id;
-  if (r.attitude) entry.attitude = r.attitude;
   return entry;
 }
 
@@ -82,7 +80,7 @@ export class SQLiteMessageRepository implements MessageRepository {
   async findByChatId(chatId: number): Promise<ChatMessage[]> {
     const db = await this.dbProvider.get();
     const rows = await db.all<MessageRow>(
-      `${SELECT_MESSAGE_COLUMNS} WHERE m.chat_id = ? ORDER BY m.id`,
+      `${SELECT_MESSAGE_COLUMNS} WHERE m.chat_id = ? AND m.is_active = 1 ORDER BY m.id`,
       chatId
     );
     return (rows ?? []).map(rowToMessage);
@@ -104,7 +102,7 @@ export class SQLiteMessageRepository implements MessageRepository {
   async countByChatId(chatId: number): Promise<number> {
     const db = await this.dbProvider.get();
     const row = await db.get<{ count: number }>(
-      'SELECT COUNT(*) as count FROM messages WHERE chat_id = ?',
+      'SELECT COUNT(*) as count FROM messages WHERE chat_id = ? AND is_active = 1',
       chatId
     );
     return row?.count ?? 0;
@@ -116,7 +114,7 @@ export class SQLiteMessageRepository implements MessageRepository {
   ): Promise<ChatMessage[]> {
     const db = await this.dbProvider.get();
     const rows = await db.all<MessageRow>(
-      `${SELECT_MESSAGE_COLUMNS} WHERE m.chat_id = ? ORDER BY m.id DESC LIMIT ?`,
+      `${SELECT_MESSAGE_COLUMNS} WHERE m.chat_id = ? AND m.is_active = 1 ORDER BY m.id DESC LIMIT ?`,
       chatId,
       limit
     );
@@ -125,6 +123,6 @@ export class SQLiteMessageRepository implements MessageRepository {
 
   async clearByChatId(chatId: number): Promise<void> {
     const db = await this.dbProvider.get();
-    await db.run('DELETE FROM messages WHERE chat_id = ?', chatId);
+    await db.run('UPDATE messages SET is_active = 0 WHERE chat_id = ?', chatId);
   }
 }

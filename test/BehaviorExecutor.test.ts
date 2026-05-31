@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { DefaultBehaviorExecutor } from '../src/application/behavior/DefaultBehaviorExecutor';
+import { DefaultBehaviorSummarizationQueue } from '../src/application/behavior/DefaultBehaviorSummarizationQueue';
+import { DEFAULT_BEHAVIOR_SUMMARIZATION_QUEUE_CONFIG } from '../src/application/behavior/BehaviorConfig';
 import type { BehaviorRateLimiter } from '../src/application/behavior/BehaviorRateLimiter';
 import type { BehaviorSummarizationQueue } from '../src/application/behavior/BehaviorSummarizationQueue';
 import type { BehaviorDecisionContext } from '../src/application/behavior/BehaviorTypes';
@@ -29,7 +31,10 @@ function makeQueue(
   return {
     enqueueOrBump: vi.fn(() =>
       outcome === 'deferred'
-        ? { outcome, reason: 'summarization queue disabled' }
+        ? {
+            outcome,
+            reason: 'summarize_thread worker deferred until dedicated plan',
+          }
         : { outcome }
     ),
   };
@@ -167,8 +172,10 @@ describe('DefaultBehaviorExecutor', () => {
     ]);
   });
 
-  it('queues summarize_thread and returns no results for empty actions', async () => {
-    const queue = makeQueue('bumped');
+  it('defers summarize_thread and returns no results for empty actions', async () => {
+    const queue = new DefaultBehaviorSummarizationQueue(
+      DEFAULT_BEHAVIOR_SUMMARIZATION_QUEUE_CONFIG
+    );
     const executor = new DefaultBehaviorExecutor(
       makeMessenger(),
       allowingLimiter,
@@ -190,19 +197,11 @@ describe('DefaultBehaviorExecutor', () => {
       ],
     });
 
-    expect(queue.enqueueOrBump).toHaveBeenCalledWith({
-      chatId: 1,
-      intent: 'compress_context',
-      reason: 'too long',
-      triggerMessageIds: [1],
-      contextMessageIds: [2],
-      batchMessageIds: [3, 4],
-    });
     expect(results).toEqual([
       {
         actionType: 'summarize_thread',
-        outcome: 'bumped',
-        reason: null,
+        outcome: 'deferred',
+        reason: 'summarize_thread worker deferred until dedicated plan',
       },
     ]);
   });

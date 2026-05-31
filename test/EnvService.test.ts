@@ -55,17 +55,13 @@ describe('EnvService', () => {
     setRequiredEnv();
     const env = new TestEnvService();
     expect(env.getPromptFiles()).toEqual({
-      persona: 'prompts/persona.md',
       askSummary: 'prompts/ask_summary_prompt.md',
       summarizationSystem: 'prompts/summarization_system_prompt.md',
       previousSummary: 'prompts/previous_summary_prompt.md',
-      checkInterest: 'prompts/check_interest_prompt.md',
       userPrompt: 'prompts/user_prompt.md',
       userPromptSystem: 'prompts/user_prompt_system_prompt.md',
       chatUser: 'prompts/chat_user_prompt.md',
       priorityRulesSystem: 'prompts/priority_rules_system_prompt.md',
-      assessUsers: 'prompts/assess_users_prompt.md',
-      replyTrigger: 'prompts/reply_trigger_prompt.md',
       topicOfDaySystem: 'prompts/topic_of_day_system_prompt.md',
       neutralCore: 'prompts/neutral_core_prompt.md',
       behaviorGateSystem: 'prompts/behavior_gate_system_prompt.md',

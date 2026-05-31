@@ -16,16 +16,14 @@ export class SQLiteChatConfigRepository implements ChatConfigRepository {
   async upsert({
     chatId,
     historyLimit,
-    interestInterval,
     topicTime,
     topicTimezone,
   }: ChatConfigEntity): Promise<void> {
     const db = await this.dbProvider.get();
     await db.run(
-      'INSERT INTO chat_configs (chat_id, history_limit, interest_interval, topic_time, topic_timezone) VALUES (?, ?, ?, ?, ?) ON CONFLICT(chat_id) DO UPDATE SET history_limit=excluded.history_limit, interest_interval=excluded.interest_interval, topic_time=excluded.topic_time, topic_timezone=excluded.topic_timezone',
+      'INSERT INTO chat_configs (chat_id, history_limit, topic_time, topic_timezone) VALUES (?, ?, ?, ?) ON CONFLICT(chat_id) DO UPDATE SET history_limit=excluded.history_limit, topic_time=excluded.topic_time, topic_timezone=excluded.topic_timezone',
       chatId,
       historyLimit,
-      interestInterval,
       topicTime,
       topicTimezone
     );
@@ -36,18 +34,16 @@ export class SQLiteChatConfigRepository implements ChatConfigRepository {
     const row = await db.get<{
       chat_id: number;
       history_limit: number;
-      interest_interval: number;
       topic_time: string | null;
       topic_timezone: string;
     }>(
-      'SELECT chat_id, history_limit, interest_interval, topic_time, topic_timezone FROM chat_configs WHERE chat_id = ?',
+      'SELECT chat_id, history_limit, topic_time, topic_timezone FROM chat_configs WHERE chat_id = ?',
       chatId
     );
     return row
       ? {
           chatId: row.chat_id,
           historyLimit: row.history_limit,
-          interestInterval: row.interest_interval,
           topicTime: row.topic_time,
           topicTimezone: row.topic_timezone,
         }
@@ -59,16 +55,14 @@ export class SQLiteChatConfigRepository implements ChatConfigRepository {
     const rows = await db.all<{
       chat_id: number;
       history_limit: number;
-      interest_interval: number;
       topic_time: string | null;
       topic_timezone: string;
     }>(
-      'SELECT chat_id, history_limit, interest_interval, topic_time, topic_timezone FROM chat_configs'
+      'SELECT chat_id, history_limit, topic_time, topic_timezone FROM chat_configs'
     );
     return rows.map((row) => ({
       chatId: row.chat_id,
       historyLimit: row.history_limit,
-      interestInterval: row.interest_interval,
       topicTime: row.topic_time,
       topicTimezone: row.topic_timezone,
     }));
