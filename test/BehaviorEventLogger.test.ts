@@ -7,6 +7,7 @@ import type {
   BehaviorAiDecisionResult,
   BehaviorDecisionContext,
   BehaviorPatchResult,
+  StateEvolutionResult,
 } from '../src/application/behavior/BehaviorTypes';
 
 function makeContext(): BehaviorDecisionContext {
@@ -29,6 +30,50 @@ function makeContext(): BehaviorDecisionContext {
       political: {} as any,
       profiles: [],
       truths: [],
+      userPolitical: [],
+    },
+  };
+}
+
+function makeEvolutionResult(): StateEvolutionResult {
+  return {
+    decision: {
+      evolutionPatches: [
+        {
+          type: 'politics.add_uncertainty',
+          topic: 'trade',
+          summary: 'unclear',
+          evidence: { messageIds: [5], summary: 's', confidence: 0.5 },
+        },
+      ],
+      personalitySnapshot: {
+        identityNotes: [],
+        values: [],
+        speechStyle: {
+          tone: 'neutral',
+          humor: 'none',
+          verbosity: 'short',
+          formality: 'medium',
+        },
+        socialHabits: [],
+        recurringThemes: [],
+      },
+      userSnapshots: [],
+      botCompass: {
+        economic: 0,
+        social: 0,
+        economicConfidence: 0,
+        socialConfidence: 0,
+      },
+      userPoliticalSnapshots: [],
+    },
+    metadata: {
+      modelSlot: 'stateEvolution',
+      selectedModel: 'gpt-5.4-mini' as any,
+      escalated: false,
+      escalationReason: null,
+      latencyMs: 300,
+      usage: { promptTokens: 50, completionTokens: 20, totalTokens: 70 },
     },
   };
 }
@@ -133,6 +178,56 @@ describe('DefaultBehaviorEventLogger', () => {
       expect.objectContaining({
         actionResultsJson: JSON.stringify(actionResults),
         patchResultsJson: JSON.stringify(patchResults),
+      })
+    );
+  });
+
+  it('logEvolution inserts with modelSlot stateEvolution and actionsJson []', async () => {
+    const repo: BehaviorEventRepository = {
+      insert: vi.fn().mockResolvedValue(77),
+      findById: vi.fn(),
+      findByChatId: vi.fn(),
+      findByChatIdAfter: vi.fn(),
+      countByChatIdAfter: vi.fn(),
+    } as unknown as BehaviorEventRepository;
+
+    const evolutionResult = makeEvolutionResult();
+    const patchResults: BehaviorPatchResult[] = [
+      {
+        patchType: 'politics.add_uncertainty',
+        outcome: 'applied',
+        reason: null,
+        stateRef: { kind: 'bot_political_state', chatId: 1 },
+      },
+    ];
+
+    const logger = new DefaultBehaviorEventLogger(repo);
+    const id = await logger.logEvolution({
+      chatId: 1,
+      result: evolutionResult,
+      patchResults,
+      maxStateImpactRisk: 'high',
+    });
+
+    expect(id).toBe(77);
+    expect(repo.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: 1,
+        modelSlot: 'stateEvolution',
+        gateReason: null,
+        gateStateImpactRisk: 'high',
+        actionsJson: '[]',
+        actionResultsJson: '[]',
+        statePatchesJson: JSON.stringify(
+          evolutionResult.decision.evolutionPatches
+        ),
+        patchResultsJson: JSON.stringify(patchResults),
+        confidence: 0,
+        escalated: false,
+        promptTokens: 50,
+        completionTokens: 20,
+        totalTokens: 70,
+        latencyMs: 300,
       })
     );
   });
