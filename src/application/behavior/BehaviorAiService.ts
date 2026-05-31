@@ -4,6 +4,8 @@ import type {
   BehaviorAiDecisionResult,
   BehaviorDecisionContext,
   GateAiResult,
+  StateEvolutionContext,
+  StateEvolutionResult,
   StoredBehaviorMessage,
 } from './BehaviorTypes';
 
@@ -12,6 +14,9 @@ export interface BehaviorAiService {
   decideBehavior(
     context: BehaviorDecisionContext
   ): Promise<BehaviorAiDecisionResult>;
+  proposeStateEvolution(
+    context: StateEvolutionContext
+  ): Promise<StateEvolutionResult>;
 }
 
 export const BEHAVIOR_AI_SERVICE_ID = Symbol.for(

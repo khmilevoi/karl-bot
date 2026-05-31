@@ -122,6 +122,6 @@ export interface StateEvolutionContext extends BehaviorPromptContext {
 }
 
 export interface StateEvolutionResult {
-  decision: import('@/domain/behavior/schemas/evolution').StateEvolutionDecision;
+  decision: import('@/domain/behavior/schemas/evolution').StateEvolutionDecision; // eslint-disable-line @typescript-eslint/consistent-type-imports
   metadata: AiCallMetadata;
 }
