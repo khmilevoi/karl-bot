@@ -3,6 +3,7 @@ import { inject, injectable } from 'inversify';
 import {
   type BotPoliticalState,
   botPoliticalStateSchema,
+  politicalCompassSchema,
 } from '@/domain/behavior/schemas/state';
 import {
   DB_PROVIDER_ID,
@@ -13,6 +14,7 @@ import type { PoliticalStateRepository } from '@/domain/repositories/PoliticalSt
 interface PoliticalRow {
   chat_id: number;
   ideology_summary: string;
+  compass_json: string;
   positions_json: string;
   uncertainty_areas_json: string;
   influence_history_json: string;
@@ -28,7 +30,7 @@ export class SQLitePoliticalStateRepository implements PoliticalStateRepository 
   async findByChatId(chatId: number): Promise<BotPoliticalState | undefined> {
     const db = await this.dbProvider.get();
     const row = await db.get<PoliticalRow>(
-      'SELECT chat_id, ideology_summary, positions_json, uncertainty_areas_json, influence_history_json, last_updated_at FROM bot_political_states WHERE chat_id = ?',
+      'SELECT chat_id, ideology_summary, compass_json, positions_json, uncertainty_areas_json, influence_history_json, last_updated_at FROM bot_political_states WHERE chat_id = ?',
       chatId
     );
     if (!row) {
@@ -37,6 +39,7 @@ export class SQLitePoliticalStateRepository implements PoliticalStateRepository 
     return botPoliticalStateSchema.parse({
       chatId: row.chat_id,
       ideologySummary: row.ideology_summary,
+      compass: politicalCompassSchema.parse(JSON.parse(row.compass_json)),
       positions: JSON.parse(row.positions_json),
       uncertaintyAreas: JSON.parse(row.uncertainty_areas_json),
       influenceHistory: JSON.parse(row.influence_history_json),
@@ -48,16 +51,18 @@ export class SQLitePoliticalStateRepository implements PoliticalStateRepository 
     const db = await this.dbProvider.get();
     await db.run(
       `INSERT INTO bot_political_states
-        (chat_id, ideology_summary, positions_json, uncertainty_areas_json, influence_history_json, last_updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)
+        (chat_id, ideology_summary, compass_json, positions_json, uncertainty_areas_json, influence_history_json, last_updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(chat_id) DO UPDATE SET
          ideology_summary=excluded.ideology_summary,
+         compass_json=excluded.compass_json,
          positions_json=excluded.positions_json,
          uncertainty_areas_json=excluded.uncertainty_areas_json,
          influence_history_json=excluded.influence_history_json,
          last_updated_at=excluded.last_updated_at`,
       state.chatId,
       state.ideologySummary,
+      JSON.stringify(state.compass),
       JSON.stringify(state.positions),
       JSON.stringify(state.uncertaintyAreas),
       JSON.stringify(state.influenceHistory),

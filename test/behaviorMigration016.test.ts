@@ -9,7 +9,7 @@ type Db = Awaited<ReturnType<typeof open>>;
 
 let db: Db;
 
-  beforeEach(async () => {
+beforeEach(async () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'mig016-'));
   db = await open({
     filename: path.join(dir, 't.db'),

@@ -63,15 +63,15 @@ function defaultPolitical(chatId: number, now: string): BotPoliticalState {
   return {
     chatId,
     ideologySummary: '',
-    positions: [],
-    uncertaintyAreas: [],
-    influenceHistory: [],
     compass: {
       economic: 0,
       social: 0,
       economicConfidence: 0,
       socialConfidence: 0,
     },
+    positions: [],
+    uncertaintyAreas: [],
+    influenceHistory: [],
     lastUpdatedAt: now,
   };
 }
