@@ -32,6 +32,9 @@ export interface PromptFiles {
   userProfiles: string;
   truths: string;
   behaviorMessages: string;
+  stateEvolutionSystem: string;
+  personalitySignals: string;
+  userPoliticalProfiles: string;
 }
 
 export interface SingleModelSlot {

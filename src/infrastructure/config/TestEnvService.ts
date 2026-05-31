@@ -70,6 +70,9 @@ export class TestEnvService implements EnvService {
       userProfiles: 'prompts/user_profiles_prompt.md',
       truths: 'prompts/truths_prompt.md',
       behaviorMessages: 'prompts/behavior_messages_prompt.md',
+      stateEvolutionSystem: 'prompts/state_evolution_system_prompt.md',
+      personalitySignals: 'prompts/personality_signals_prompt.md',
+      userPoliticalProfiles: 'prompts/user_political_profiles_prompt.md',
     };
   }
 

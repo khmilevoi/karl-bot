@@ -1,0 +1,3 @@
+Accumulated personality signals:
+
+{{personalitySignalsJson}}

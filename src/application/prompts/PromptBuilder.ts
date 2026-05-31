@@ -292,6 +292,60 @@ export class PromptBuilder {
     return this;
   }
 
+  addStateEvolutionSystem(): this {
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate(
+        'stateEvolutionSystem'
+      );
+      return [{ role: 'system', content: template }];
+    });
+    return this;
+  }
+
+  addPersonalitySignals(
+    signals: import('@/domain/behavior/schemas/state').PersonalitySignal[]
+  ): this {
+    if (signals.length === 0) {
+      return this;
+    }
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate('personalitySignals');
+      return [
+        {
+          role: 'system',
+          content: template.replace(
+            '{{personalitySignalsJson}}',
+            this.stringify(signals)
+          ),
+        },
+      ];
+    });
+    return this;
+  }
+
+  addUserPoliticalProfiles(
+    profiles: import('@/domain/behavior/schemas/state').UserPoliticalProfile[]
+  ): this {
+    if (profiles.length === 0) {
+      return this;
+    }
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate(
+        'userPoliticalProfiles'
+      );
+      return [
+        {
+          role: 'system',
+          content: template.replace(
+            '{{userPoliticalProfilesJson}}',
+            this.stringify(profiles)
+          ),
+        },
+      ];
+    });
+    return this;
+  }
+
   addBehaviorMessages(
     messages: BehaviorPromptMessage[],
     markers?: BehaviorMessageMarkers

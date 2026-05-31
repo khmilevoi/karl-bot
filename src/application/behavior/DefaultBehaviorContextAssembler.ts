@@ -155,6 +155,7 @@ export class DefaultBehaviorContextAssembler implements BehaviorContextAssembler
         political: political ?? defaultPolitical(chatId, now),
         profiles,
         truths,
+        userPolitical: [],
       },
     };
   }

@@ -1,6 +1,8 @@
 import type { ChatModel } from 'openai/resources/shared';
 
 import type { BehaviorPromptContext } from '@/application/prompts/PromptTypes';
+import type { StateImpactRisk } from '@/domain/behavior/schemas/primitives';
+import type { PersonalitySignal } from '@/domain/behavior/schemas/state';
 import type { BehaviorAction } from '@/domain/behavior/schemas/actions';
 import type { BehaviorDecision } from '@/domain/behavior/schemas/decision';
 import type {
@@ -111,4 +113,15 @@ export interface BehaviorPatchResult {
   outcome: BehaviorPatchOutcome;
   reason: string | null;
   stateRef?: BehaviorPatchStateRef | null;
+}
+
+export interface StateEvolutionContext extends BehaviorPromptContext {
+  chatId: number;
+  maxStateImpactRisk: StateImpactRisk;
+  personalitySignals: PersonalitySignal[];
+}
+
+export interface StateEvolutionResult {
+  decision: import('@/domain/behavior/schemas/evolution').StateEvolutionDecision;
+  metadata: AiCallMetadata;
 }

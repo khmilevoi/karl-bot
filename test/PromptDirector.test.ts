@@ -100,6 +100,18 @@ function createBuilder() {
       calls.push('addBehaviorMessages');
       return builder;
     }),
+    addStateEvolutionSystem: vi.fn(() => {
+      calls.push('addStateEvolutionSystem');
+      return builder;
+    }),
+    addPersonalitySignals: vi.fn(() => {
+      calls.push('addPersonalitySignals');
+      return builder;
+    }),
+    addUserPoliticalProfiles: vi.fn(() => {
+      calls.push('addUserPoliticalProfiles');
+      return builder;
+    }),
     build: vi.fn(async () => {
       calls.push('build');
       return 'result';
@@ -286,6 +298,7 @@ describe('PromptDirector', () => {
         political: {} as any,
         profiles: [],
         truths: [],
+        userPolitical: [],
       },
     };
     await director.createBehaviorDecisionPrompt(context);
@@ -297,6 +310,7 @@ describe('PromptDirector', () => {
       'addPersonalityState',
       'addPoliticalState',
       'addUserProfiles',
+      'addUserPoliticalProfiles',
       'addTruths',
       'addBehaviorMessages',
       'build',
