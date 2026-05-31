@@ -83,6 +83,10 @@ export class DefaultPatchPolicy implements PatchPolicy {
         return `${patch.topic} ${patch.stance}`;
       case 'politics.add_uncertainty':
         return `${patch.topic} ${patch.summary}`;
+      case 'user.add_political_note':
+        return patch.text;
+      case 'user.contest_political_note':
+        return patch.target.text;
       default:
         return '';
     }
