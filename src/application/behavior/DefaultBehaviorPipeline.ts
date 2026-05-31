@@ -49,6 +49,10 @@ import {
   STATE_PATCH_APPLICATOR_ID,
   type StatePatchApplicator,
 } from './StatePatchApplicator';
+import {
+  STATE_EVOLUTION_TRIGGER_ID,
+  type StateEvolutionTrigger,
+} from './StateEvolutionTrigger';
 
 @injectable()
 export class DefaultBehaviorPipeline implements BehaviorPipeline {
@@ -69,6 +73,8 @@ export class DefaultBehaviorPipeline implements BehaviorPipeline {
     @inject(BEHAVIOR_EVENT_LOGGER_ID)
     private readonly eventLogger: BehaviorEventLogger,
     @inject(AI_ERROR_LOGGER_ID) private readonly errorLogger: AiErrorLogger,
+    @inject(STATE_EVOLUTION_TRIGGER_ID)
+    private readonly evolutionTrigger: StateEvolutionTrigger,
     @inject(LOGGER_FACTORY_ID) loggerFactory: LoggerFactory
   ) {
     this.logger = loggerFactory.create('DefaultBehaviorPipeline');
@@ -264,6 +270,12 @@ export class DefaultBehaviorPipeline implements BehaviorPipeline {
       actionResults,
       patchResults,
     });
+
+    void this.evolutionTrigger
+      .maybeSchedule(chatId, gate.stateImpactRisk)
+      .catch((error) =>
+        this.logger.error({ error, chatId }, 'State evolution trigger failed')
+      );
 
     return {
       kind: 'decided',

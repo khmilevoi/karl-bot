@@ -28,15 +28,13 @@ describe('DefaultStateEvolutionWorker', () => {
     const runPromise = new Promise<void>((resolve) => {
       resolveRun = resolve;
     });
-    const passRun = vi
-      .fn()
-      .mockReturnValue(
-        runPromise.then(() => ({
-          kind: 'evolved',
-          behaviorEventId: 1,
-          patchResults: [],
-        }))
-      );
+    const passRun = vi.fn().mockReturnValue(
+      runPromise.then(() => ({
+        kind: 'evolved',
+        behaviorEventId: 1,
+        patchResults: [],
+      }))
+    );
     const worker = makeWorker(passRun);
 
     worker.requestRun(1);
