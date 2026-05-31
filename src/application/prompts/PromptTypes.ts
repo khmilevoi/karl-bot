@@ -27,6 +27,7 @@ export interface BehaviorPromptState {
 export interface BehaviorMessageMarkers {
   triggerMessageIds: readonly number[];
   contextMessageIds: readonly number[];
+  batchMessageIds: readonly number[];
 }
 
 export interface BehaviorPromptContext {
@@ -34,5 +35,6 @@ export interface BehaviorPromptContext {
   messages: BehaviorPromptMessage[];
   triggerMessageIds: number[];
   contextMessageIds: number[];
+  batchMessageIds: number[];
   state: BehaviorPromptState;
 }

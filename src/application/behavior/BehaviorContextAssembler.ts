@@ -6,6 +6,7 @@ export interface BehaviorContextAssemblerInput {
   chatId: number;
   triggerMessageIds: number[];
   contextMessageIds: number[];
+  batchMessageIds: number[];
   gate: BehaviorDecisionContext['gate'];
 }
 

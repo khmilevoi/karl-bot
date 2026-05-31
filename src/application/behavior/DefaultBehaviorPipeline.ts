@@ -17,6 +17,15 @@ import {
   type BehaviorContextAssembler,
 } from './BehaviorContextAssembler';
 import {
+  BEHAVIOR_DECISION_VALIDATOR_ID,
+  type BehaviorDecisionValidator,
+  type DroppedAction,
+} from './BehaviorDecisionValidator';
+import {
+  BEHAVIOR_EXECUTOR_ID,
+  type BehaviorExecutor,
+} from './BehaviorExecutor';
+import {
   BEHAVIOR_EVENT_LOGGER_ID,
   type BehaviorEventLogger,
 } from './BehaviorEventLogger';
@@ -27,6 +36,7 @@ import {
   type BehaviorPipelineConfig,
 } from './BehaviorConfig';
 import type {
+  BehaviorActionResult,
   BehaviorDecisionContext,
   StoredBehaviorMessage,
 } from './BehaviorTypes';
@@ -35,6 +45,10 @@ import type {
   BehaviorPipelineInput,
   BehaviorPipelineResult,
 } from './BehaviorPipeline';
+import {
+  STATE_PATCH_APPLICATOR_ID,
+  type StatePatchApplicator,
+} from './StatePatchApplicator';
 
 @injectable()
 export class DefaultBehaviorPipeline implements BehaviorPipeline {
@@ -46,6 +60,12 @@ export class DefaultBehaviorPipeline implements BehaviorPipeline {
     @inject(BEHAVIOR_AI_SERVICE_ID) private readonly ai: BehaviorAiService,
     @inject(BEHAVIOR_CONTEXT_ASSEMBLER_ID)
     private readonly assembler: BehaviorContextAssembler,
+    @inject(BEHAVIOR_DECISION_VALIDATOR_ID)
+    private readonly validator: BehaviorDecisionValidator,
+    @inject(BEHAVIOR_EXECUTOR_ID)
+    private readonly executor: BehaviorExecutor,
+    @inject(STATE_PATCH_APPLICATOR_ID)
+    private readonly patchApplicator: StatePatchApplicator,
     @inject(BEHAVIOR_EVENT_LOGGER_ID)
     private readonly eventLogger: BehaviorEventLogger,
     @inject(AI_ERROR_LOGGER_ID) private readonly errorLogger: AiErrorLogger,
@@ -114,7 +134,11 @@ export class DefaultBehaviorPipeline implements BehaviorPipeline {
       return { kind: 'ignored', gate };
     }
 
-    return this.decide(batch.chatId, gate);
+    return this.decide(
+      batch.chatId,
+      gate,
+      batch.messages.map((message) => message.id)
+    );
   }
 
   private async processDirectTrigger(
@@ -133,12 +157,17 @@ export class DefaultBehaviorPipeline implements BehaviorPipeline {
       stateImpactRisk: 'medium',
     };
 
-    return this.decide(chatId, gate);
+    return this.decide(
+      chatId,
+      gate,
+      drained.map((m) => m.id)
+    );
   }
 
   private async decide(
     chatId: number,
-    gate: BehaviorGateDecision
+    gate: BehaviorGateDecision,
+    batchMessageIds: number[]
   ): Promise<BehaviorPipelineResult> {
     let context: BehaviorDecisionContext;
     try {
@@ -146,6 +175,7 @@ export class DefaultBehaviorPipeline implements BehaviorPipeline {
         chatId,
         triggerMessageIds: gate.triggerMessageIds,
         contextMessageIds: gate.contextMessageIds,
+        batchMessageIds,
         gate,
       });
     } catch (error) {
@@ -160,6 +190,7 @@ export class DefaultBehaviorPipeline implements BehaviorPipeline {
         inputRef: {
           triggerMessageIds: gate.triggerMessageIds,
           contextMessageIds: gate.contextMessageIds,
+          batchMessageIds,
         },
         fixHint: 'Check context assembler and repositories',
       });
@@ -181,22 +212,74 @@ export class DefaultBehaviorPipeline implements BehaviorPipeline {
         inputRef: {
           triggerMessageIds: gate.triggerMessageIds,
           contextMessageIds: gate.contextMessageIds,
+          batchMessageIds,
         },
         fixHint: 'Check OpenAI API connectivity and decision schema',
       });
       return { kind: 'error', errorEventId };
     }
 
+    const validation = this.validator.validate(decisionResult.decision);
+    if (!validation.ok) {
+      const errorEventId = await this.errorLogger.log({
+        chatId,
+        source: 'behavior_decision_validation',
+        severity: 'error',
+        errorCode: 'DECISION_VALIDATION_FAILED',
+        message: validation.issues.join('; '),
+        component: 'DefaultBehaviorPipeline',
+        operation: 'validateDecision',
+        inputRef: {
+          triggerMessageIds: gate.triggerMessageIds,
+          contextMessageIds: gate.contextMessageIds,
+          batchMessageIds,
+        },
+        outputRef: { issues: validation.issues },
+        fixHint: 'Check behavior decision schema and runtime validator rules',
+      });
+      return { kind: 'error', errorEventId };
+    }
+
+    const sanitizedDecisionResult = {
+      ...decisionResult,
+      decision: validation.decision,
+    };
+    const droppedActionResults = this.toDroppedActionResults(
+      validation.droppedActions
+    );
+    const executedActionResults = await this.executor.execute({
+      context,
+      actions: validation.decision.actions,
+    });
+    const actionResults = [...droppedActionResults, ...executedActionResults];
+    const patchResults = await this.patchApplicator.applyPatches({
+      chatId,
+      patches: validation.decision.statePatches,
+      contextMessages: context.messages,
+    });
+
     const behaviorEventId = await this.eventLogger.logDecision({
       context,
-      result: decisionResult,
+      result: sanitizedDecisionResult,
+      actionResults,
+      patchResults,
     });
 
     return {
       kind: 'decided',
       context,
-      decision: decisionResult.decision,
+      decision: validation.decision,
       behaviorEventId,
     };
+  }
+
+  private toDroppedActionResults(
+    droppedActions: DroppedAction[]
+  ): BehaviorActionResult[] {
+    return droppedActions.map(({ action, reason }) => ({
+      actionType: action.type,
+      outcome: 'dropped',
+      reason,
+    }));
   }
 }

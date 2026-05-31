@@ -1,0 +1,33 @@
+import type { ServiceIdentifier } from 'inversify';
+
+import type { LiveStatePatch } from '@/domain/behavior/schemas/patches';
+import type { ChatMessage } from '@/domain/messages/ChatMessage';
+
+import type { BehaviorPatchResult } from './BehaviorTypes';
+
+export interface StatePatchApplicatorConfig {
+  truthStableConfidence: number;
+}
+
+export const DEFAULT_STATE_PATCH_APPLICATOR_CONFIG: StatePatchApplicatorConfig =
+  {
+    truthStableConfidence: 0.75,
+  };
+
+export interface StatePatchApplicator {
+  applyPatches(params: {
+    chatId: number;
+    patches: readonly LiveStatePatch[];
+    contextMessages: readonly ChatMessage[];
+    nowIso?: string;
+    nowMs?: number;
+  }): Promise<BehaviorPatchResult[]>;
+}
+
+export const STATE_PATCH_APPLICATOR_CONFIG_ID = Symbol.for(
+  'StatePatchApplicatorConfig'
+) as ServiceIdentifier<StatePatchApplicatorConfig>;
+
+export const STATE_PATCH_APPLICATOR_ID = Symbol.for(
+  'StatePatchApplicator'
+) as ServiceIdentifier<StatePatchApplicator>;

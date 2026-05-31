@@ -1,5 +1,8 @@
 import type { ServiceIdentifier } from 'inversify';
 
+import type { BehaviorDecisionValidatorConfig } from './BehaviorDecisionValidator';
+import type { PatchPolicyConfig } from './PatchPolicy';
+
 export interface BehaviorPipelineConfig {
   batchSizeCap: number;
   batchHardCapMs: number;
@@ -21,3 +24,85 @@ export const DEFAULT_BEHAVIOR_PIPELINE_CONFIG: BehaviorPipelineConfig = {
 export const BEHAVIOR_PIPELINE_CONFIG_ID = Symbol.for(
   'BehaviorPipelineConfig'
 ) as ServiceIdentifier<BehaviorPipelineConfig>;
+
+export const DEFAULT_BEHAVIOR_DECISION_VALIDATOR_CONFIG: BehaviorDecisionValidatorConfig =
+  {
+    maxReplyLength: 2_000,
+    allowedEmoji: [
+      '👍',
+      '👎',
+      '❤️',
+      '😂',
+      '😮',
+      '😢',
+      '😡',
+      '👏',
+      '🤔',
+      '🤝',
+      '💀',
+      '🤡',
+      '😭',
+      '🔥',
+      '👀',
+      '🙏',
+      '✨',
+      '🥹',
+      '🫶',
+      '🫠',
+    ],
+  };
+
+export const BEHAVIOR_DECISION_VALIDATOR_CONFIG_ID = Symbol.for(
+  'BehaviorDecisionValidatorConfig'
+) as ServiceIdentifier<BehaviorDecisionValidatorConfig>;
+
+export const DEFAULT_PATCH_POLICY_CONFIG: PatchPolicyConfig = {
+  personalityMinConfidence: 0.5,
+  politicalWeakMaxConfidence: 0.4,
+  politicalStrongMinConfidence: 0.7,
+  hardBoundaryTerms: [
+    'credible threat',
+    'real-world violence',
+    'dehumanization',
+    'targeted harassment',
+  ],
+};
+
+export const PATCH_POLICY_CONFIG_ID = Symbol.for(
+  'PatchPolicyConfig'
+) as ServiceIdentifier<PatchPolicyConfig>;
+
+export interface BehaviorRateLimiterConfig {
+  initiativeWindowMs: number;
+  maxInitiativesPerWindow: number;
+  reactionWindowMs: number;
+  maxReactionsPerWindow: number;
+  truthAddWindowMs: number;
+  maxTruthAddsPerWindow: number;
+}
+
+export const DEFAULT_BEHAVIOR_RATE_LIMITER_CONFIG: BehaviorRateLimiterConfig = {
+  initiativeWindowMs: 60_000,
+  maxInitiativesPerWindow: 3,
+  reactionWindowMs: 60_000,
+  maxReactionsPerWindow: 8,
+  truthAddWindowMs: 10 * 60_000,
+  maxTruthAddsPerWindow: 3,
+};
+
+export const BEHAVIOR_RATE_LIMITER_CONFIG_ID = Symbol.for(
+  'BehaviorRateLimiterConfig'
+) as ServiceIdentifier<BehaviorRateLimiterConfig>;
+
+export interface BehaviorSummarizationQueueConfig {
+  enabled: boolean;
+}
+
+export const DEFAULT_BEHAVIOR_SUMMARIZATION_QUEUE_CONFIG: BehaviorSummarizationQueueConfig =
+  {
+    enabled: true,
+  };
+
+export const BEHAVIOR_SUMMARIZATION_QUEUE_CONFIG_ID = Symbol.for(
+  'BehaviorSummarizationQueueConfig'
+) as ServiceIdentifier<BehaviorSummarizationQueueConfig>;
