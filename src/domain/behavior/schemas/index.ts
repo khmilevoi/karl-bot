@@ -5,3 +5,4 @@ export * from './actions';
 export * from './patches';
 export * from './decision';
 export * from './state';
+export * from './evolution';
