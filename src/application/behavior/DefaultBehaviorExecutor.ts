@@ -4,6 +4,15 @@ import {
   CHAT_MESSENGER_ID,
   type ChatMessenger,
 } from '@/application/interfaces/chat/ChatMessenger';
+import type { Logger } from '@/application/interfaces/logging/Logger';
+import {
+  LOGGER_FACTORY_ID,
+  type LoggerFactory,
+} from '@/application/interfaces/logging/LoggerFactory';
+import {
+  MESSAGE_SERVICE_ID,
+  type MessageService,
+} from '@/application/interfaces/messages/MessageService';
 import type {
   BehaviorAction,
   MessageSelector,
@@ -32,13 +41,19 @@ interface ResolvedMessageTarget {
 
 @injectable()
 export class DefaultBehaviorExecutor implements BehaviorExecutor {
+  private readonly logger: Logger;
+
   constructor(
     @inject(CHAT_MESSENGER_ID) private readonly messenger: ChatMessenger,
     @inject(BEHAVIOR_RATE_LIMITER_ID)
     private readonly rateLimiter: BehaviorRateLimiter,
     @inject(BEHAVIOR_SUMMARIZATION_QUEUE_ID)
-    private readonly summarizationQueue: BehaviorSummarizationQueue
-  ) {}
+    private readonly summarizationQueue: BehaviorSummarizationQueue,
+    @inject(MESSAGE_SERVICE_ID) private readonly messages: MessageService,
+    @inject(LOGGER_FACTORY_ID) loggerFactory: LoggerFactory
+  ) {
+    this.logger = loggerFactory.create('DefaultBehaviorExecutor');
+  }
 
   async execute(params: {
     context: BehaviorDecisionContext;
@@ -105,7 +120,18 @@ export class DefaultBehaviorExecutor implements BehaviorExecutor {
         : { reply_parameters: { message_id: target.telegramMessageId } };
 
     try {
-      await this.messenger.sendMessage(context.chatId, action.text, extra);
+      const telegramMessageId = await this.messenger.sendMessage(
+        context.chatId,
+        action.text,
+        extra
+      );
+      await this.persistAssistant({
+        chatId: context.chatId,
+        text: action.text,
+        telegramMessageId,
+        replyToStoredId: target.targetMessageId,
+        contextMessages: context.messages,
+      });
       return {
         actionType: action.type,
         outcome: 'sent',
@@ -122,11 +148,19 @@ export class DefaultBehaviorExecutor implements BehaviorExecutor {
     context: BehaviorDecisionContext,
     action: Extract<BehaviorAction, { type: 'ask_question' }>
   ): Promise<BehaviorActionResult> {
+    const text = this.formatQuestion(action);
     try {
-      await this.messenger.sendMessage(
+      const telegramMessageId = await this.messenger.sendMessage(
         context.chatId,
-        this.formatQuestion(action)
+        text
       );
+      await this.persistAssistant({
+        chatId: context.chatId,
+        text,
+        telegramMessageId,
+        replyToStoredId: null,
+        contextMessages: context.messages,
+      });
       return {
         actionType: action.type,
         outcome: 'sent',
@@ -319,6 +353,37 @@ export class DefaultBehaviorExecutor implements BehaviorExecutor {
       ? action.targetUsername
       : `@${action.targetUsername}`;
     return `${mention} ${action.text}`;
+  }
+
+  private async persistAssistant(params: {
+    chatId: number;
+    text: string;
+    telegramMessageId: number | null;
+    replyToStoredId: number | null;
+    contextMessages: BehaviorDecisionContext['messages'];
+  }): Promise<void> {
+    const botInfo = this.messenger.bot.botInfo;
+    const repliedTo =
+      params.replyToStoredId != null
+        ? params.contextMessages.find((m) => m.id === params.replyToStoredId)
+        : undefined;
+    try {
+      await this.messages.addMessage({
+        role: 'assistant',
+        content: params.text,
+        chatId: params.chatId,
+        messageId: params.telegramMessageId ?? undefined,
+        userId: botInfo.id,
+        username: botInfo.username,
+        replyText: repliedTo?.content,
+        replyUsername: repliedTo?.username,
+      });
+    } catch (error) {
+      this.logger.warn(
+        { error, chatId: params.chatId },
+        'Failed to persist assistant message'
+      );
+    }
   }
 
   private failed(

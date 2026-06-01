@@ -7,6 +7,8 @@ import type { BehaviorRateLimiter } from '../src/application/behavior/BehaviorRa
 import type { BehaviorSummarizationQueue } from '../src/application/behavior/BehaviorSummarizationQueue';
 import type { BehaviorDecisionContext } from '../src/application/behavior/BehaviorTypes';
 import type { ChatMessenger } from '../src/application/interfaces/chat/ChatMessenger';
+import type { LoggerFactory } from '../src/application/interfaces/logging/LoggerFactory';
+import type { MessageService } from '../src/application/interfaces/messages/MessageService';
 import type { BehaviorAction } from '../src/domain/behavior/schemas/actions';
 
 const allowingLimiter: BehaviorRateLimiter = {
@@ -16,13 +18,44 @@ const allowingLimiter: BehaviorRateLimiter = {
 
 function makeMessenger(overrides?: Partial<ChatMessenger>): ChatMessenger {
   return {
-    bot: {} as ChatMessenger['bot'],
-    sendMessage: vi.fn().mockResolvedValue(undefined),
+    bot: { botInfo: { id: 42, username: 'carl_bot' } } as ChatMessenger['bot'],
+    sendMessage: vi.fn().mockResolvedValue(null),
     reactToMessage: vi.fn().mockResolvedValue(undefined),
     launch: vi.fn(),
     stop: vi.fn(),
     ...overrides,
   };
+}
+
+function makeMessageService(): MessageService {
+  return {
+    addMessage: vi.fn().mockResolvedValue(1),
+  } as unknown as MessageService;
+}
+
+const loggerFactory: LoggerFactory = {
+  create: () => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    child: vi.fn(),
+  }),
+} as unknown as LoggerFactory;
+
+function makeExecutor(params?: {
+  messenger?: ChatMessenger;
+  limiter?: BehaviorRateLimiter;
+  queue?: BehaviorSummarizationQueue;
+  messages?: MessageService;
+}): DefaultBehaviorExecutor {
+  return new DefaultBehaviorExecutor(
+    params?.messenger ?? makeMessenger(),
+    params?.limiter ?? allowingLimiter,
+    params?.queue ?? makeQueue(),
+    params?.messages ?? makeMessageService(),
+    loggerFactory
+  );
 }
 
 function makeQueue(
@@ -72,6 +105,7 @@ function makeContext(): BehaviorDecisionContext {
       political: {} as BehaviorDecisionContext['state']['political'],
       profiles: [],
       truths: [],
+      userPolitical: [],
     },
   };
 }
@@ -79,11 +113,7 @@ function makeContext(): BehaviorDecisionContext {
 describe('DefaultBehaviorExecutor', () => {
   it('sends reply and ask_question actions through ChatMessenger', async () => {
     const messenger = makeMessenger();
-    const executor = new DefaultBehaviorExecutor(
-      messenger,
-      allowingLimiter,
-      makeQueue()
-    );
+    const executor = makeExecutor({ messenger });
     const actions: BehaviorAction[] = [
       {
         type: 'reply',
@@ -121,11 +151,7 @@ describe('DefaultBehaviorExecutor', () => {
 
   it('reacts to selector targets and drops selected messages without Telegram ids', async () => {
     const messenger = makeMessenger();
-    const executor = new DefaultBehaviorExecutor(
-      messenger,
-      allowingLimiter,
-      makeQueue()
-    );
+    const executor = makeExecutor({ messenger });
 
     const results = await executor.execute({
       context: makeContext(),
@@ -176,11 +202,7 @@ describe('DefaultBehaviorExecutor', () => {
     const queue = new DefaultBehaviorSummarizationQueue(
       DEFAULT_BEHAVIOR_SUMMARIZATION_QUEUE_CONFIG
     );
-    const executor = new DefaultBehaviorExecutor(
-      makeMessenger(),
-      allowingLimiter,
-      queue
-    );
+    const executor = makeExecutor({ queue });
 
     await expect(
       executor.execute({ context: makeContext(), actions: [] })
@@ -208,11 +230,7 @@ describe('DefaultBehaviorExecutor', () => {
 
   it('drops invalid selectors without calling Telegram', async () => {
     const messenger = makeMessenger();
-    const executor = new DefaultBehaviorExecutor(
-      messenger,
-      allowingLimiter,
-      makeQueue()
-    );
+    const executor = makeExecutor({ messenger });
 
     const results = await executor.execute({
       context: makeContext(),
@@ -243,11 +261,7 @@ describe('DefaultBehaviorExecutor', () => {
     const messenger = makeMessenger({
       sendMessage: vi.fn().mockRejectedValue(new Error('telegram down')),
     });
-    const executor = new DefaultBehaviorExecutor(
-      messenger,
-      allowingLimiter,
-      makeQueue()
-    );
+    const executor = makeExecutor({ messenger });
 
     const results = await executor.execute({
       context: makeContext(),
@@ -280,7 +294,7 @@ describe('DefaultBehaviorExecutor', () => {
       })),
       checkPatch: vi.fn(() => ({ allowed: true })),
     };
-    const executor = new DefaultBehaviorExecutor(messenger, limiter, queue);
+    const executor = makeExecutor({ messenger, limiter, queue });
 
     const results = await executor.execute({
       context: makeContext(),
