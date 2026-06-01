@@ -6,6 +6,7 @@ import {
 } from '@/application/interfaces/prompts/PromptTemplateService';
 import type { ChatMessage } from '@/domain/messages/ChatMessage';
 
+import type { MessageReferenceMap } from './MessageReferenceMap';
 import type { PromptMessage } from './PromptMessage';
 import type {
   BehaviorMessageMarkers,
@@ -305,6 +306,7 @@ export class PromptBuilder {
 
   addBehaviorMessages(
     messages: BehaviorPromptMessage[],
+    refMap: MessageReferenceMap,
     markers?: BehaviorMessageMarkers
   ): this {
     this.steps.push(async () => {
@@ -328,7 +330,17 @@ export class PromptBuilder {
         const fullName =
           m.fullName ??
           ([m.firstName, m.lastName].filter(Boolean).join(' ') || 'N/A');
-        return `[storeId:${m.id}] [telegramId:${m.messageId ?? 'N/A'}] [userId:${m.userId ?? 0}] [username:${m.username ?? 'N/A'}] [fullName:${fullName}] [role:${m.role}]${marker}\n${m.content}`;
+        const ordinal = refMap.ordinalFor(m.id) ?? 0;
+        const header = `[#${ordinal}] [userId:${m.userId ?? 0}] [username:${m.username ?? 'N/A'}] [fullName:${fullName}] [role:${m.role}]${marker}`;
+        const replyLine =
+          m.replyText != null && m.replyText.length > 0
+            ? `\n↳ ответ @${m.replyUsername ?? 'N/A'}: "${this.truncate(m.replyText)}"`
+            : '';
+        const quoteLine =
+          m.quoteText != null && m.quoteText.length > 0
+            ? `\n❝ цитата: "${this.truncate(m.quoteText)}"`
+            : '';
+        return `${header}${replyLine}${quoteLine}\n${m.content}`;
       });
       return [
         {
@@ -338,6 +350,10 @@ export class PromptBuilder {
       ];
     });
     return this;
+  }
+
+  private truncate(text: string, max = 200): string {
+    return text.length > max ? `${text.slice(0, max)}…` : text;
   }
 
   private stringify(value: unknown): string {

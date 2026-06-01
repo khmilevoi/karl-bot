@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PromptTemplateService } from '../src/application/interfaces/prompts/PromptTemplateService';
 import { PromptBuilder } from '../src/application/prompts/PromptBuilder';
+import { MessageReferenceMap } from '../src/application/prompts/MessageReferenceMap';
 import type { BehaviorPromptMessage } from '../src/application/prompts/PromptTypes';
 import type { ChatMessage } from '../src/domain/messages/ChatMessage';
 
@@ -145,16 +146,17 @@ describe('PromptBuilder', () => {
         userId: 8,
       } as BehaviorPromptMessage,
     ];
+    const refMap = MessageReferenceMap.fromMessages(msgs);
     const builder = new PromptBuilder(templates);
     const result = await builder
-      .addBehaviorMessages(msgs, {
+      .addBehaviorMessages(msgs, refMap, {
         triggerMessageIds: [1],
         contextMessageIds: [2],
         batchMessageIds: [3],
       })
       .build();
     expect(result[0].role).toBe('user');
-    expect(result[0].content).toContain('[storeId:1]');
+    expect(result[0].content).toContain('[#1]');
     expect(result[0].content).toContain('[TRIGGER]');
     expect(result[0].content).toContain('[GATE_CONTEXT]');
     expect(result[0].content).toContain('[BATCH]');
