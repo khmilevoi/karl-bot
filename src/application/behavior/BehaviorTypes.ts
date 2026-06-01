@@ -77,6 +77,7 @@ export interface BehaviorActionResult {
 
 export type BehaviorPatchOutcome =
   | 'applied'
+  | 'merged'
   | 'rejected'
   | 'rate_limited'
   | 'failed'
