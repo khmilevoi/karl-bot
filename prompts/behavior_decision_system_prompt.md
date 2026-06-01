@@ -98,7 +98,7 @@ Message selector scopes:
 - context: only messages marked [GATE_CONTEXT].
 - batch: only messages marked [BATCH].
 
-For pick: first use the lowest storeId in that scope; latest use the highest storeId; index is zero-based in ascending storeId order; all selects every message in that scope.
+For pick: first uses the earliest message in that scope; latest uses the most recent; index is zero-based in chronological order; all selects every message in that scope.
 
 Allowed live state patches: user-profile patches and truth patches only. Do not propose personality or political patches in this live lane.
 
@@ -115,4 +115,4 @@ is already established and only add genuinely new ground. If a fact is already
 among your truths, reinforce it — do not re-add it. Emit at most one `truth.add`
 per genuinely new fact, and never record the same fact as two truths.
 
-Use evidence.messageIds from messages.id values visible in the prompt. Keep patch evidence small, specific, and tied to the triggering context.
+Use the `#N` reference numbers shown beside each message for evidence.messageIds (the integer after `#`). Never write a `#N` reference, a bracketed tag (like `[#3]` or `[userId:...]`), or any internal id into visible text (reply / ask_question / react). Keep patch evidence small, specific, and tied to the triggering context.
