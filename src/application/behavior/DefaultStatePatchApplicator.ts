@@ -1,5 +1,9 @@
 import { inject, injectable } from 'inversify';
 
+import {
+  EMBEDDING_SERVICE_ID,
+  type EmbeddingService,
+} from '@/application/interfaces/ai/EmbeddingService';
 import type {
   EvolutionPatch,
   LiveStatePatch,
@@ -25,6 +29,7 @@ import {
 } from '@/domain/repositories/PoliticalStateRepository';
 import {
   TRUTH_REPOSITORY_ID,
+  type TruthEmbedding,
   type TruthRepository,
 } from '@/domain/repositories/TruthRepository';
 import {
@@ -42,6 +47,7 @@ import {
   type BehaviorRateLimiter,
 } from './BehaviorRateLimiter';
 import type { BehaviorPatchResult } from './BehaviorTypes';
+import { cosineSimilarity } from './cosineSimilarity';
 import { PATCH_POLICY_ID, type PatchPolicy } from './PatchPolicy';
 import {
   STATE_PATCH_APPLICATOR_CONFIG_ID,
@@ -53,6 +59,10 @@ interface AcceptedPatch {
   index: number;
   patch: LiveStatePatch;
 }
+
+type DuplicateTruthMatch =
+  | { id: number; newVector: number[] }
+  | { newVector: number[] };
 
 type SignalKind = 'label' | 'pattern' | 'grudge';
 
@@ -72,7 +82,9 @@ export class DefaultStatePatchApplicator implements StatePatchApplicator {
     @inject(POLITICAL_STATE_REPOSITORY_ID)
     private readonly politicalRepo: PoliticalStateRepository,
     @inject(USER_POLITICAL_PROFILE_REPOSITORY_ID)
-    private readonly userPoliticalRepo: UserPoliticalProfileRepository
+    private readonly userPoliticalRepo: UserPoliticalProfileRepository,
+    @inject(EMBEDDING_SERVICE_ID)
+    private readonly embeddings: EmbeddingService
   ) {}
 
   async applyPatches(params: {
@@ -280,17 +292,7 @@ export class DefaultStatePatchApplicator implements StatePatchApplicator {
 
     switch (patch.type) {
       case 'truth.add': {
-        const id = await this.truthRepo.add({
-          chatId,
-          text: patch.text,
-          sourceMessageIds: this.uniqueIds(patch.evidence.messageIds),
-          confidence: this.clampConfidence(patch.evidence.confidence),
-          relatedTruthIds: this.uniqueIds(patch.relatedTruthIds),
-          contradictsTruthIds: this.uniqueIds(patch.contradictsTruthIds),
-          status: this.truthStatus(patch.evidence.confidence),
-          createdAt: nowIso,
-        });
-        return this.appliedTruth(patch.type, chatId, id);
+        return this.applyTruthAdd(chatId, nowIso, patch);
       }
       case 'truth.reinforce': {
         const truth = await this.findMutableTruth(chatId, patch.truthId);
@@ -366,6 +368,116 @@ export class DefaultStatePatchApplicator implements StatePatchApplicator {
         return this.appliedTruth(patch.type, chatId, replacementId);
       }
     }
+  }
+
+  private async applyTruthAdd(
+    chatId: number,
+    nowIso: string,
+    patch: Extract<TruthPatch, { type: 'truth.add' }>
+  ): Promise<BehaviorPatchResult> {
+    const dedup = await this.findDuplicateTruth(chatId, patch);
+
+    if (dedup && 'id' in dedup) {
+      const target = await this.findMutableTruth(chatId, dedup.id);
+      if (target) {
+        target.sourceMessageIds = this.uniqueIds([
+          ...target.sourceMessageIds,
+          ...patch.evidence.messageIds,
+        ]);
+        target.confidence = this.clampConfidence(
+          target.confidence + 0.2 * patch.evidence.confidence
+        );
+        target.status = this.truthStatus(target.confidence);
+        target.relatedTruthIds = this.uniqueIds([
+          ...target.relatedTruthIds,
+          ...patch.relatedTruthIds,
+        ]);
+        target.contradictsTruthIds = this.uniqueIds([
+          ...target.contradictsTruthIds,
+          ...patch.contradictsTruthIds,
+        ]);
+        await this.truthRepo.update(target);
+        return {
+          patchType: 'truth.add',
+          outcome: 'merged',
+          reason: `deduped into #${target.id}`,
+          stateRef: { kind: 'bot_truth', chatId, truthId: target.id },
+        };
+      }
+    }
+
+    const id = await this.truthRepo.add(
+      {
+        chatId,
+        text: patch.text,
+        sourceMessageIds: this.uniqueIds(patch.evidence.messageIds),
+        confidence: this.clampConfidence(patch.evidence.confidence),
+        relatedTruthIds: this.uniqueIds(patch.relatedTruthIds),
+        contradictsTruthIds: this.uniqueIds(patch.contradictsTruthIds),
+        status: this.truthStatus(patch.evidence.confidence),
+        createdAt: nowIso,
+      },
+      dedup?.newVector ?? null
+    );
+    return this.appliedTruth('truth.add', chatId, id);
+  }
+
+  // Fail-open: any embedding error yields null so the caller performs a plain
+  // insert rather than losing a truth.
+  private async findDuplicateTruth(
+    chatId: number,
+    patch: Extract<TruthPatch, { type: 'truth.add' }>
+  ): Promise<DuplicateTruthMatch | null> {
+    let candidates: TruthEmbedding[];
+    let newVector: number[];
+    try {
+      candidates = await this.loadDedupCandidates(chatId);
+      [newVector] = await this.embeddings.embed([patch.text]);
+    } catch {
+      return null;
+    }
+    if (!newVector) {
+      return null;
+    }
+
+    const exclude = new Set(patch.contradictsTruthIds);
+    let best: { id: number; similarity: number } | null = null;
+    for (const candidate of candidates) {
+      if (exclude.has(candidate.id) || candidate.embedding === null) {
+        continue;
+      }
+      const similarity = cosineSimilarity(newVector, candidate.embedding);
+      if (best === null || similarity > best.similarity) {
+        best = { id: candidate.id, similarity };
+      }
+    }
+
+    if (
+      best !== null &&
+      best.similarity >= this.config.truthDuplicateSimilarity
+    ) {
+      return { id: best.id, newVector };
+    }
+    return { newVector };
+  }
+
+  private async loadDedupCandidates(
+    chatId: number
+  ): Promise<TruthEmbedding[]> {
+    const rows = await this.truthRepo.findActiveEmbeddings(chatId);
+    const missing = rows.filter((row) => row.embedding === null);
+    if (missing.length > 0) {
+      const vectors = await this.embeddings.embed(
+        missing.map((row) => row.text)
+      );
+      await Promise.all(
+        missing.map((row, index) => {
+          row.embedding = vectors[index];
+          return this.truthRepo.setEmbedding(row.id, vectors[index]);
+        })
+      );
+    }
+    return rows;
   }
 
   async applyEvolutionPatches(params: {

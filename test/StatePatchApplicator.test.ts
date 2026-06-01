@@ -4,6 +4,7 @@ import { DefaultStatePatchApplicator } from '../src/application/behavior/Default
 import type { BehaviorRateLimiter } from '../src/application/behavior/BehaviorRateLimiter';
 import type { PatchPolicy } from '../src/application/behavior/PatchPolicy';
 import type { StatePatchApplicatorConfig } from '../src/application/behavior/StatePatchApplicator';
+import type { EmbeddingService } from '../src/application/interfaces/ai/EmbeddingService';
 import type {
   LiveStatePatch,
   TruthPatch,
@@ -19,6 +20,7 @@ import type { ChatMessage } from '../src/domain/messages/ChatMessage';
 
 const config: StatePatchApplicatorConfig = {
   truthStableConfidence: 0.75,
+  truthDuplicateSimilarity: 0.9,
 };
 
 const acceptingPolicy: PatchPolicy = {
@@ -89,6 +91,10 @@ function makeRepos(params?: {
   for (const truth of params?.truths ?? []) {
     truths.set(truth.id, truth);
   }
+  const embeddings = new Map<number, number[] | null>();
+  for (const truth of params?.truths ?? []) {
+    embeddings.set(truth.id, null);
+  }
   let nextTruthId = Math.max(0, ...truths.keys()) + 1;
 
   const profileRepo: UserSocialProfileRepository = {
@@ -103,10 +109,11 @@ function makeRepos(params?: {
   };
 
   const truthRepo: TruthRepository = {
-    add: vi.fn((truth) => {
+    add: vi.fn((truth, embedding?: number[] | null) => {
       const id = nextTruthId;
       nextTruthId += 1;
       truths.set(id, { id, ...truth });
+      embeddings.set(id, embedding ?? null);
       return Promise.resolve(id);
     }),
     findById: vi.fn((id: number) => Promise.resolve(truths.get(id))),
@@ -117,9 +124,51 @@ function makeRepos(params?: {
       truths.set(truth.id, truth);
       return Promise.resolve();
     }),
+    findActiveEmbeddings: vi.fn((chatId: number) =>
+      Promise.resolve(
+        [...truths.values()]
+          .filter((t) => t.chatId === chatId && t.status !== 'superseded')
+          .map((t) => ({
+            id: t.id,
+            text: t.text,
+            embedding: embeddings.get(t.id) ?? null,
+          }))
+      )
+    ),
+    setEmbedding: vi.fn((id: number, embedding: number[]) => {
+      embeddings.set(id, embedding);
+      return Promise.resolve();
+    }),
   };
 
-  return { profileRepo, profiles, truthRepo, truths };
+  return { profileRepo, profiles, truthRepo, truths, embeddings };
+}
+
+// Deterministic, collision-free fake: each distinct unmapped text gets a fresh
+// one-hot dimension, so different texts are orthogonal (cosine 0) and the same
+// text is identical (cosine 1). Texts present in `map` use the explicit vector.
+function makeEmbeddings(map: Record<string, number[]> = {}): EmbeddingService {
+  const assigned = new Map<string, number[]>();
+  let nextDim = 0;
+  const vectorFor = (text: string): number[] => {
+    if (map[text]) {
+      return map[text];
+    }
+    const existing = assigned.get(text);
+    if (existing) {
+      return existing;
+    }
+    const vector = new Array<number>(256).fill(0);
+    vector[nextDim] = 1;
+    nextDim += 1;
+    assigned.set(text, vector);
+    return vector;
+  };
+  return {
+    embed: vi.fn((texts: readonly string[]) =>
+      Promise.resolve(texts.map(vectorFor))
+    ),
+  };
 }
 
 function makeApplicator(params?: {
@@ -127,6 +176,7 @@ function makeApplicator(params?: {
   truthRepo?: TruthRepository;
   policy?: PatchPolicy;
   limiter?: BehaviorRateLimiter;
+  embeddings?: EmbeddingService;
 }) {
   const repos = makeRepos();
   return new DefaultStatePatchApplicator(
@@ -134,7 +184,11 @@ function makeApplicator(params?: {
     params?.profileRepo ?? repos.profileRepo,
     params?.truthRepo ?? repos.truthRepo,
     params?.policy ?? acceptingPolicy,
-    params?.limiter ?? allowingLimiter
+    params?.limiter ?? allowingLimiter,
+    undefined as never,
+    undefined as never,
+    undefined as never,
+    params?.embeddings ?? makeEmbeddings()
   );
 }
 
@@ -424,5 +478,183 @@ describe('DefaultStatePatchApplicator', () => {
     ]);
     expect(truthRepo.add).not.toHaveBeenCalled();
     expect(truthRepo.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('merges a near-duplicate truth.add into the existing truth instead of inserting', async () => {
+    const existing = makeTruth({
+      id: 10,
+      text: 'Carl is from the north of Russia.',
+      confidence: 0.8,
+      sourceMessageIds: [1],
+      status: 'stable',
+    });
+    const { profileRepo, truthRepo, truths } = makeRepos({
+      truths: [existing],
+    });
+    const shared = [1, 0, 0];
+    const embeddings = makeEmbeddings({
+      'Carl is from the north of Russia.': shared,
+      'Carl is from Russia, specifically the north.': shared,
+    });
+    const applicator = makeApplicator({ profileRepo, truthRepo, embeddings });
+
+    const results = await applicator.applyPatches({
+      chatId: 1,
+      patches: [
+        {
+          type: 'truth.add',
+          text: 'Carl is from Russia, specifically the north.',
+          relatedTruthIds: [],
+          contradictsTruthIds: [],
+          evidence: evidence([2], 0.9),
+        },
+      ],
+      contextMessages: [],
+      nowIso: 'now',
+      nowMs: 1_000,
+    });
+
+    expect(results[0].outcome).toBe('merged');
+    expect(results[0].stateRef).toMatchObject({
+      kind: 'bot_truth',
+      truthId: 10,
+    });
+    expect(truthRepo.add).not.toHaveBeenCalled();
+    const merged = truths.get(10);
+    expect(merged?.sourceMessageIds).toEqual([1, 2]);
+    expect(merged?.confidence).toBeCloseTo(0.98);
+    expect(merged?.status).toBe('stable');
+    expect(truths.size).toBe(1);
+  });
+
+  it('inserts a new truth when no existing truth is similar enough', async () => {
+    const existing = makeTruth({
+      id: 10,
+      text: 'Carl likes fixing radios.',
+      status: 'stable',
+    });
+    const { profileRepo, truthRepo, truths } = makeRepos({
+      truths: [existing],
+    });
+    const applicator = makeApplicator({ profileRepo, truthRepo });
+
+    const results = await applicator.applyPatches({
+      chatId: 1,
+      patches: [
+        {
+          type: 'truth.add',
+          text: 'Carl was promoted to OpenAI usage tier 2.',
+          relatedTruthIds: [],
+          contradictsTruthIds: [],
+          evidence: evidence([3], 0.9),
+        },
+      ],
+      contextMessages: [],
+      nowIso: 'now',
+      nowMs: 1_000,
+    });
+
+    expect(results[0].outcome).toBe('applied');
+    expect(truthRepo.add).toHaveBeenCalledTimes(1);
+    expect(truths.size).toBe(2);
+  });
+
+  it('does not merge into a truth the add explicitly contradicts', async () => {
+    const existing = makeTruth({
+      id: 10,
+      text: 'Carl was born in Poland.',
+      status: 'stable',
+    });
+    const { profileRepo, truthRepo, truths } = makeRepos({
+      truths: [existing],
+    });
+    const shared = [1, 0, 0];
+    const embeddings = makeEmbeddings({
+      'Carl was born in Poland.': shared,
+      'Carl was born in Russia, not Poland.': shared,
+    });
+    const applicator = makeApplicator({ profileRepo, truthRepo, embeddings });
+
+    const results = await applicator.applyPatches({
+      chatId: 1,
+      patches: [
+        {
+          type: 'truth.add',
+          text: 'Carl was born in Russia, not Poland.',
+          relatedTruthIds: [],
+          contradictsTruthIds: [10],
+          evidence: evidence([4], 0.9),
+        },
+      ],
+      contextMessages: [],
+      nowIso: 'now',
+      nowMs: 1_000,
+    });
+
+    expect(results[0].outcome).toBe('applied');
+    expect(truthRepo.add).toHaveBeenCalledTimes(1);
+    expect(truths.size).toBe(2);
+  });
+
+  it('falls open to a plain insert when the embedding service fails', async () => {
+    const { profileRepo, truthRepo, truths } = makeRepos();
+    const embeddings: EmbeddingService = {
+      embed: vi.fn(() => Promise.reject(new Error('embeddings down'))),
+    };
+    const applicator = makeApplicator({ profileRepo, truthRepo, embeddings });
+
+    const results = await applicator.applyPatches({
+      chatId: 1,
+      patches: [
+        {
+          type: 'truth.add',
+          text: 'Carl owns a cat.',
+          relatedTruthIds: [],
+          contradictsTruthIds: [],
+          evidence: evidence([5], 0.9),
+        },
+      ],
+      contextMessages: [],
+      nowIso: 'now',
+      nowMs: 1_000,
+    });
+
+    expect(results[0].outcome).toBe('applied');
+    expect(truthRepo.add).toHaveBeenCalledTimes(1);
+    expect(truths.size).toBe(1);
+  });
+
+  it('dedups a second identical truth.add within the same batch', async () => {
+    const { profileRepo, truthRepo, truths } = makeRepos();
+    const shared = [1, 0, 0];
+    const embeddings = makeEmbeddings({ 'Carl hates Mondays.': shared });
+    const applicator = makeApplicator({ profileRepo, truthRepo, embeddings });
+
+    const results = await applicator.applyPatches({
+      chatId: 1,
+      patches: [
+        {
+          type: 'truth.add',
+          text: 'Carl hates Mondays.',
+          relatedTruthIds: [],
+          contradictsTruthIds: [],
+          evidence: evidence([6], 0.9),
+        },
+        {
+          type: 'truth.add',
+          text: 'Carl hates Mondays.',
+          relatedTruthIds: [],
+          contradictsTruthIds: [],
+          evidence: evidence([7], 0.9),
+        },
+      ],
+      contextMessages: [],
+      nowIso: 'now',
+      nowMs: 1_000,
+    });
+
+    expect(results.map((r) => r.outcome)).toEqual(['applied', 'merged']);
+    expect(truths.size).toBe(1);
+    expect([...truths.values()][0].sourceMessageIds).toEqual([6, 7]);
   });
 });
