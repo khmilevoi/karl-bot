@@ -163,6 +163,10 @@ import {
   type PromptTemplateService,
 } from '../application/interfaces/prompts/PromptTemplateService';
 import {
+  MANUAL_JOB_RUNNER_ID,
+  type ManualJobRunner,
+} from '../application/interfaces/scheduler/ManualJobRunner';
+import {
   TOPIC_OF_DAY_SCHEDULER_ID,
   type TopicOfDayScheduler,
 } from '../application/interfaces/scheduler/TopicOfDayScheduler';
@@ -189,6 +193,7 @@ import { RepositoryChatInfoService } from '../application/use-cases/chat/Reposit
 import { RepositoryChatUserService } from '../application/use-cases/chat/RepositoryChatUserService';
 import { DefaultMessageContextExtractor } from '../application/use-cases/messages/DefaultMessageContextExtractor';
 import { RepositoryMessageService } from '../application/use-cases/messages/RepositoryMessageService';
+import { DefaultManualJobRunner } from '../application/use-cases/scheduler/DefaultManualJobRunner';
 import { TopicOfDaySchedulerImpl } from '../application/use-cases/scheduler/TopicOfDayScheduler';
 import { RepositorySummaryService } from '../application/use-cases/summaries/RepositorySummaryService';
 import { DefaultEnvService } from '../infrastructure/config/DefaultEnvService';
@@ -408,5 +413,10 @@ export const register = (container: Container): void => {
   container
     .bind<TopicOfDayScheduler>(TOPIC_OF_DAY_SCHEDULER_ID)
     .to(TopicOfDaySchedulerImpl)
+    .inSingletonScope();
+
+  container
+    .bind<ManualJobRunner>(MANUAL_JOB_RUNNER_ID)
+    .to(DefaultManualJobRunner)
     .inSingletonScope();
 };

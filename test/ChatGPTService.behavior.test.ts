@@ -6,7 +6,11 @@ import { DEFAULT_BEHAVIOR_PIPELINE_CONFIG } from '../src/application/behavior/Be
 import type { PromptDirector } from '../src/application/prompts/PromptDirector';
 import type { LoggerFactory } from '../src/application/interfaces/logging/LoggerFactory';
 import type { BehaviorDecisionContext } from '../src/application/behavior/BehaviorTypes';
-import type { BehaviorGateDecision } from '../src/domain/behavior/schemas/gate';
+import {
+  behaviorDecisionJsonSchema,
+  type BehaviorGateDecision,
+  behaviorGateJsonSchema,
+} from '../src/domain/behavior/schemas';
 
 interface ChatGPTServiceConstructor {
   new (
@@ -15,6 +19,12 @@ interface ChatGPTServiceConstructor {
     behaviorConfig: typeof DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
     logger: LoggerFactory
   ): ChatGPTServiceType;
+}
+
+interface OpenAiParseCall {
+  response_format?: {
+    json_schema?: unknown;
+  };
 }
 
 const validGateResponse: BehaviorGateDecision = {
@@ -131,6 +141,19 @@ describe('ChatGPTService behavior methods', () => {
     expect(result.metadata.usage.promptTokens).toBe(10);
   });
 
+  it('evaluateGate sends the strict-compatible BehaviorGate schema', async () => {
+    openaiParse.mockResolvedValue({
+      choices: [{ message: { parsed: validGateResponse } }],
+      usage: {},
+    });
+
+    await service.evaluateGate([]);
+
+    const call = openaiParse.mock.calls[0]?.[0] as OpenAiParseCall;
+    expect(call.response_format?.json_schema).toEqual(behaviorGateJsonSchema);
+    expect(JSON.stringify(call.response_format)).not.toContain('"maximum"');
+  });
+
   it('decideBehavior starts on default model for medium risk', async () => {
     openaiParse.mockResolvedValue({
       choices: [{ message: { parsed: validDecision } }],
@@ -146,6 +169,20 @@ describe('ChatGPTService behavior methods', () => {
     );
     expect(result.decision.confidence).toBe(0.8);
     expect(result.metadata.escalated).toBe(false);
+  });
+
+  it('decideBehavior sends the strict-compatible BehaviorDecision schema', async () => {
+    openaiParse.mockResolvedValue({
+      choices: [{ message: { parsed: validDecision } }],
+      usage: {},
+    });
+
+    await service.decideBehavior(makeContext('medium'));
+
+    const call = openaiParse.mock.calls[0]?.[0] as OpenAiParseCall;
+    expect(call.response_format?.json_schema).toEqual(
+      behaviorDecisionJsonSchema
+    );
   });
 
   it('decideBehavior starts on escalation model when gate stateImpactRisk is high', async () => {

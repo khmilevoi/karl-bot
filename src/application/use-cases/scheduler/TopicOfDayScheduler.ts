@@ -96,7 +96,12 @@ export class TopicOfDaySchedulerImpl implements TopicOfDayScheduler {
     );
   }
 
+  async runNow(chatId: number): Promise<void> {
+    await this.execute(chatId);
+  }
+
   private async execute(chatId: number): Promise<void> {
+    this.logger.info({ chatId }, 'Topic of day execution started');
     try {
       const [users, chat, summary] = await Promise.all([
         this.chatUsers.listUsers(chatId).catch(() => []),
@@ -111,6 +116,10 @@ export class TopicOfDaySchedulerImpl implements TopicOfDayScheduler {
           fullName,
         };
       });
+      this.logger.info(
+        { chatId, userCount: mappedUsers.length },
+        'Generating topic of day via AI'
+      );
       const article = await this.ai.generateTopicOfDay({
         chatTitle: chat?.title ?? undefined,
         summary,
@@ -121,6 +130,7 @@ export class TopicOfDaySchedulerImpl implements TopicOfDayScheduler {
         return;
       }
       await this.messenger.sendMessage(chatId, article);
+      this.logger.info({ chatId }, 'Topic of day sent');
     } catch (err) {
       this.logger.error({ err, chatId }, 'Failed to send topic of day');
     }

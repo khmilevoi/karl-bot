@@ -14,18 +14,20 @@ const main = container.get<MainService>(MainService);
 logger.info('Starting application');
 void main.launch();
 
-http
+const port = Number(process.env.PORT ?? 3000);
+
+const httpServer = http
   .createServer((_, res) => {
     res.writeHead(200);
     res.end('ok');
   })
-  .listen(3000, () => logger.info('HTTP server listening on port 3000'));
+  .listen(port, () => logger.info(`HTTP server listening on port ${port}`));
 
-process.once('SIGINT', () => {
-  logger.info('SIGINT received');
-  main.stop('SIGINT');
-});
-process.once('SIGTERM', () => {
-  logger.info('SIGTERM received');
-  main.stop('SIGTERM');
-});
+function shutdown(reason: string): void {
+  logger.info(`${reason} received`);
+  httpServer.close();
+  main.stop(reason);
+}
+
+process.once('SIGINT', () => shutdown('SIGINT'));
+process.once('SIGTERM', () => shutdown('SIGTERM'));

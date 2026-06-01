@@ -1,7 +1,10 @@
 import { promises as fs } from 'fs';
 import { inject, injectable } from 'inversify';
 import OpenAI from 'openai';
-import { zodResponseFormat } from 'openai/helpers/zod';
+import {
+  makeParseableResponseFormat,
+  type AutoParseableResponseFormat,
+} from 'openai/lib/parser';
 import type { ChatModel } from 'openai/resources/shared';
 import path from 'path';
 
@@ -32,9 +35,21 @@ import type {
   StoredBehaviorMessage,
 } from '@/application/behavior/BehaviorTypes';
 import type { ChatMessage } from '@/domain/messages/ChatMessage';
-import { behaviorDecisionSchema } from '@/domain/behavior/schemas/decision';
-import { stateEvolutionDecisionSchema } from '@/domain/behavior/schemas/evolution';
-import { behaviorGateDecisionSchema } from '@/domain/behavior/schemas/gate';
+import {
+  behaviorDecisionJsonSchema,
+  behaviorDecisionSchema,
+  type BehaviorDecision,
+} from '@/domain/behavior/schemas/decision';
+import {
+  stateEvolutionDecisionSchema,
+  stateEvolutionJsonSchema,
+  type StateEvolutionDecision,
+} from '@/domain/behavior/schemas/evolution';
+import {
+  behaviorGateDecisionSchema,
+  behaviorGateJsonSchema,
+  type BehaviorGateDecision,
+} from '@/domain/behavior/schemas/gate';
 import type { EvolutionPatch } from '@/domain/behavior/schemas/patches';
 
 type BehaviorEscalationReason =
@@ -47,6 +62,42 @@ type EvolutionEscalationReason =
   | 'gate_state_impact_high'
   | 'schema_validation_failed'
   | 'radical_review';
+
+const behaviorDecisionResponseFormat: AutoParseableResponseFormat<BehaviorDecision> =
+  makeParseableResponseFormat(
+    {
+      type: 'json_schema',
+      json_schema: behaviorDecisionJsonSchema,
+    },
+    (content) => {
+      const parsed: unknown = JSON.parse(content);
+      return behaviorDecisionSchema.parse(parsed);
+    }
+  );
+
+const behaviorGateResponseFormat: AutoParseableResponseFormat<BehaviorGateDecision> =
+  makeParseableResponseFormat(
+    {
+      type: 'json_schema',
+      json_schema: behaviorGateJsonSchema,
+    },
+    (content) => {
+      const parsed: unknown = JSON.parse(content);
+      return behaviorGateDecisionSchema.parse(parsed);
+    }
+  );
+
+const stateEvolutionResponseFormat: AutoParseableResponseFormat<StateEvolutionDecision> =
+  makeParseableResponseFormat(
+    {
+      type: 'json_schema',
+      json_schema: stateEvolutionJsonSchema,
+    },
+    (content) => {
+      const parsed: unknown = JSON.parse(content);
+      return stateEvolutionDecisionSchema.parse(parsed);
+    }
+  );
 
 @injectable()
 export class ChatGPTService implements AIService, BehaviorAiService {
@@ -89,10 +140,7 @@ export class ChatGPTService implements AIService, BehaviorAiService {
     const completion = await this.openai.chat.completions.parse({
       model: this.triggerGateModel,
       messages: openaiMessages,
-      response_format: zodResponseFormat(
-        behaviorGateDecisionSchema,
-        'BehaviorGateDecision'
-      ),
+      response_format: behaviorGateResponseFormat,
     });
 
     const latencyMs = Date.now() - start;
@@ -146,10 +194,7 @@ export class ChatGPTService implements AIService, BehaviorAiService {
       const completion = await this.openai.chat.completions.parse({
         model,
         messages: openaiMessages,
-        response_format: zodResponseFormat(
-          behaviorDecisionSchema,
-          'BehaviorDecision'
-        ),
+        response_format: behaviorDecisionResponseFormat,
       });
       const latencyMs = Date.now() - start;
       const raw = completion.choices[0]?.message?.parsed;
@@ -235,10 +280,7 @@ export class ChatGPTService implements AIService, BehaviorAiService {
       const completion = await this.openai.chat.completions.parse({
         model,
         messages: openaiMessages,
-        response_format: zodResponseFormat(
-          stateEvolutionDecisionSchema,
-          'StateEvolutionDecision'
-        ),
+        response_format: stateEvolutionResponseFormat,
       });
       const latencyMs = Date.now() - start;
       const raw = completion.choices[0]?.message?.parsed;

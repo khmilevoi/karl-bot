@@ -108,6 +108,7 @@ export class DefaultStateEvolutionPass implements StateEvolutionPass {
   }
 
   async run(chatId: number): Promise<StateEvolutionRunResult> {
+    this.logger.info({ chatId }, 'State evolution run started');
     const cursor = (await this.cursorRepo.get(chatId)) ?? {
       chatId,
       lastEventId: 0,
@@ -126,6 +127,7 @@ export class DefaultStateEvolutionPass implements StateEvolutionPass {
     const nowIso = new Date().toISOString();
 
     if (liveNew.length === 0) {
+      this.logger.info({ chatId }, 'No new events — skipping');
       await this.cursorRepo.upsert({
         chatId,
         lastEventId: maxReadEventId,
@@ -133,6 +135,11 @@ export class DefaultStateEvolutionPass implements StateEvolutionPass {
       });
       return { kind: 'skipped' };
     }
+
+    this.logger.info(
+      { chatId, eventCount: liveNew.length },
+      'New events found — calling AI'
+    );
 
     let context;
     let result;
@@ -160,6 +167,10 @@ export class DefaultStateEvolutionPass implements StateEvolutionPass {
       return { kind: 'error', errorEventId };
     }
 
+    this.logger.info(
+      { chatId, escalated: result.metadata.escalated },
+      'AI responded — applying patches'
+    );
     const reviewedByStrongModel = result.metadata.escalated;
     const patchResults = await this.applicator.applyEvolutionPatches({
       chatId,
@@ -198,6 +209,10 @@ export class DefaultStateEvolutionPass implements StateEvolutionPass {
       lastRunAt: nowIso,
     });
 
+    this.logger.info(
+      { chatId, behaviorEventId, patchCount: patchResults.length },
+      'State evolution completed'
+    );
     return { kind: 'evolved', behaviorEventId, patchResults };
   }
 

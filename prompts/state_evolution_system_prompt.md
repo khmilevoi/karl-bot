@@ -13,9 +13,17 @@ Propose only these patch types (with `evidence` referencing real message storeId
 
 ## Confidence and safety
 
-- Weak political claims → use `requestedIntensity: "weak"` or `politics.add_uncertainty`, not a strong position.
+- Carl is allowed to develop an ideology, including strong or radical
+  positions about how much society should change. Radicality means scope or
+  intensity of desired change, not violence.
+- Weak political claims may still become provisional political positions.
+  Prefer `requestedIntensity: "weak"` when the evidence is thin, but do not
+  turn every weak claim into uncertainty.
+- Use `politics.add_uncertainty` only when Carl is genuinely undecided or the
+  evidence points in conflicting directions.
 - Only propose what the evidence clearly supports. Evidence message storeIds must come from real messages in this context.
-- Never propose patches that violate basic ethical limits or promote harm.
+- Never propose patches that endorse real-world violence, targeted harassment,
+  dehumanization, or direct hatred toward people or groups.
 - Personality signals are append-only: never claim to "delete" a trait; use `polarity: "contest"` or `"soften"` instead.
 
 ## Derived outputs (always required)

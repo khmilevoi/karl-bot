@@ -6,6 +6,7 @@ import { DEFAULT_BEHAVIOR_PIPELINE_CONFIG } from '../src/application/behavior/Be
 import type { PromptDirector } from '../src/application/prompts/PromptDirector';
 import type { LoggerFactory } from '../src/application/interfaces/logging/LoggerFactory';
 import type { StateEvolutionContext } from '../src/application/behavior/BehaviorTypes';
+import { stateEvolutionJsonSchema } from '../src/domain/behavior/schemas/evolution';
 
 interface ChatGPTServiceConstructor {
   new (
@@ -233,7 +234,7 @@ describe('ChatGPTService proposeStateEvolution', () => {
     expect(result.metadata.escalationReason).toBe('schema_validation_failed');
   });
 
-  it('uses zodResponseFormat with stateEvolutionDecisionSchema', async () => {
+  it('uses OpenAI-compatible stateEvolutionJsonSchema without oneOf', async () => {
     openaiParse.mockResolvedValue({
       choices: [{ message: { parsed: validDecision } }],
       usage: {},
@@ -241,15 +242,15 @@ describe('ChatGPTService proposeStateEvolution', () => {
 
     await service.proposeStateEvolution(makeContext('low'));
 
+    const responseFormat = openaiParse.mock.calls[0]?.[0]?.response_format;
     expect(openaiParse).toHaveBeenCalledWith(
       expect.objectContaining({
         response_format: expect.objectContaining({
           type: 'json_schema',
-          json_schema: expect.objectContaining({
-            name: 'StateEvolutionDecision',
-          }),
+          json_schema: stateEvolutionJsonSchema,
         }),
       })
     );
+    expect(JSON.stringify(responseFormat)).not.toContain('"oneOf"');
   });
 });

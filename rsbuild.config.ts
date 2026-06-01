@@ -5,6 +5,7 @@ export default defineConfig({
   source: {
     entry: {
       index: './src/index.ts',
+      'manual-job': './src/manual-job.ts',
       migrate: './src/migrate.ts',
     },
     decorators: { version: 'legacy' },

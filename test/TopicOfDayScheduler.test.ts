@@ -49,7 +49,7 @@ describe('TopicOfDayScheduler', () => {
       { timezone: 'UTC' }
     );
     scheduleMock.mock.calls[0][1]();
-    await (scheduler as any).execute(1);
+    await scheduler.runNow(1);
     expect(ai.generateTopicOfDay).toHaveBeenCalled();
     expect(bot.sendMessage).toHaveBeenCalledWith(1, 'article');
   });
@@ -129,7 +129,7 @@ describe('TopicOfDayScheduler', () => {
       loggerFactory as any
     );
 
-    await (scheduler as any).execute(1);
+    await scheduler.runNow(1);
     expect(bot.sendMessage).not.toHaveBeenCalled();
   });
 

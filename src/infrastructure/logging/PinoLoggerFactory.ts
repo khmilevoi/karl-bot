@@ -27,7 +27,7 @@ export class PinoLoggerFactory implements LoggerFactory {
       level,
       transport: {
         target: 'pino-pretty',
-        options: { colorize: true },
+        options: { colorize: true, sync: true },
       },
     };
     this.root = pino(options);
