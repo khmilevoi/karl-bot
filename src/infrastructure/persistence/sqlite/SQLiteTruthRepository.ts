@@ -7,6 +7,7 @@ import {
 } from '@/domain/repositories/DbProvider';
 import type {
   NewTruth,
+  TruthEmbedding,
   TruthRepository,
 } from '@/domain/repositories/TruthRepository';
 
@@ -20,6 +21,12 @@ interface TruthRow {
   contradicts_truth_ids_json: string;
   status: string;
   created_at: string;
+}
+
+interface TruthEmbeddingRow {
+  id: number;
+  text: string;
+  embedding_json: string | null;
 }
 
 function toTruth(row: TruthRow): BotTruth {
@@ -42,12 +49,12 @@ export class SQLiteTruthRepository implements TruthRepository {
     @inject(DB_PROVIDER_ID) private readonly dbProvider: DbProvider
   ) {}
 
-  async add(truth: NewTruth): Promise<number> {
+  async add(truth: NewTruth, embedding?: number[] | null): Promise<number> {
     const db = await this.dbProvider.get();
     const result = (await db.run(
       `INSERT INTO bot_truths
-        (chat_id, text, source_message_ids_json, confidence, related_truth_ids_json, contradicts_truth_ids_json, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        (chat_id, text, source_message_ids_json, confidence, related_truth_ids_json, contradicts_truth_ids_json, status, created_at, embedding_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       truth.chatId,
       truth.text,
       JSON.stringify(truth.sourceMessageIds),
@@ -55,7 +62,8 @@ export class SQLiteTruthRepository implements TruthRepository {
       JSON.stringify(truth.relatedTruthIds),
       JSON.stringify(truth.contradictsTruthIds),
       truth.status,
-      truth.createdAt
+      truth.createdAt,
+      embedding == null ? null : JSON.stringify(embedding)
     )) as { lastID?: number };
     return result.lastID ?? 0;
   }
@@ -91,6 +99,32 @@ export class SQLiteTruthRepository implements TruthRepository {
       JSON.stringify(truth.contradictsTruthIds),
       truth.status,
       truth.id
+    );
+  }
+
+  async findActiveEmbeddings(chatId: number): Promise<TruthEmbedding[]> {
+    const db = await this.dbProvider.get();
+    const rows = await db.all<TruthEmbeddingRow>(
+      `SELECT id, text, embedding_json
+       FROM bot_truths
+       WHERE chat_id = ? AND status != 'superseded'
+       ORDER BY id`,
+      chatId
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      text: row.text,
+      embedding:
+        row.embedding_json == null ? null : JSON.parse(row.embedding_json),
+    }));
+  }
+
+  async setEmbedding(id: number, embedding: number[]): Promise<void> {
+    const db = await this.dbProvider.get();
+    await db.run(
+      'UPDATE bot_truths SET embedding_json = ? WHERE id = ?',
+      JSON.stringify(embedding),
+      id
     );
   }
 }

@@ -62,6 +62,15 @@ beforeEach(async () => {
   await db.exec(
     readFileSync(path.join('migrations', compassMigration), 'utf8')
   );
+  const embeddingMigration =
+    readdirSync('migrations').find((file) => /^018_.*\.up\.sql$/.test(file)) ??
+    null;
+  if (embeddingMigration == null) {
+    throw new Error('Missing migration 018 for truth embeddings');
+  }
+  await db.exec(
+    readFileSync(path.join('migrations', embeddingMigration), 'utf8')
+  );
   await db.run('INSERT INTO chats (chat_id) VALUES (1)');
   await db.run('INSERT INTO users (id, username) VALUES (10, ?)', 'alice');
   await db.close();
