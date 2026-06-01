@@ -461,9 +461,7 @@ export class DefaultStatePatchApplicator implements StatePatchApplicator {
     return { newVector };
   }
 
-  private async loadDedupCandidates(
-    chatId: number
-  ): Promise<TruthEmbedding[]> {
+  private async loadDedupCandidates(chatId: number): Promise<TruthEmbedding[]> {
     const rows = await this.truthRepo.findActiveEmbeddings(chatId);
     const missing = rows.filter((row) => row.embedding === null);
     if (missing.length > 0) {

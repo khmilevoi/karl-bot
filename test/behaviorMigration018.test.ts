@@ -15,7 +15,9 @@ beforeEach(async () => {
     filename: path.join(dir, 't.db'),
     driver: sqlite3.Database,
   });
-  await db.exec('CREATE TABLE chats (chat_id INTEGER PRIMARY KEY, title TEXT);');
+  await db.exec(
+    'CREATE TABLE chats (chat_id INTEGER PRIMARY KEY, title TEXT);'
+  );
   const up015 = readFileSync(
     path.join('migrations', '015_create_behavior_tables.up.sql'),
     'utf8'
