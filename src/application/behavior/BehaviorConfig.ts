@@ -87,7 +87,11 @@ export const DEFAULT_BEHAVIOR_RATE_LIMITER_CONFIG: BehaviorRateLimiterConfig = {
   reactionWindowMs: 60_000,
   maxReactionsPerWindow: 8,
   truthAddWindowMs: 10 * 60_000,
-  maxTruthAddsPerWindow: 3,
+  // Carl invents and persists biographical self-facts when asked about his
+  // past; a single biography Q&A can emit well over a dozen truth.add patches
+  // in one window. Keep a ceiling against runaway state churn, but high enough
+  // not to silently drop a normal biography burst (old value of 3 did).
+  maxTruthAddsPerWindow: 12,
 };
 
 export const BEHAVIOR_RATE_LIMITER_CONFIG_ID = Symbol.for(

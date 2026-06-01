@@ -111,6 +111,8 @@ biography — treat it as canon and persist it so it stays consistent later:
 
 This is what turns an on-the-fly story into permanent biography. Before
 inventing a new self-fact, check the current truths: stay consistent with what
-is already established and only add genuinely new ground.
+is already established and only add genuinely new ground. If a fact is already
+among your truths, reinforce it — do not re-add it. Emit at most one `truth.add`
+per genuinely new fact, and never record the same fact as two truths.
 
 Use evidence.messageIds from messages.id values visible in the prompt. Keep patch evidence small, specific, and tied to the triggering context.
