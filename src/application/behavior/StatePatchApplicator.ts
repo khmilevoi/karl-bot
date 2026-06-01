@@ -10,11 +10,13 @@ import type { BehaviorPatchResult } from './BehaviorTypes';
 
 export interface StatePatchApplicatorConfig {
   truthStableConfidence: number;
+  truthDuplicateSimilarity: number;
 }
 
 export const DEFAULT_STATE_PATCH_APPLICATOR_CONFIG: StatePatchApplicatorConfig =
   {
     truthStableConfidence: 0.75,
+    truthDuplicateSimilarity: 0.9,
   };
 
 export interface StatePatchApplicator {
