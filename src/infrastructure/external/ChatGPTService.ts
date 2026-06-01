@@ -19,7 +19,13 @@ import {
 import type { PromptDirector } from '@/application/prompts/PromptDirector';
 import { PROMPT_DIRECTOR_ID } from '@/application/prompts/PromptDirector';
 import type { PromptMessage } from '@/application/prompts/PromptMessage';
+import { MessageReferenceMap } from '@/application/prompts/MessageReferenceMap';
 import type { BehaviorAiService } from '@/application/behavior/BehaviorAiService';
+import {
+  translateEvolutionPatches,
+  translateGateDecision,
+  translateLivePatches,
+} from '@/application/behavior/OrdinalTranslation';
 import {
   BEHAVIOR_PIPELINE_CONFIG_ID,
   type BehaviorPipelineConfig,
@@ -133,7 +139,11 @@ export class ChatGPTService implements AIService, BehaviorAiService {
   public async evaluateGate(
     messages: StoredBehaviorMessage[]
   ): Promise<GateAiResult> {
-    const prompt = await this.prompts.createBehaviorGatePrompt(messages);
+    const refMap = MessageReferenceMap.fromMessages(messages);
+    const prompt = await this.prompts.createBehaviorGatePrompt(
+      messages,
+      refMap
+    );
     const openaiMessages = this.toOpenAiMessages(prompt);
     const start = Date.now();
 
@@ -161,7 +171,7 @@ export class ChatGPTService implements AIService, BehaviorAiService {
     }
 
     return {
-      decision: parsed.data,
+      decision: translateGateDecision(parsed.data, refMap),
       metadata: this.buildMetadata(
         'triggerGate',
         this.triggerGateModel,
@@ -183,7 +193,11 @@ export class ChatGPTService implements AIService, BehaviorAiService {
     const preBehaviorEscalationReason: BehaviorEscalationReason | null =
       preEscalate ? 'gate_state_impact_high' : null;
 
-    const prompt = await this.prompts.createBehaviorDecisionPrompt(context);
+    const refMap = MessageReferenceMap.fromMessages(context.messages);
+    const prompt = await this.prompts.createBehaviorDecisionPrompt(
+      context,
+      refMap
+    );
     const openaiMessages = this.toOpenAiMessages(prompt);
 
     const attempt = async (
@@ -225,7 +239,10 @@ export class ChatGPTService implements AIService, BehaviorAiService {
         );
       }
 
-      const decision = parsed.data;
+      const decision = {
+        ...parsed.data,
+        statePatches: translateLivePatches(parsed.data.statePatches, refMap),
+      };
       const escalateReason = this.checkDecisionEscalation(decision.confidence);
       if (
         escalateReason != null &&
@@ -269,7 +286,11 @@ export class ChatGPTService implements AIService, BehaviorAiService {
       ? 'gate_state_impact_high'
       : null;
 
-    const prompt = await this.prompts.createStateEvolutionPrompt(context);
+    const refMap = MessageReferenceMap.fromMessages(context.messages);
+    const prompt = await this.prompts.createStateEvolutionPrompt(
+      context,
+      refMap
+    );
     const openaiMessages = this.toOpenAiMessages(prompt);
 
     const attempt = async (
@@ -311,15 +332,23 @@ export class ChatGPTService implements AIService, BehaviorAiService {
         );
       }
 
+      const decision = {
+        ...parsed.data,
+        evolutionPatches: translateEvolutionPatches(
+          parsed.data.evolutionPatches,
+          refMap
+        ),
+      };
+
       if (
         model !== this.stateEvolutionEscalationModel &&
-        this.hasRadicalPatch(parsed.data.evolutionPatches)
+        this.hasRadicalPatch(decision.evolutionPatches)
       ) {
         return attempt(this.stateEvolutionEscalationModel, 'radical_review');
       }
 
       return {
-        decision: parsed.data,
+        decision,
         metadata: this.buildMetadata(
           'stateEvolution',
           model,

@@ -4,6 +4,7 @@ import type {
   PromptBuilder,
   PromptBuilderFactory,
 } from '../src/application/prompts/PromptBuilder';
+import { MessageReferenceMap } from '../src/application/prompts/MessageReferenceMap';
 import { PromptDirector } from '../src/application/prompts/PromptDirector';
 import type { StateEvolutionContext } from '../src/application/behavior/BehaviorTypes';
 import type { BehaviorPromptMessage } from '../src/application/prompts/PromptTypes';
@@ -91,8 +92,9 @@ describe('PromptDirector.createStateEvolutionPrompt', () => {
     const builder = createBuilder();
     const factory: PromptBuilderFactory = () => builder;
     const director = new PromptDirector(factory);
+    const refMap = MessageReferenceMap.fromMessages(baseContext.messages);
 
-    await director.createStateEvolutionPrompt(baseContext);
+    await director.createStateEvolutionPrompt(baseContext, refMap);
 
     expect(builder.calls).toEqual([
       'addNeutralCore',
@@ -113,11 +115,15 @@ describe('PromptDirector.createStateEvolutionPrompt', () => {
     const builder = createBuilder();
     const factory: PromptBuilderFactory = () => builder;
     const director = new PromptDirector(factory);
+    const refMap = MessageReferenceMap.fromMessages(baseContext.messages);
 
-    await director.createStateEvolutionPrompt({
-      ...baseContext,
-      summary: 'my summary',
-    });
+    await director.createStateEvolutionPrompt(
+      {
+        ...baseContext,
+        summary: 'my summary',
+      },
+      refMap
+    );
 
     expect(builder.addAskSummary).toHaveBeenCalledWith('my summary');
   });
@@ -126,6 +132,7 @@ describe('PromptDirector.createStateEvolutionPrompt', () => {
     const builder = createBuilder();
     const factory: PromptBuilderFactory = () => builder;
     const director = new PromptDirector(factory);
+    const refMap = MessageReferenceMap.fromMessages(baseContext.messages);
 
     const signals = [
       {
@@ -138,10 +145,13 @@ describe('PromptDirector.createStateEvolutionPrompt', () => {
       },
     ];
 
-    await director.createStateEvolutionPrompt({
-      ...baseContext,
-      personalitySignals: signals,
-    });
+    await director.createStateEvolutionPrompt(
+      {
+        ...baseContext,
+        personalitySignals: signals,
+      },
+      refMap
+    );
 
     expect(builder.addPersonalitySignals).toHaveBeenCalledWith(signals);
   });
@@ -150,6 +160,7 @@ describe('PromptDirector.createStateEvolutionPrompt', () => {
     const builder = createBuilder();
     const factory: PromptBuilderFactory = () => builder;
     const director = new PromptDirector(factory);
+    const refMap = MessageReferenceMap.fromMessages(baseContext.messages);
 
     const userPolitical = [
       {
@@ -166,10 +177,13 @@ describe('PromptDirector.createStateEvolutionPrompt', () => {
       },
     ];
 
-    await director.createStateEvolutionPrompt({
-      ...baseContext,
-      state: { ...baseContext.state, userPolitical },
-    });
+    await director.createStateEvolutionPrompt(
+      {
+        ...baseContext,
+        state: { ...baseContext.state, userPolitical },
+      },
+      refMap
+    );
 
     expect(builder.addUserPoliticalProfiles).toHaveBeenCalledWith(
       userPolitical
@@ -180,11 +194,13 @@ describe('PromptDirector.createStateEvolutionPrompt', () => {
     const builder = createBuilder();
     const factory: PromptBuilderFactory = () => builder;
     const director = new PromptDirector(factory);
+    const refMap = MessageReferenceMap.fromMessages(baseContext.messages);
 
-    await director.createStateEvolutionPrompt(baseContext);
+    await director.createStateEvolutionPrompt(baseContext, refMap);
 
     expect(builder.addBehaviorMessages).toHaveBeenCalledWith(
-      baseContext.messages
+      baseContext.messages,
+      refMap
     );
   });
 });

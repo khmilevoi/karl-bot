@@ -12,6 +12,7 @@ import type {
   BehaviorPromptMessage,
   PromptChatUser,
 } from './PromptTypes';
+import type { MessageReferenceMap } from './MessageReferenceMap';
 import type { StateEvolutionContext } from '../behavior/BehaviorTypes';
 
 @injectable()
@@ -50,16 +51,18 @@ export class PromptDirector {
   }
 
   async createBehaviorGatePrompt(
-    messages: BehaviorPromptMessage[]
+    messages: BehaviorPromptMessage[],
+    refMap: MessageReferenceMap
   ): Promise<PromptMessage[]> {
     return this.builderFactory()
       .addBehaviorGateSystem()
-      .addBehaviorMessages(messages)
+      .addBehaviorMessages(messages, refMap)
       .build();
   }
 
   async createBehaviorDecisionPrompt(
-    context: BehaviorPromptContext
+    context: BehaviorPromptContext,
+    refMap: MessageReferenceMap
   ): Promise<PromptMessage[]> {
     return this.builderFactory()
       .addNeutralCore()
@@ -70,7 +73,7 @@ export class PromptDirector {
       .addUserProfiles(context.state.profiles)
       .addUserPoliticalProfiles(context.state.userPolitical)
       .addTruths(context.state.truths)
-      .addBehaviorMessages(context.messages, {
+      .addBehaviorMessages(context.messages, refMap, {
         triggerMessageIds: context.triggerMessageIds,
         contextMessageIds: context.contextMessageIds,
         batchMessageIds: context.batchMessageIds,
@@ -79,7 +82,8 @@ export class PromptDirector {
   }
 
   async createStateEvolutionPrompt(
-    context: StateEvolutionContext
+    context: StateEvolutionContext,
+    refMap: MessageReferenceMap
   ): Promise<PromptMessage[]> {
     return this.builderFactory()
       .addNeutralCore()
@@ -91,7 +95,7 @@ export class PromptDirector {
       .addUserProfiles(context.state.profiles)
       .addUserPoliticalProfiles(context.state.userPolitical)
       .addTruths(context.state.truths)
-      .addBehaviorMessages(context.messages)
+      .addBehaviorMessages(context.messages, refMap)
       .build();
   }
 }

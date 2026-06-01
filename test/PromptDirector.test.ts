@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { PromptDirector } from '../src/application/prompts/PromptDirector';
+import { MessageReferenceMap } from '../src/application/prompts/MessageReferenceMap';
 import type {
   PromptBuilder,
   PromptBuilderFactory,
@@ -156,14 +157,15 @@ describe('PromptDirector', () => {
         userId: 7,
       } as BehaviorPromptMessage,
     ];
-    await director.createBehaviorGatePrompt(messages);
+    const refMap = MessageReferenceMap.fromMessages(messages);
+    await director.createBehaviorGatePrompt(messages, refMap);
 
     expect(builder.calls).toEqual([
       'addBehaviorGateSystem',
       'addBehaviorMessages',
       'build',
     ]);
-    expect(builder.addBehaviorMessages).toHaveBeenCalledWith(messages);
+    expect(builder.addBehaviorMessages).toHaveBeenCalledWith(messages, refMap);
   });
 
   it('creates behavior decision prompt in correct order', async () => {
@@ -192,7 +194,8 @@ describe('PromptDirector', () => {
         userPolitical: [],
       },
     };
-    await director.createBehaviorDecisionPrompt(context);
+    const refMap = MessageReferenceMap.fromMessages(context.messages);
+    await director.createBehaviorDecisionPrompt(context, refMap);
 
     expect(builder.calls).toEqual([
       'addNeutralCore',
@@ -207,6 +210,15 @@ describe('PromptDirector', () => {
       'build',
     ]);
     expect(builder.addAskSummary).toHaveBeenCalledWith('prev-summary');
+    expect(builder.addBehaviorMessages).toHaveBeenCalledWith(
+      context.messages,
+      refMap,
+      {
+        triggerMessageIds: context.triggerMessageIds,
+        contextMessageIds: context.contextMessageIds,
+        batchMessageIds: context.batchMessageIds,
+      }
+    );
   });
 
   it('creates topic of day prompt with context', async () => {
