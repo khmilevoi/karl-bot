@@ -3,7 +3,11 @@ import type { ServiceIdentifier } from 'inversify';
 
 export interface ChatMessenger {
   readonly bot: Bot<Context>;
-  sendMessage(chatId: number, text: string, extra?: object): Promise<void>;
+  sendMessage(
+    chatId: number,
+    text: string,
+    extra?: object
+  ): Promise<number | null>;
   reactToMessage(
     chatId: number,
     messageId: number,

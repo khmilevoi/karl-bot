@@ -69,8 +69,9 @@ export class TelegramMessenger implements ChatMessenger {
     chatId: number,
     text: string,
     extra?: object
-  ): Promise<void> {
-    await this._bot.api.sendMessage(chatId, text, extra);
+  ): Promise<number | null> {
+    const sent = await this._bot.api.sendMessage(chatId, text, extra);
+    return sent?.message_id ?? null;
   }
 
   async reactToMessage(
