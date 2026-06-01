@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
+import type { BehaviorDecisionValidatorConfig } from '../src/application/behavior/BehaviorDecisionValidator';
 import { DefaultBehaviorDecisionValidator } from '../src/application/behavior/DefaultBehaviorDecisionValidator';
 
 const config = { maxReplyLength: 20, allowedEmoji: ['👍', '👎'] };
 const validator = new DefaultBehaviorDecisionValidator(config);
+const leakGuardConfig: BehaviorDecisionValidatorConfig = {
+  maxReplyLength: 4000,
+  allowedEmoji: ['🔥'],
+};
 
 function decision(actions: unknown[]): unknown {
   return { confidence: 0.8, actions, statePatches: [], safetyNotes: [] };
@@ -203,6 +208,58 @@ describe('DefaultBehaviorDecisionValidator', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.decision.actions.length).toBe(2);
+    }
+  });
+});
+
+describe('DefaultBehaviorDecisionValidator leak guard', () => {
+  it('strips rendered reference tags from reply text', () => {
+    const leakGuardValidator = new DefaultBehaviorDecisionValidator(
+      leakGuardConfig
+    );
+    const result = leakGuardValidator.validate(
+      decision([
+        {
+          type: 'reply',
+          intent: 'banter',
+          text: 'Про Даниила [#3] [userId:464151358] [role:user] вот так',
+          target: { kind: 'none' },
+        },
+      ])
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const [action] = result.decision.actions;
+      expect(action.type).toBe('reply');
+      if (action.type === 'reply') {
+        expect(action.text).not.toContain('[#3]');
+        expect(action.text).not.toContain('[userId:');
+        expect(action.text).not.toContain('[role:');
+        expect(action.text).toContain('Про Даниила');
+        expect(action.text).toContain('вот так');
+      }
+    }
+  });
+
+  it('keeps normal text with a hashtag untouched', () => {
+    const leakGuardValidator = new DefaultBehaviorDecisionValidator(
+      leakGuardConfig
+    );
+    const result = leakGuardValidator.validate(
+      decision([
+        {
+          type: 'reply',
+          intent: 'banter',
+          text: 'лучший #1 в чате',
+          target: { kind: 'none' },
+        },
+      ])
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok && result.decision.actions[0].type === 'reply') {
+      expect(result.decision.actions[0].text).toBe('лучший #1 в чате');
     }
   });
 });

@@ -19,6 +19,16 @@ function selectorKey(selector: MessageSelector): string {
   return `${selector.scope}:${selector.pick}:${selector.index ?? ''}`;
 }
 
+const LEAKED_TAG_PATTERN =
+  /\[\s*(?:#\d+|storeId|telegramId|userId|username|fullName|role)\b[^\]]*\]/gi;
+
+function stripLeakedTags(text: string): string {
+  return text
+    .replace(LEAKED_TAG_PATTERN, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
 @injectable()
 export class DefaultBehaviorDecisionValidator implements BehaviorDecisionValidator {
   constructor(
@@ -60,6 +70,7 @@ export class DefaultBehaviorDecisionValidator implements BehaviorDecisionValidat
             drop('duplicate reply action dropped');
             break;
           }
+          action.text = stripLeakedTags(action.text);
           if (action.text.length === 0) {
             drop('reply text is empty');
             break;
@@ -91,6 +102,7 @@ export class DefaultBehaviorDecisionValidator implements BehaviorDecisionValidat
             drop('duplicate ask_question action dropped');
             break;
           }
+          action.text = stripLeakedTags(action.text);
           if (action.text.length === 0) {
             drop('ask_question text is empty');
             break;
