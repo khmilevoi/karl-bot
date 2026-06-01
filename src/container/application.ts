@@ -199,6 +199,11 @@ import { RepositorySummaryService } from '../application/use-cases/summaries/Rep
 import { DefaultEnvService } from '../infrastructure/config/DefaultEnvService';
 import { TestEnvService } from '../infrastructure/config/TestEnvService';
 import { ChatGPTService } from '../infrastructure/external/ChatGPTService';
+import { OpenAIEmbeddingService } from '../infrastructure/external/OpenAIEmbeddingService';
+import {
+  EMBEDDING_SERVICE_ID,
+  type EmbeddingService,
+} from '../application/interfaces/ai/EmbeddingService';
 import { FilePromptTemplateService } from '../infrastructure/external/FilePromptTemplateService';
 import { PinoLoggerFactory } from '../infrastructure/logging/PinoLoggerFactory';
 import { TelegramMessenger } from '../view/telegram/TelegramMessenger';
@@ -273,6 +278,11 @@ export const register = (container: Container): void => {
   container
     .bind<BehaviorAiService>(BEHAVIOR_AI_SERVICE_ID)
     .to(ChatGPTService)
+    .inSingletonScope();
+
+  container
+    .bind<EmbeddingService>(EMBEDDING_SERVICE_ID)
+    .to(OpenAIEmbeddingService)
     .inSingletonScope();
 
   container
