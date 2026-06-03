@@ -60,6 +60,7 @@ export interface Actions {
 
   checkChatStatus: (chatId: number) => Promise<string>;
   processMessage: (ctx: BotContext) => Promise<void>;
+  processVoiceMessage: (ctx: BotContext) => Promise<void>;
   isAdmin: (chatId: number) => boolean;
 
   log: (
@@ -606,5 +607,10 @@ export function setupBotRouting(bot: Bot<BotContext>, actions: Actions): void {
   // Text messages — trigger pipeline
   bot.on('message:text', async (ctx) => {
     await actions.processMessage(ctx);
+  });
+
+  // Voice messages
+  bot.on('message:voice', async (ctx) => {
+    await actions.processVoiceMessage(ctx);
   });
 }

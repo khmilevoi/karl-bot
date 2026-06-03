@@ -48,6 +48,10 @@ import {
   TOPIC_OF_DAY_SCHEDULER_ID,
   type TopicOfDayScheduler,
 } from '@/application/interfaces/scheduler/TopicOfDayScheduler';
+import {
+  VOICE_MESSAGE_SERVICE_ID,
+  type VoiceMessageService,
+} from '@/application/interfaces/voice/VoiceMessageService';
 import { MessageFactory } from '@/application/use-cases/messages/MessageFactory';
 import type { TriggerContext, TriggerResult } from '@/domain/triggers/Trigger';
 
@@ -83,7 +87,9 @@ export class MainService {
     @inject(new LazyServiceIdentifier(() => STATE_EVOLUTION_SCHEDULER_ID))
     stateEvolutionScheduler: StateEvolutionScheduler,
     @inject(CHAT_MESSENGER_ID)
-    messenger: ChatMessenger
+    messenger: ChatMessenger,
+    @inject(VOICE_MESSAGE_SERVICE_ID)
+    private voiceMessageService: VoiceMessageService
   ) {
     this.env = envService.env;
     this.messenger = messenger;
@@ -125,6 +131,7 @@ export class MainService {
       checkChatStatus: (chatId: number) =>
         this.approvalService.getStatus(chatId),
       processMessage: (ctx: BotContext) => this.handleMessage(ctx),
+      processVoiceMessage: (ctx: BotContext) => this.handleVoiceMessage(ctx),
       isAdmin: (chatId: number) => chatId === this.env.ADMIN_CHAT_ID,
       log: (level, message, data) => this.logger[level](data ?? {}, message),
     };
@@ -433,6 +440,61 @@ export class MainService {
       directTrigger,
     });
     this.logger.debug({ chatId, resultKind: result.kind }, 'Behavior handled');
+  }
+
+  public async handleVoiceMessage(ctx: BotContext): Promise<void> {
+    const chatId = ctx.chat?.id;
+    assert(!!chatId, 'This is not a chat');
+
+    if (chatId === this.env.ADMIN_CHAT_ID) {
+      this.logger.debug({ chatId }, 'Ignoring voice message from admin chat');
+      return;
+    }
+
+    const status = await this.checkChatStatus(chatId);
+    if (status !== 'approved') {
+      this.logger.debug(
+        { chatId, status },
+        'Voice message from non-approved chat ignored'
+      );
+      return;
+    }
+
+    const voice = ctx.message?.voice;
+    if (!voice) {
+      this.logger.debug({ chatId }, 'No voice data in context');
+      return;
+    }
+
+    const telegramMessageId = ctx.message?.message_id ?? 0;
+    const meta = this.extractor.extract(ctx);
+    const chatTitle =
+      ctx.chat && 'title' in ctx.chat ? ctx.chat.title : undefined;
+
+    const result = await this.voiceMessageService.enqueue({
+      chatId,
+      chatTitle,
+      telegramMessageId,
+      telegramFileId: voice.file_id,
+      durationSeconds: voice.duration,
+      user: {
+        id: ctx.from?.id ?? 0,
+        username: ctx.from?.username,
+        firstName: ctx.from?.first_name,
+        lastName: ctx.from?.last_name,
+        fullName: meta.fullName,
+      },
+      context: meta,
+    });
+
+    if (result.kind === 'queued') {
+      this.logger.info({ chatId, jobId: result.jobId }, 'Voice message queued');
+    } else {
+      this.logger.warn(
+        { chatId, reason: result.reason },
+        'Voice message rejected'
+      );
+    }
   }
 
   private toDirectBehaviorTrigger(
