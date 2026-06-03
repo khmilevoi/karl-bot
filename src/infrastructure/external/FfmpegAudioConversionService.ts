@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { writeFile, readFile, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -20,9 +21,9 @@ export class FfmpegAudioConversionService implements AudioConversionService {
     input: TelegramDownloadedFile
   ): Promise<ConvertedAudioFile> {
     const tmpDir = tmpdir();
-    const ts = Date.now();
-    const inputPath = path.join(tmpDir, `voice-in-${ts}.ogg`);
-    const outputPath = path.join(tmpDir, `voice-out-${ts}.webm`);
+    const id = randomUUID();
+    const inputPath = path.join(tmpDir, `voice-in-${id}.ogg`);
+    const outputPath = path.join(tmpDir, `voice-out-${id}.webm`);
 
     try {
       await writeFile(inputPath, input.buffer);
