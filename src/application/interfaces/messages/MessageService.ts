@@ -10,6 +10,12 @@ export interface MessageService {
   getCount(chatId: number): Promise<number>;
   getLastMessages(chatId: number, limit: number): Promise<ChatMessage[]>;
   clearMessages(chatId: number): Promise<void>;
+  findPendingVoiceById(messageId: number): Promise<StoredMessage | null>;
+  markVoiceTranscribed(
+    messageId: number,
+    content: string
+  ): Promise<StoredMessage | null>;
+  markVoiceFailed(messageId: number): Promise<void>;
 }
 
 export const MESSAGE_SERVICE_ID = Symbol.for(

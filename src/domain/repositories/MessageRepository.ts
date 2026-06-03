@@ -8,6 +8,12 @@ export interface MessageRepository {
   countByChatId(chatId: number): Promise<number>;
   findLastByChatId(chatId: number, limit: number): Promise<ChatMessage[]>;
   clearByChatId(chatId: number): Promise<void>;
+  findPendingVoiceById(messageId: number): Promise<StoredMessage | null>;
+  markVoiceTranscribed(
+    messageId: number,
+    content: string
+  ): Promise<StoredMessage | null>;
+  markVoiceFailed(messageId: number): Promise<void>;
 }
 
 export const MESSAGE_REPOSITORY_ID = Symbol('MessageRepository');
