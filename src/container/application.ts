@@ -147,6 +147,10 @@ import {
   type EnvService,
 } from '../application/interfaces/env/EnvService';
 import {
+  VOICE_CONFIG_ID,
+  type VoiceConfig,
+} from '../application/voice/VoiceConfig';
+import {
   LOGGER_FACTORY_ID,
   type LoggerFactory,
 } from '../application/interfaces/logging/LoggerFactory';
@@ -216,6 +220,11 @@ export const register = (container: Container): void => {
     .bind<EnvService>(ENV_SERVICE_ID)
     .to(EnvServiceImpl)
     .inSingletonScope();
+
+  const envService = container.get<EnvService>(ENV_SERVICE_ID);
+  container
+    .bind<VoiceConfig>(VOICE_CONFIG_ID)
+    .toConstantValue(envService.getVoiceConfig());
 
   container
     .bind<LoggerFactory>(LOGGER_FACTORY_ID)

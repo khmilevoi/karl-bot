@@ -7,6 +7,7 @@ import type {
   EnvService,
   PromptFiles,
 } from '@/application/interfaces/env/EnvService';
+import type { VoiceConfig } from '@/application/voice/VoiceConfig';
 
 import { envSchema } from './envSchema';
 
@@ -82,5 +83,16 @@ export class TestEnvService implements EnvService {
 
   getMigrationsDir(): string {
     return 'migrations';
+  }
+
+  getVoiceConfig(): VoiceConfig {
+    return {
+      workerConcurrency: this.env.VOICE_WORKER_CONCURRENCY,
+      workerPollIntervalMs: this.env.VOICE_WORKER_POLL_INTERVAL_MS,
+      workerLockMs: this.env.VOICE_WORKER_LOCK_MS,
+      workerMaxAttempts: this.env.VOICE_WORKER_MAX_ATTEMPTS,
+      transcriptionModel: this.env.VOICE_TRANSCRIPTION_MODEL,
+      maxDurationSeconds: this.env.VOICE_MAX_DURATION_SECONDS,
+    };
   }
 }

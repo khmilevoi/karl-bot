@@ -94,4 +94,17 @@ describe('EnvService', () => {
     const env = new TestEnvService();
     expect(env.getMigrationsDir()).toBe('migrations');
   });
+
+  it('getVoiceConfig returns default voice configuration', () => {
+    setRequiredEnv();
+    const env = new TestEnvService();
+    expect(env.getVoiceConfig()).toEqual({
+      workerConcurrency: 1,
+      workerPollIntervalMs: 1000,
+      workerLockMs: 300000,
+      workerMaxAttempts: 3,
+      transcriptionModel: 'gpt-4o-mini-transcribe',
+      maxDurationSeconds: 120,
+    });
+  });
 });
