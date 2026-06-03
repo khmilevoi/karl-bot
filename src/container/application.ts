@@ -219,6 +219,21 @@ import {
   type EmbeddingService,
 } from '../application/interfaces/ai/EmbeddingService';
 import { FilePromptTemplateService } from '../infrastructure/external/FilePromptTemplateService';
+import { TelegramFileDownloadServiceImpl } from '../infrastructure/external/TelegramFileDownloadServiceImpl';
+import { FfmpegAudioConversionService } from '../infrastructure/external/FfmpegAudioConversionService';
+import { OpenAIAudioTranscriptionService } from '../infrastructure/external/OpenAIAudioTranscriptionService';
+import {
+  TELEGRAM_FILE_DOWNLOAD_SERVICE_ID,
+  type TelegramFileDownloadService,
+} from '../application/interfaces/voice/TelegramFileDownloadService';
+import {
+  AUDIO_CONVERSION_SERVICE_ID,
+  type AudioConversionService,
+} from '../application/interfaces/voice/AudioConversionService';
+import {
+  AUDIO_TRANSCRIPTION_SERVICE_ID,
+  type AudioTranscriptionService,
+} from '../application/interfaces/voice/AudioTranscriptionService';
 import { PinoLoggerFactory } from '../infrastructure/logging/PinoLoggerFactory';
 import { TelegramMessenger } from '../view/telegram/TelegramMessenger';
 
@@ -457,5 +472,28 @@ export const register = (container: Container): void => {
   container
     .bind<VoiceMessageWorker>(VOICE_MESSAGE_WORKER_ID)
     .to(DefaultVoiceMessageWorker)
+    .inSingletonScope();
+
+  container
+    .bind<TelegramFileDownloadService>(TELEGRAM_FILE_DOWNLOAD_SERVICE_ID)
+    .toDynamicValue(
+      () => new TelegramFileDownloadServiceImpl(envService.env.BOT_TOKEN)
+    )
+    .inSingletonScope();
+
+  container
+    .bind<AudioConversionService>(AUDIO_CONVERSION_SERVICE_ID)
+    .to(FfmpegAudioConversionService)
+    .inSingletonScope();
+
+  container
+    .bind<AudioTranscriptionService>(AUDIO_TRANSCRIPTION_SERVICE_ID)
+    .toDynamicValue(() => {
+      const voiceConfig = container.get<VoiceConfig>(VOICE_CONFIG_ID);
+      return new OpenAIAudioTranscriptionService(
+        envService.env.OPENAI_KEY,
+        voiceConfig.transcriptionModel
+      );
+    })
     .inSingletonScope();
 };
