@@ -9,7 +9,7 @@ CREATE TABLE voice_transcription_jobs (
   chat_id INTEGER NOT NULL,
   telegram_message_id INTEGER NOT NULL,
   telegram_file_id TEXT NOT NULL,
-  status TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'queued',
   attempts INTEGER NOT NULL DEFAULT 0,
   available_at TEXT NOT NULL,
   locked_until TEXT,

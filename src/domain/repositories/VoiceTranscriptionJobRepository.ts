@@ -18,7 +18,7 @@ export interface VoiceTranscriptionJobRepository {
   requeue(
     jobId: number,
     availableAt: string,
-    lastError: string,
+    lastError: string | null,
     now: string
   ): Promise<void>;
   markFailed(jobId: number, lastError: string, now: string): Promise<void>;

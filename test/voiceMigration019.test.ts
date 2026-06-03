@@ -3,11 +3,15 @@ import { tmpdir } from 'os';
 import path from 'path';
 import { open } from 'sqlite';
 import sqlite3 from 'sqlite3';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('migration 019 voice messages and jobs', () => {
   beforeEach(() => {
     vi.resetModules();
+  });
+
+  afterEach(() => {
+    delete process.env.DATABASE_URL;
   });
 
   it('adds message metadata and voice job table', async () => {
