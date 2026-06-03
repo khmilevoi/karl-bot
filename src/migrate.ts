@@ -229,28 +229,30 @@ async function checkMigrations(): Promise<boolean> {
   }
 }
 
-const direction = process.argv[2];
-logger.info({ direction }, 'Running migrations');
+if (require.main === module) {
+  const direction = process.argv[2];
+  logger.info({ direction }, 'Running migrations');
 
-if (direction === 'down') {
-  migrateDown().catch((e) => {
-    logger.error(e, 'Migration DOWN failed');
-    process.exit(1);
-  });
-} else if (direction === 'check') {
-  checkMigrations()
-    .then((allApplied) => {
-      process.exit(allApplied ? 0 : 1);
-    })
-    .catch((e) => {
-      logger.error(e, 'Migration check failed');
+  if (direction === 'down') {
+    migrateDown().catch((e) => {
+      logger.error(e, 'Migration DOWN failed');
       process.exit(1);
     });
-} else {
-  migrateUp().catch((e) => {
-    logger.error(e, 'Migration UP failed');
-    process.exit(1);
-  });
+  } else if (direction === 'check') {
+    checkMigrations()
+      .then((allApplied) => {
+        process.exit(allApplied ? 0 : 1);
+      })
+      .catch((e) => {
+        logger.error(e, 'Migration check failed');
+        process.exit(1);
+      });
+  } else {
+    migrateUp().catch((e) => {
+      logger.error(e, 'Migration UP failed');
+      process.exit(1);
+    });
+  }
 }
 
 export { checkMigrations, migrateDown, migrateUp };
