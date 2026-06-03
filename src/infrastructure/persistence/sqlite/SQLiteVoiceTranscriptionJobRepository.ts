@@ -72,22 +72,30 @@ export class SQLiteVoiceTranscriptionJobRepository implements VoiceTranscription
     message: StoredMessage,
     job: NewVoiceTranscriptionJob
   ): Promise<VoiceTranscriptionJob> {
+    // Validate userId before doing any DB work — a missing userId would cause
+    // a FK violation inside the transaction and leave the DB in a partial state.
+    const userId = message.userId;
+    if (!userId) throw new Error('userId is required for voice message creation');
+
     await this.chatRepo.upsert(
       new ChatEntity(message.chatId, message.chatTitle ?? null)
     );
     await this.userRepo.upsert(
       new UserEntity(
-        message.userId ?? 0,
+        userId,
         message.username ?? null,
         message.firstName ?? null,
         message.lastName ?? null
       )
     );
-    await this.chatUserRepo.link(message.chatId, message.userId ?? 0);
+    await this.chatUserRepo.link(message.chatId, userId);
 
     const db = await this.dbProvider.get();
+    // Capture now before the transaction so both inserts share the same timestamp.
     const now = new Date().toISOString();
 
+    // The transaction ensures message + job are created atomically: if either
+    // insert fails the entire operation is rolled back and nothing is persisted.
     await db.run('BEGIN IMMEDIATE');
     try {
       const msgResult = (await db.run(
@@ -98,18 +106,19 @@ export class SQLiteVoiceTranscriptionJobRepository implements VoiceTranscription
         message.messageId ?? null,
         message.role,
         message.content,
-        message.userId ?? 0,
+        userId,
         message.sourceType ?? 'voice',
         message.processingStatus ?? 'pending'
       )) as { lastID?: number };
 
-      const messageId = msgResult.lastID ?? 0;
+      const msgLastId = msgResult.lastID;
+      if (!msgLastId) throw new Error('Failed to insert voice message: no lastID');
 
       const jobResult = (await db.run(
         `INSERT INTO voice_transcription_jobs
           (message_id, chat_id, telegram_message_id, telegram_file_id, status, attempts, available_at, locked_until, last_error, created_at, updated_at)
          VALUES (?, ?, ?, ?, 'queued', 0, ?, NULL, NULL, ?, ?)`,
-        messageId,
+        msgLastId,
         job.chatId,
         job.telegramMessageId,
         job.telegramFileId,
@@ -118,18 +127,26 @@ export class SQLiteVoiceTranscriptionJobRepository implements VoiceTranscription
         now
       )) as { lastID?: number };
 
+      const jobLastId = jobResult.lastID;
+      if (!jobLastId) throw new Error('Failed to insert voice job: no lastID');
+
       await db.run('COMMIT');
 
-      const row = await db.get<VoiceJobRow>(
-        'SELECT * FROM voice_transcription_jobs WHERE id = ?',
-        jobResult.lastID ?? 0
-      );
-
-      if (!row) {
-        throw new Error('Failed to retrieve newly created voice job');
-      }
-
-      return rowToJob(row);
+      // Construct the return value from known values — no post-COMMIT SELECT needed.
+      return {
+        id: jobLastId,
+        messageId: msgLastId,
+        chatId: job.chatId,
+        telegramMessageId: job.telegramMessageId,
+        telegramFileId: job.telegramFileId,
+        status: 'queued' as const,
+        attempts: 0,
+        availableAt: job.availableAt,
+        lockedUntil: null,
+        lastError: null,
+        createdAt: now,
+        updatedAt: now,
+      };
     } catch (error) {
       await db.run('ROLLBACK');
       throw error;
@@ -171,16 +188,15 @@ export class SQLiteVoiceTranscriptionJobRepository implements VoiceTranscription
 
       await db.run('COMMIT');
 
-      const updated = await db.get<VoiceJobRow>(
-        'SELECT * FROM voice_transcription_jobs WHERE id = ?',
-        row.id
-      );
-
-      if (!updated) {
-        return null;
-      }
-
-      return rowToJob(updated);
+      // Construct the return value from the pre-UPDATE snapshot + known mutations —
+      // no post-COMMIT SELECT needed.
+      return rowToJob({
+        ...row,
+        status: 'running',
+        attempts: row.attempts + 1,
+        locked_until: lockedUntil,
+        updated_at: now,
+      });
     } catch (error) {
       await db.run('ROLLBACK');
       throw error;
@@ -189,13 +205,14 @@ export class SQLiteVoiceTranscriptionJobRepository implements VoiceTranscription
 
   async markDone(jobId: number, now: string): Promise<void> {
     const db = await this.dbProvider.get();
-    await db.run(
+    const result = (await db.run(
       `UPDATE voice_transcription_jobs
        SET status = 'done', locked_until = NULL, updated_at = ?
        WHERE id = ?`,
       now,
       jobId
-    );
+    )) as { changes?: number };
+    if (!result.changes) throw new Error(`Voice job ${jobId} not found or already in terminal state`);
   }
 
   async requeue(
@@ -205,7 +222,7 @@ export class SQLiteVoiceTranscriptionJobRepository implements VoiceTranscription
     now: string
   ): Promise<void> {
     const db = await this.dbProvider.get();
-    await db.run(
+    const result = (await db.run(
       `UPDATE voice_transcription_jobs
        SET status = 'queued', available_at = ?, last_error = ?, locked_until = NULL, updated_at = ?
        WHERE id = ?`,
@@ -213,7 +230,8 @@ export class SQLiteVoiceTranscriptionJobRepository implements VoiceTranscription
       lastError,
       now,
       jobId
-    );
+    )) as { changes?: number };
+    if (!result.changes) throw new Error(`Voice job ${jobId} not found or already in terminal state`);
   }
 
   async markFailed(
@@ -222,14 +240,15 @@ export class SQLiteVoiceTranscriptionJobRepository implements VoiceTranscription
     now: string
   ): Promise<void> {
     const db = await this.dbProvider.get();
-    await db.run(
+    const result = (await db.run(
       `UPDATE voice_transcription_jobs
        SET status = 'failed', last_error = ?, locked_until = NULL, updated_at = ?
        WHERE id = ?`,
       lastError,
       now,
       jobId
-    );
+    )) as { changes?: number };
+    if (!result.changes) throw new Error(`Voice job ${jobId} not found or already in terminal state`);
   }
 
   async markCancelled(
@@ -238,13 +257,14 @@ export class SQLiteVoiceTranscriptionJobRepository implements VoiceTranscription
     now: string
   ): Promise<void> {
     const db = await this.dbProvider.get();
-    await db.run(
+    const result = (await db.run(
       `UPDATE voice_transcription_jobs
        SET status = 'cancelled', last_error = ?, locked_until = NULL, updated_at = ?
        WHERE id = ?`,
       reason,
       now,
       jobId
-    );
+    )) as { changes?: number };
+    if (!result.changes) throw new Error(`Voice job ${jobId} not found or already in terminal state`);
   }
 }
