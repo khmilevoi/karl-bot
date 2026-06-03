@@ -152,11 +152,14 @@ export class SQLiteMessageRepository implements MessageRepository {
     content: string
   ): Promise<StoredMessage | null> {
     const db = await this.dbProvider.get();
-    await db.run(
+    const result = (await db.run(
       "UPDATE messages SET content = ?, processing_status = 'ready' WHERE id = ? AND is_active = 1 AND source_type = 'voice' AND processing_status = 'pending'",
       content,
       messageId
-    );
+    )) as { changes?: number };
+    if ((result.changes ?? 0) === 0) {
+      return null;
+    }
     return this.findReadyVoiceById(messageId);
   }
 
@@ -173,7 +176,7 @@ export class SQLiteMessageRepository implements MessageRepository {
   ): Promise<StoredMessage | null> {
     const db = await this.dbProvider.get();
     const row = await db.get<MessageRow>(
-      `${SELECT_MESSAGE_COLUMNS} WHERE m.id = ? AND m.is_active = 1 AND m.source_type = 'voice'`,
+      `${SELECT_MESSAGE_COLUMNS} WHERE m.id = ? AND m.is_active = 1 AND m.source_type = 'voice' AND m.processing_status = 'ready'`,
       messageId
     );
     return row != null ? rowToMessage(row) : null;

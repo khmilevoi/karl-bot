@@ -311,6 +311,69 @@ describe('SQLite repositories', () => {
     );
   });
 
+  it('finds a pending voice message by id', async () => {
+    await chatRepo.upsert(new ChatEntity(1));
+    await userRepo.upsert(new UserEntity(1, 'alice'));
+    const pendingId = await messageRepo.insert({
+      chatId: 1,
+      role: 'user',
+      content: '[voice:pending]',
+      userId: 1,
+      sourceType: 'voice',
+      processingStatus: 'pending',
+    });
+    const readyId = await messageRepo.insert({
+      chatId: 1,
+      role: 'user',
+      content: 'ready',
+      userId: 1,
+    });
+
+    const found = await messageRepo.findPendingVoiceById(pendingId);
+    expect(found).toEqual(expect.objectContaining({ id: pendingId, processingStatus: 'pending' }));
+
+    expect(await messageRepo.findPendingVoiceById(readyId)).toBeNull();
+  });
+
+  it('marks a pending voice message as failed', async () => {
+    await chatRepo.upsert(new ChatEntity(1));
+    await userRepo.upsert(new UserEntity(1, 'alice'));
+    const id = await messageRepo.insert({
+      chatId: 1,
+      role: 'user',
+      content: '[voice:pending]',
+      userId: 1,
+      sourceType: 'voice',
+      processingStatus: 'pending',
+    });
+
+    await messageRepo.markVoiceFailed(id);
+
+    // Should not appear in history (failed is not ready)
+    expect(await messageRepo.findByChatId(1)).toEqual([]);
+    // Direct pending lookup returns null (now failed)
+    expect(await messageRepo.findPendingVoiceById(id)).toBeNull();
+  });
+
+  it('returns null from markVoiceTranscribed when message is not pending', async () => {
+    await chatRepo.upsert(new ChatEntity(1));
+    await userRepo.upsert(new UserEntity(1, 'alice'));
+    const id = await messageRepo.insert({
+      chatId: 1,
+      role: 'user',
+      content: '[voice:pending]',
+      userId: 1,
+      sourceType: 'voice',
+      processingStatus: 'pending',
+    });
+
+    // First transcription succeeds
+    await messageRepo.markVoiceTranscribed(id, '[voice] hello');
+    // Second call on already-transcribed row returns null
+    const result = await messageRepo.markVoiceTranscribed(id, '[voice] retry');
+    expect(result).toBeNull();
+  });
+
   it('stores, retrieves and expires access keys', async () => {
     const now = Date.now();
     const expiresAt = now + 1000;
