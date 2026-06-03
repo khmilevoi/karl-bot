@@ -8,7 +8,7 @@
 # 3) Runs pre-compiled JS
 # --------------------------------------------------------
 
-ARG NODE_VERSION=20.18.0
+ARG NODE_VERSION=24.13.0-trixie
 
 ########################  Base image  ########################
 FROM node:${NODE_VERSION}-slim AS base
@@ -16,23 +16,30 @@ LABEL fly_launch_runtime="Node.js"
 WORKDIR /app
 ENV NODE_ENV=production
 
-########################  Build stage  #######################
-FROM base AS build
+########################  Dependencies  ######################
+FROM base AS deps
+ENV NODE_ENV=development
 
 # --- tooling required to compile native deps & build sources
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
+    apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3 && \
+    rm -rf /var/lib/apt/lists/*
 
-# --- install *all* deps (dev+prod) so that TS/SWC can compile
-COPY package.json package-lock.json ./
-RUN npm ci --include=dev
+RUN npm install -g pnpm@11.4.0
 
-# --- copy sources & transpile to dist/
+# --- install *all* deps (dev+prod) so that TS/Rspack can compile
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
+
+########################  Build stage  #######################
+FROM deps AS build
+
+# --- copy sources & transpile to dist
 COPY . .
-RUN npm run build   # assumes output = ./dist
+RUN pnpm build
 
 # --- drop dev-deps to shrink final layer
-RUN npm prune --omit=dev
+RUN pnpm prune --prod
 
 #######################  Runtime stage  ######################
 FROM base AS runtime

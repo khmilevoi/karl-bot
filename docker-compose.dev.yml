@@ -1,0 +1,17 @@
+services:
+  app:
+    build:
+      context: .
+      target: deps
+    command: pnpm dev
+    environment:
+      DATABASE_URL: file:///data/memory.db
+      NODE_ENV: development
+      PORT: 3000
+    volumes:
+      - ./src:/app/src
+      - ./prompts:/app/prompts
+      - ./migrations:/app/migrations
+      - ./rsbuild.config.ts:/app/rsbuild.config.ts
+      - ./tsconfig.json:/app/tsconfig.json
+    restart: unless-stopped

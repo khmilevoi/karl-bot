@@ -1,0 +1,25 @@
+services:
+  db:
+    image: alpine:3.20
+    command: sh -c "mkdir -p /data && touch /data/.keep && tail -f /dev/null"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      target: runtime
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: file:///data/memory.db
+      NODE_ENV: production
+      PORT: 3000
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - ./data:/data
+    depends_on:
+      - db
+    restart: unless-stopped

@@ -1,6 +1,9 @@
 /.git
 /node_modules
+/data
+/dist
 .dockerignore
 .env
 Dockerfile
 fly.toml
+prompts.log
