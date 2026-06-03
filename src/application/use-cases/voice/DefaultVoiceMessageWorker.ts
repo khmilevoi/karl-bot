@@ -65,6 +65,7 @@ export class DefaultVoiceMessageWorker implements VoiceMessageWorker {
   }
 
   start(): void {
+    if (this.polling) return;
     this.polling = true;
     void this.poll();
   }
@@ -121,8 +122,8 @@ export class DefaultVoiceMessageWorker implements VoiceMessageWorker {
       }
 
       const { id, chatId } = updatedMessage;
-      if (id === undefined || chatId === undefined) {
-        throw new Error('Transcribed message is missing id or chatId');
+      if (id === undefined) {
+        throw new Error('Transcribed message is missing id');
       }
 
       await this.behaviorPipeline.handleStoredMessage({
