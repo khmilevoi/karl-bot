@@ -156,6 +156,11 @@ import {
 } from '../application/interfaces/voice/VoiceMessageService';
 import { DefaultVoiceMessageService } from '../application/use-cases/voice/DefaultVoiceMessageService';
 import {
+  VOICE_MESSAGE_WORKER_ID,
+  type VoiceMessageWorker,
+} from '../application/interfaces/voice/VoiceMessageWorker';
+import { DefaultVoiceMessageWorker } from '../application/use-cases/voice/DefaultVoiceMessageWorker';
+import {
   LOGGER_FACTORY_ID,
   type LoggerFactory,
 } from '../application/interfaces/logging/LoggerFactory';
@@ -447,5 +452,10 @@ export const register = (container: Container): void => {
   container
     .bind<VoiceMessageService>(VOICE_MESSAGE_SERVICE_ID)
     .to(DefaultVoiceMessageService)
+    .inSingletonScope();
+
+  container
+    .bind<VoiceMessageWorker>(VOICE_MESSAGE_WORKER_ID)
+    .to(DefaultVoiceMessageWorker)
     .inSingletonScope();
 };
