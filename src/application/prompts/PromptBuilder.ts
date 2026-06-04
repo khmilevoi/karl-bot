@@ -331,7 +331,8 @@ export class PromptBuilder {
           m.fullName ??
           ([m.firstName, m.lastName].filter(Boolean).join(' ') || 'N/A');
         const ordinal = refMap.ordinalFor(m.id) ?? 0;
-        const header = `[#${ordinal}] [userId:${m.userId ?? 0}] [username:${m.username ?? 'N/A'}] [fullName:${fullName}] [role:${m.role}]${marker}`;
+        const source = m.sourceType ?? 'text';
+        const header = `[#${ordinal}] [userId:${m.userId ?? 0}] [username:${m.username ?? 'N/A'}] [fullName:${fullName}] [role:${m.role}] [source:${source}]${marker}`;
         const replyLine =
           m.replyText != null && m.replyText.length > 0
             ? `\n↳ ответ @${m.replyUsername ?? 'N/A'}: "${this.truncate(m.replyText)}"`

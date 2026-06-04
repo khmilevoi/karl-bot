@@ -123,6 +123,11 @@ Message selector scopes:
 - context: only messages marked [GATE_CONTEXT].
 - batch: only messages marked [BATCH].
 
+Message source field:
+
+- `source:text` means the user typed the message.
+- `source:voice` means the message text is a transcription of a Telegram voice message. Treat it as the user's message content, while allowing for small speech-recognition mistakes in wording or punctuation.
+
 For pick: first uses the earliest message in that scope; latest uses the most recent; index is zero-based in chronological order; all selects every message in that scope.
 
 Allowed live state patches: user-profile patches and truth patches only. Do not propose personality or political patches in this live lane.

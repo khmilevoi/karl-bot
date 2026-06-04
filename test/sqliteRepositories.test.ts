@@ -299,12 +299,12 @@ describe('SQLite repositories', () => {
       processingStatus: 'pending',
     });
 
-    const updated = await messageRepo.markVoiceTranscribed(id, '[voice] hello');
+    const updated = await messageRepo.markVoiceTranscribed(id, 'hello');
 
     expect(updated).toEqual(
       expect.objectContaining({
         id,
-        content: '[voice] hello',
+        content: 'hello',
         sourceType: 'voice',
         processingStatus: 'ready',
       })
@@ -370,9 +370,9 @@ describe('SQLite repositories', () => {
     });
 
     // First transcription succeeds
-    await messageRepo.markVoiceTranscribed(id, '[voice] hello');
+    await messageRepo.markVoiceTranscribed(id, 'hello');
     // Second call on already-transcribed row returns null
-    const result = await messageRepo.markVoiceTranscribed(id, '[voice] retry');
+    const result = await messageRepo.markVoiceTranscribed(id, 'retry');
     expect(result).toBeNull();
   });
 

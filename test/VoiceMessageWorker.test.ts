@@ -141,14 +141,14 @@ function makeWorker(overrides: {
 }
 
 describe('DefaultVoiceMessageWorker', () => {
-  it('processes a claimed voice job and sends the ready message to behavior pipeline', async () => {
+  it('processes a claimed voice job and stores the clean transcript', async () => {
     const job = makeJob({ attempts: 1 });
     const repo = makeJobRepo({ claimNext: vi.fn().mockResolvedValue(job) });
     const readyMessage = {
       id: job.messageId,
       chatId: job.chatId,
       role: 'user' as const,
-      content: '[voice] hello Carl',
+      content: 'hello Carl',
       sourceType: 'voice' as const,
       processingStatus: 'ready' as const,
     };
@@ -165,12 +165,12 @@ describe('DefaultVoiceMessageWorker', () => {
 
     expect(messages.markVoiceTranscribed).toHaveBeenCalledWith(
       job.messageId,
-      '[voice] hello Carl'
+      'hello Carl'
     );
     expect(behavior.handleStoredMessage).toHaveBeenCalledWith({
       message: expect.objectContaining({
         id: job.messageId,
-        content: '[voice] hello Carl',
+        content: 'hello Carl',
       }),
       directTrigger: null,
     });

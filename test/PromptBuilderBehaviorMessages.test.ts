@@ -53,7 +53,35 @@ describe('PromptBuilder.addBehaviorMessages', () => {
     expect(out.content).toContain('khmilevoi');
     expect(out.content).toContain('раз на раз в телеге вызывает');
     expect(out.content).toContain('[userId:464151358]');
+    expect(out.content).toContain('[source:text]');
     expect(out.content).not.toContain('storeId');
     expect(out.content).not.toContain('telegramId');
+  });
+
+  it('renders voice messages with an explicit source field', async () => {
+    const refMap = MessageReferenceMap.fromMessages(messages);
+    const builder = new PromptBuilder(templates);
+    const [out] = await builder
+      .addBehaviorMessages(
+        [
+          {
+            ...messages[0],
+            content: 'Карл, привет',
+            sourceType: 'voice',
+            processingStatus: 'ready',
+          },
+        ],
+        refMap,
+        {
+          triggerMessageIds: [150],
+          contextMessageIds: [],
+          batchMessageIds: [],
+        }
+      )
+      .build();
+
+    expect(out.content).toContain('[source:voice]');
+    expect(out.content).toContain('Карл, привет');
+    expect(out.content).not.toContain('[voice]');
   });
 });

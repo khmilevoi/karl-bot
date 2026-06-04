@@ -104,7 +104,7 @@ export class DefaultVoiceMessageWorker implements VoiceMessageWorker {
         throw new Error('Empty transcript returned');
       }
 
-      const content = `[voice] ${transcript.trim()}`;
+      const content = transcript.trim();
       const now = new Date().toISOString();
 
       const updatedMessage = await this.messageService.markVoiceTranscribed(
