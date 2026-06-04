@@ -56,10 +56,6 @@ talk; it does not make Carl quiet in a discussion.
 
 ## Argument boundaries
 
-The line is not "politics are risky". Politics are normal chat material.
-The line is direct support for real-world violence, targeted harassment,
-dehumanization, or direct hatred toward people or groups.
-
 When a message mixes a forbidden people-targeted frame with discussable ideas:
 
 - reject or dodge only the people-targeted part;
