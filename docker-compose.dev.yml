@@ -31,7 +31,7 @@ services:
   # `pnpm dev` keeps using fast native fs events.
   app:
     <<: *dev
-    command: pnpm dev -- -L
+    command: pnpm dev
     healthcheck:
       disable: true
 

@@ -526,9 +526,20 @@ export function setupBotRouting(bot: Bot<BotContext>, actions: Actions): void {
         reply_markup: adminMenu,
       });
     } else {
-      await ctx.reply(menuRefs.userMenu.title, {
-        reply_markup: userMenu,
-      });
+      const chatId = ctx.chat?.id;
+      if (!chatId) return;
+
+      const status = await actions.checkChatStatus(chatId);
+
+      if(status !== 'approved') {
+        await ctx.reply('Этот чат не находится в списке разрешённых.', {
+          reply_markup: chatNotApprovedMenu,
+        });
+      } else {
+        await ctx.reply(menuRefs.userMenu.title, {
+          reply_markup: userMenu,
+        });
+      }
     }
   });
 
