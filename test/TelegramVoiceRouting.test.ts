@@ -71,6 +71,7 @@ function buildService(overrides: {
   approval?: Partial<ChatApprovalService>;
   adminChatId?: number;
   messenger?: ChatMessenger;
+  behaviorPipeline?: Partial<BehaviorPipeline>;
 }) {
   const voiceService: VoiceMessageService = {
     enqueue: vi
@@ -88,6 +89,11 @@ function buildService(overrides: {
     listAll: vi.fn().mockResolvedValue([]),
     ...overrides.approval,
   } as unknown as ChatApprovalService;
+
+  const behaviorPipeline: BehaviorPipeline = {
+    handleStoredMessage: vi.fn().mockResolvedValue({ kind: 'queued' }),
+    ...overrides.behaviorPipeline,
+  } as unknown as BehaviorPipeline;
 
   const adminChatId = overrides.adminChatId ?? 1;
   const messenger = overrides.messenger ?? createMockMessenger();
@@ -121,18 +127,14 @@ function buildService(overrides: {
       markVoiceTranscribed: vi.fn(),
       markVoiceFailed: vi.fn(),
     } as unknown as MessageService,
-    {
-      handleStoredMessage: vi.fn().mockResolvedValue({ kind: 'queued' }),
-    } as unknown as BehaviorPipeline,
+    behaviorPipeline,
     { getChat: vi.fn() } as unknown as ChatInfoService,
     {
-      getConfig: vi
-        .fn()
-        .mockResolvedValue({
-          historyLimit: 50,
-          topicTime: null,
-          topicTimezone: 'UTC',
-        }),
+      getConfig: vi.fn().mockResolvedValue({
+        historyLimit: 50,
+        topicTime: null,
+        topicTimezone: 'UTC',
+      }),
       setHistoryLimit: vi.fn(),
       setTopicTime: vi.fn(),
     } as unknown as ChatConfigService,
@@ -145,7 +147,7 @@ function buildService(overrides: {
     voiceService
   );
 
-  return { service, voiceService, approval };
+  return { service, voiceService, approval, behaviorPipeline };
 }
 
 describe('Telegram voice routing', () => {
@@ -202,74 +204,9 @@ describe('Telegram voice routing', () => {
   });
 
   it('does not call behaviorPipeline from voice handler', async () => {
-    const behaviorPipeline = {
-      handleStoredMessage: vi.fn().mockResolvedValue({ kind: 'queued' }),
-    };
-    const voiceService: VoiceMessageService = {
-      enqueue: vi
-        .fn()
-        .mockResolvedValue({ kind: 'queued', jobId: 1, messageId: 10 }),
-    } as unknown as VoiceMessageService;
-
-    const service = new MainService(
-      {
-        env: { BOT_TOKEN: 'token', ADMIN_CHAT_ID: 999 },
-      } as unknown as EnvService,
-      { reset: vi.fn() } as unknown as ChatResetService,
-      {
-        hasAccess: vi.fn(),
-        exportTables: vi.fn(),
-        exportChatData: vi.fn(),
-        createAccessKey: vi.fn(),
-      } as unknown as AdminService,
-      {
-        getStatus: vi.fn().mockResolvedValue('approved'),
-        pending: vi.fn(),
-        approve: vi.fn(),
-        ban: vi.fn(),
-        unban: vi.fn(),
-        listAll: vi.fn().mockResolvedValue([]),
-      } as unknown as ChatApprovalService,
-      {
-        extract: vi
-          .fn()
-          .mockReturnValue({ username: 'alice', fullName: 'Alice' }),
-      } as unknown as MessageContextExtractor,
-      { shouldRespond: vi.fn() } as unknown as TriggerPipeline,
-      {
-        addMessage: vi.fn().mockResolvedValue(1),
-        getMessages: vi.fn(),
-        getMessagesByIds: vi.fn(),
-        getCount: vi.fn(),
-        getLastMessages: vi.fn(),
-        clearMessages: vi.fn(),
-        findPendingVoiceById: vi.fn(),
-        markVoiceTranscribed: vi.fn(),
-        markVoiceFailed: vi.fn(),
-      } as unknown as MessageService,
-      behaviorPipeline as unknown as BehaviorPipeline,
-      { getChat: vi.fn() } as unknown as ChatInfoService,
-      {
-        getConfig: vi
-          .fn()
-          .mockResolvedValue({
-            historyLimit: 50,
-            topicTime: null,
-            topicTimezone: 'UTC',
-          }),
-        setHistoryLimit: vi.fn(),
-        setTopicTime: vi.fn(),
-      } as unknown as ChatConfigService,
-      createLoggerFactory(),
-      {
-        start: vi.fn().mockResolvedValue(undefined),
-      } as unknown as TopicOfDayScheduler,
-      { start: vi.fn() } as unknown as StateEvolutionScheduler,
-      createMockMessenger(),
-      voiceService
-    );
-
+    const { service, behaviorPipeline } = buildService({ adminChatId: 999 });
     const ctx = makeVoiceCtx({ chatId: 2 });
+
     await service.handleVoiceMessage(ctx);
 
     expect(behaviorPipeline.handleStoredMessage).not.toHaveBeenCalled();

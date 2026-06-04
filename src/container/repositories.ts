@@ -93,7 +93,7 @@ import { SQLiteUserSocialProfileRepository } from '../infrastructure/persistence
 import {
   VOICE_TRANSCRIPTION_JOB_REPOSITORY_ID,
   type VoiceTranscriptionJobRepository,
-} from '../domain/repositories/VoiceTranscriptionJobRepository';
+} from '@/domain/repositories/VoiceTranscriptionJobRepository';
 import { SQLiteVoiceTranscriptionJobRepository } from '../infrastructure/persistence/sqlite/SQLiteVoiceTranscriptionJobRepository';
 
 export const register = (container: Container): void => {

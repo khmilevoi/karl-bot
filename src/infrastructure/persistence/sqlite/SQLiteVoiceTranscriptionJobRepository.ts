@@ -75,7 +75,8 @@ export class SQLiteVoiceTranscriptionJobRepository implements VoiceTranscription
     // Validate userId before doing any DB work — a missing userId would cause
     // a FK violation inside the transaction and leave the DB in a partial state.
     const userId = message.userId;
-    if (!userId) throw new Error('userId is required for voice message creation');
+    if (!userId)
+      throw new Error('userId is required for voice message creation');
 
     await this.chatRepo.upsert(
       new ChatEntity(message.chatId, message.chatTitle ?? null)
@@ -112,7 +113,8 @@ export class SQLiteVoiceTranscriptionJobRepository implements VoiceTranscription
       )) as { lastID?: number };
 
       const msgLastId = msgResult.lastID;
-      if (!msgLastId) throw new Error('Failed to insert voice message: no lastID');
+      if (!msgLastId)
+        throw new Error('Failed to insert voice message: no lastID');
 
       const jobResult = (await db.run(
         `INSERT INTO voice_transcription_jobs
@@ -212,7 +214,10 @@ export class SQLiteVoiceTranscriptionJobRepository implements VoiceTranscription
       now,
       jobId
     )) as { changes?: number };
-    if (!result.changes) throw new Error(`Voice job ${jobId} not found or already in terminal state`);
+    if (!result.changes)
+      throw new Error(
+        `Voice job ${jobId} not found or already in terminal state`
+      );
   }
 
   async requeue(
@@ -231,7 +236,10 @@ export class SQLiteVoiceTranscriptionJobRepository implements VoiceTranscription
       now,
       jobId
     )) as { changes?: number };
-    if (!result.changes) throw new Error(`Voice job ${jobId} not found or already in terminal state`);
+    if (!result.changes)
+      throw new Error(
+        `Voice job ${jobId} not found or already in terminal state`
+      );
   }
 
   async markFailed(
@@ -248,7 +256,10 @@ export class SQLiteVoiceTranscriptionJobRepository implements VoiceTranscription
       now,
       jobId
     )) as { changes?: number };
-    if (!result.changes) throw new Error(`Voice job ${jobId} not found or already in terminal state`);
+    if (!result.changes)
+      throw new Error(
+        `Voice job ${jobId} not found or already in terminal state`
+      );
   }
 
   async markCancelled(
@@ -265,6 +276,9 @@ export class SQLiteVoiceTranscriptionJobRepository implements VoiceTranscription
       now,
       jobId
     )) as { changes?: number };
-    if (!result.changes) throw new Error(`Voice job ${jobId} not found or already in terminal state`);
+    if (!result.changes)
+      throw new Error(
+        `Voice job ${jobId} not found or already in terminal state`
+      );
   }
 }

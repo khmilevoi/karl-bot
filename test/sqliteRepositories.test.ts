@@ -330,7 +330,9 @@ describe('SQLite repositories', () => {
     });
 
     const found = await messageRepo.findPendingVoiceById(pendingId);
-    expect(found).toEqual(expect.objectContaining({ id: pendingId, processingStatus: 'pending' }));
+    expect(found).toEqual(
+      expect.objectContaining({ id: pendingId, processingStatus: 'pending' })
+    );
 
     expect(await messageRepo.findPendingVoiceById(readyId)).toBeNull();
   });

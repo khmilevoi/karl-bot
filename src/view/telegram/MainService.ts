@@ -466,10 +466,13 @@ export class MainService {
       return;
     }
 
-    const telegramMessageId = ctx.message?.message_id ?? 0;
+    const telegramMessageId = ctx.message.message_id;
     const meta = this.extractor.extract(ctx);
     const chatTitle =
       ctx.chat && 'title' in ctx.chat ? ctx.chat.title : undefined;
+
+    const fromId = ctx.from?.id;
+    assert(fromId != null, 'Voice message has no sender');
 
     const result = await this.voiceMessageService.enqueue({
       chatId,
@@ -478,7 +481,7 @@ export class MainService {
       telegramFileId: voice.file_id,
       durationSeconds: voice.duration,
       user: {
-        id: ctx.from?.id ?? 0,
+        id: fromId,
         username: ctx.from?.username,
         firstName: ctx.from?.first_name,
         lastName: ctx.from?.last_name,
