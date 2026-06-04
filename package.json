@@ -30,7 +30,8 @@
     "format:fix": "oxfmt",
     "migration:up": "node scripts/pre-migrate.js && node dist/migrate.js up",
     "migration:down": "node scripts/pre-migrate.js && node dist/migrate.js down",
-    "migration:check": "node scripts/pre-migrate.js && node dist/migrate.js check"
+    "migration:check": "node scripts/pre-migrate.js && node dist/migrate.js check",
+    "voice-worker": "node dist/voice-worker.js"
   },
   "dependencies": {
     "@grammyjs/conversations": "^2.1.1",
