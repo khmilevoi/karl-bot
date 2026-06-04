@@ -6,6 +6,22 @@ services:
       - ./data:/data
     restart: unless-stopped
 
+  migrate:
+    build:
+      context: .
+      target: runtime
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: file:///data/memory.db
+      NODE_ENV: production
+    command: ['node', 'dist/migrate.js', 'up']
+    volumes:
+      - ./data:/data
+    depends_on:
+      - db
+    restart: 'no'
+
   app:
     build:
       context: .
@@ -17,9 +33,27 @@ services:
       NODE_ENV: production
       PORT: 3000
     ports:
-      - "${PORT:-3000}:3000"
+      - '${PORT:-3000}:3000'
     volumes:
       - ./data:/data
     depends_on:
-      - db
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      target: runtime
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: file:///data/memory.db
+      NODE_ENV: production
+    command: ['node', 'dist/voice-worker.js']
+    volumes:
+      - ./data:/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped

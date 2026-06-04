@@ -15,3 +15,19 @@ services:
       - ./rsbuild.config.ts:/app/rsbuild.config.ts
       - ./tsconfig.json:/app/tsconfig.json
     restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      target: deps
+    command: sh -c "rsbuild build && node dist/voice-worker.js"
+    environment:
+      DATABASE_URL: file:///data/memory.db
+      NODE_ENV: development
+    volumes:
+      - ./src:/app/src
+      - ./prompts:/app/prompts
+      - ./migrations:/app/migrations
+      - ./rsbuild.config.ts:/app/rsbuild.config.ts
+      - ./tsconfig.json:/app/tsconfig.json
+    restart: unless-stopped

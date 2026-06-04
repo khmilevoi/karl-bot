@@ -44,21 +44,26 @@ RUN pnpm prune --prod
 #######################  Runtime stage  ######################
 FROM base AS runtime
 
+# --- ffmpeg for voice audio conversion
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y ffmpeg && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 # --- copy only pruned node_modules + built app
 COPY --from=build /app /app
 
-# --- create entrypoint script
+# --- create entrypoint script (runs migrations then exec's the command)
 RUN echo '#!/bin/sh\n\
-# Check if database and migrations table exist\n\
+set -e\n\
 if [ ! -f /data/memory.db ] || ! node dist/migrate.js check 2>/dev/null; then\n\
   echo "Running migrations..."\n\
   node dist/migrate.js up\n\
 else\n\
   echo "Migrations already applied, skipping"\n\
 fi\n\
-\n\
-echo "Starting application..."\n\
-exec node dist/index.js\n\
+echo "Starting: $*"\n\
+exec "$@"\n\
 ' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
 # --- sqlite volume
@@ -69,5 +74,6 @@ ENV DATABASE_URL="file:///data/memory.db"
 # --- app listens here
 EXPOSE 3000
 
-# --- launch: entrypoint script
-CMD ["/app/entrypoint.sh"]
+# --- entrypoint runs migrations then delegates to CMD
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["node", "dist/index.js"]
