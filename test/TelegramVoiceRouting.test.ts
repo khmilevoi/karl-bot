@@ -14,7 +14,7 @@ import type { LoggerFactory } from '../src/application/interfaces/logging/Logger
 import type { MessageContextExtractor } from '../src/application/interfaces/messages/MessageContextExtractor';
 import type { MessageService } from '../src/application/interfaces/messages/MessageService';
 import type { TopicOfDayScheduler } from '../src/application/interfaces/scheduler/TopicOfDayScheduler';
-import type { VoiceMessageService } from '../src/application/interfaces/voice/VoiceMessageService';
+import type { QueuedAudioTranscriptionService } from '../src/application/interfaces/voice/QueuedAudioTranscriptionService';
 import type { BotContext } from '../src/view/telegram/context';
 import { MainService } from '../src/view/telegram/MainService';
 
@@ -67,18 +67,17 @@ function makeVoiceCtx({
 }
 
 function buildService(overrides: {
-  voiceService?: Partial<VoiceMessageService>;
+  queuedTranscription?: Partial<QueuedAudioTranscriptionService>;
   approval?: Partial<ChatApprovalService>;
   adminChatId?: number;
   messenger?: ChatMessenger;
   behaviorPipeline?: Partial<BehaviorPipeline>;
+  messages?: Partial<MessageService>;
 }) {
-  const voiceService: VoiceMessageService = {
-    enqueue: vi
-      .fn()
-      .mockResolvedValue({ kind: 'queued', jobId: 1, messageId: 10 }),
-    ...overrides.voiceService,
-  } as unknown as VoiceMessageService;
+  const queuedTranscription: QueuedAudioTranscriptionService = {
+    transcribe: vi.fn().mockResolvedValue('hello transcript'),
+    ...overrides.queuedTranscription,
+  } as unknown as QueuedAudioTranscriptionService;
 
   const approval: ChatApprovalService = {
     getStatus: vi.fn().mockResolvedValue('approved'),
@@ -94,6 +93,19 @@ function buildService(overrides: {
     handleStoredMessage: vi.fn().mockResolvedValue({ kind: 'queued' }),
     ...overrides.behaviorPipeline,
   } as unknown as BehaviorPipeline;
+
+  const messages: MessageService = {
+    addMessage: vi.fn().mockResolvedValue(1),
+    getMessages: vi.fn(),
+    getMessagesByIds: vi.fn(),
+    getCount: vi.fn(),
+    getLastMessages: vi.fn(),
+    clearMessages: vi.fn(),
+    findPendingVoiceById: vi.fn(),
+    markVoiceTranscribed: vi.fn(),
+    markVoiceFailed: vi.fn(),
+    ...overrides.messages,
+  } as unknown as MessageService;
 
   const adminChatId = overrides.adminChatId ?? 1;
   const messenger = overrides.messenger ?? createMockMessenger();
@@ -116,17 +128,7 @@ function buildService(overrides: {
         .mockReturnValue({ username: 'alice', fullName: 'Alice' }),
     } as unknown as MessageContextExtractor,
     { shouldRespond: vi.fn() } as unknown as TriggerPipeline,
-    {
-      addMessage: vi.fn().mockResolvedValue(1),
-      getMessages: vi.fn(),
-      getMessagesByIds: vi.fn(),
-      getCount: vi.fn(),
-      getLastMessages: vi.fn(),
-      clearMessages: vi.fn(),
-      findPendingVoiceById: vi.fn(),
-      markVoiceTranscribed: vi.fn(),
-      markVoiceFailed: vi.fn(),
-    } as unknown as MessageService,
+    messages,
     behaviorPipeline,
     { getChat: vi.fn() } as unknown as ChatInfoService,
     {
@@ -144,10 +146,10 @@ function buildService(overrides: {
     } as unknown as TopicOfDayScheduler,
     { start: vi.fn() } as unknown as StateEvolutionScheduler,
     messenger,
-    voiceService
+    queuedTranscription
   );
 
-  return { service, voiceService, approval, behaviorPipeline };
+  return { service, queuedTranscription, approval, behaviorPipeline, messages };
 }
 
 describe('Telegram voice routing', () => {
@@ -162,16 +164,16 @@ describe('Telegram voice routing', () => {
   });
 
   it('ignores voice messages from admin chat', async () => {
-    const { service, voiceService } = buildService({ adminChatId: 1 });
+    const { service, queuedTranscription } = buildService({ adminChatId: 1 });
     const ctx = makeVoiceCtx({ chatId: 1 });
 
     await service.handleVoiceMessage(ctx);
 
-    expect(voiceService.enqueue).not.toHaveBeenCalled();
+    expect(queuedTranscription.transcribe).not.toHaveBeenCalled();
   });
 
   it('ignores voice from non-approved chat', async () => {
-    const { service, voiceService } = buildService({
+    const { service, queuedTranscription } = buildService({
       adminChatId: 999,
       approval: { getStatus: vi.fn().mockResolvedValue('pending') },
     });
@@ -179,11 +181,11 @@ describe('Telegram voice routing', () => {
 
     await service.handleVoiceMessage(ctx);
 
-    expect(voiceService.enqueue).not.toHaveBeenCalled();
+    expect(queuedTranscription.transcribe).not.toHaveBeenCalled();
   });
 
-  it('enqueues voice message from approved non-admin chat', async () => {
-    const { service, voiceService } = buildService({ adminChatId: 999 });
+  it('calls transcription service for approved non-admin voice message', async () => {
+    const { service, queuedTranscription } = buildService({ adminChatId: 999 });
     const ctx = makeVoiceCtx({
       chatId: 2,
       fileId: 'voice-file',
@@ -193,22 +195,57 @@ describe('Telegram voice routing', () => {
 
     await service.handleVoiceMessage(ctx);
 
-    expect(voiceService.enqueue).toHaveBeenCalledWith(
+    expect(queuedTranscription.transcribe).toHaveBeenCalledWith(
       expect.objectContaining({
-        chatId: 2,
         telegramFileId: 'voice-file',
         durationSeconds: 10,
-        telegramMessageId: 55,
       })
     );
   });
 
-  it('does not call behaviorPipeline from voice handler', async () => {
+  it('stores message with transcript text and sourceType=voice after transcription resolves', async () => {
+    const { service, messages } = buildService({
+      adminChatId: 999,
+      queuedTranscription: {
+        transcribe: vi.fn().mockResolvedValue('transcribed text'),
+      },
+    });
+    const ctx = makeVoiceCtx({ chatId: 2, fileId: 'voice-file', duration: 5 });
+
+    await service.handleVoiceMessage(ctx);
+
+    expect(messages.addMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: 'transcribed text',
+        sourceType: 'voice',
+        processingStatus: 'ready',
+      })
+    );
+  });
+
+  it('calls behaviorPipeline after transcription and message storage', async () => {
     const { service, behaviorPipeline } = buildService({ adminChatId: 999 });
     const ctx = makeVoiceCtx({ chatId: 2 });
 
     await service.handleVoiceMessage(ctx);
 
+    expect(behaviorPipeline.handleStoredMessage).toHaveBeenCalled();
+  });
+
+  it('does not store message or call behavior pipeline when transcription fails', async () => {
+    const { service, messages, behaviorPipeline } = buildService({
+      adminChatId: 999,
+      queuedTranscription: {
+        transcribe: vi
+          .fn()
+          .mockRejectedValue(new Error('transcription failed')),
+      },
+    });
+    const ctx = makeVoiceCtx({ chatId: 2 });
+
+    await service.handleVoiceMessage(ctx);
+
+    expect(messages.addMessage).not.toHaveBeenCalled();
     expect(behaviorPipeline.handleStoredMessage).not.toHaveBeenCalled();
   });
 });

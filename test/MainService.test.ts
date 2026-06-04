@@ -17,7 +17,7 @@ import type { ChatMessenger } from '../src/application/interfaces/chat/ChatMesse
 import type { MessageService } from '../src/application/interfaces/messages/MessageService';
 import type { BehaviorPipeline } from '../src/application/behavior/BehaviorPipeline';
 import type { StateEvolutionScheduler } from '../src/application/behavior/StateEvolutionScheduler';
-import type { VoiceMessageService } from '../src/application/interfaces/voice/VoiceMessageService';
+import type { QueuedAudioTranscriptionService } from '../src/application/interfaces/voice/QueuedAudioTranscriptionService';
 
 const createLoggerFactory = (): LoggerFactory =>
   ({
@@ -92,10 +92,8 @@ const makeDeps = (over: Partial<Record<string, unknown>> = {}) => ({
   },
   scheduler: { start: vi.fn().mockResolvedValue(undefined) },
   stateEvolutionScheduler: { start: vi.fn() },
-  voiceService: {
-    enqueue: vi
-      .fn()
-      .mockResolvedValue({ kind: 'queued', jobId: 1, messageId: 10 }),
+  queuedTranscription: {
+    transcribe: vi.fn().mockResolvedValue('hello transcript'),
   },
   ...over,
 });
@@ -116,7 +114,7 @@ const buildService = (deps: ReturnType<typeof makeDeps>) =>
     deps.scheduler as unknown as TopicOfDayScheduler,
     deps.stateEvolutionScheduler as unknown as StateEvolutionScheduler,
     createMockMessenger(),
-    deps.voiceService as unknown as VoiceMessageService
+    deps.queuedTranscription as unknown as QueuedAudioTranscriptionService
   );
 
 const makeTextCtx = ({
@@ -199,10 +197,8 @@ describe('MainService (Minimal)', () => {
       stateEvolutionScheduler,
       messenger,
       {
-        enqueue: vi
-          .fn()
-          .mockResolvedValue({ kind: 'queued', jobId: 1, messageId: 10 }),
-      } as unknown as VoiceMessageService
+        transcribe: vi.fn().mockResolvedValue('hello'),
+      } as unknown as QueuedAudioTranscriptionService
     );
 
     await service.launch();
@@ -274,10 +270,8 @@ describe('MainService (Minimal)', () => {
       stateEvolutionScheduler,
       messenger,
       {
-        enqueue: vi
-          .fn()
-          .mockResolvedValue({ kind: 'queued', jobId: 1, messageId: 10 }),
-      } as unknown as VoiceMessageService
+        transcribe: vi.fn().mockResolvedValue('hello'),
+      } as unknown as QueuedAudioTranscriptionService
     );
 
     const chatData = await (service as any).getChatData(1);
@@ -355,13 +349,10 @@ describe('MainService (Minimal)', () => {
       stateEvolutionScheduler,
       messenger,
       {
-        enqueue: vi
-          .fn()
-          .mockResolvedValue({ kind: 'queued', jobId: 1, messageId: 10 }),
-      } as unknown as VoiceMessageService
+        transcribe: vi.fn().mockResolvedValue('hello'),
+      } as unknown as QueuedAudioTranscriptionService
     );
 
-    // Test admin chat - should return early
     const adminCtx = { chat: { id: 1 } } as unknown as Context;
     await (service as any).handleMessage(adminCtx);
 

@@ -531,7 +531,7 @@ export function setupBotRouting(bot: Bot<BotContext>, actions: Actions): void {
 
       const status = await actions.checkChatStatus(chatId);
 
-      if(status !== 'approved') {
+      if (status !== 'approved') {
         await ctx.reply('Этот чат не находится в списке разрешённых.', {
           reply_markup: chatNotApprovedMenu,
         });

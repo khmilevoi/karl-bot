@@ -90,11 +90,6 @@ import { SQLiteStateEvolutionCursorRepository } from '../infrastructure/persiste
 import { SQLiteTruthRepository } from '../infrastructure/persistence/sqlite/SQLiteTruthRepository';
 import { SQLiteUserPoliticalProfileRepository } from '../infrastructure/persistence/sqlite/SQLiteUserPoliticalProfileRepository';
 import { SQLiteUserSocialProfileRepository } from '../infrastructure/persistence/sqlite/SQLiteUserSocialProfileRepository';
-import {
-  VOICE_TRANSCRIPTION_JOB_REPOSITORY_ID,
-  type VoiceTranscriptionJobRepository,
-} from '@/domain/repositories/VoiceTranscriptionJobRepository';
-import { SQLiteVoiceTranscriptionJobRepository } from '../infrastructure/persistence/sqlite/SQLiteVoiceTranscriptionJobRepository';
 
 export const register = (container: Container): void => {
   container
@@ -168,11 +163,5 @@ export const register = (container: Container): void => {
   container
     .bind<UserPoliticalProfileRepository>(USER_POLITICAL_PROFILE_REPOSITORY_ID)
     .to(SQLiteUserPoliticalProfileRepository)
-    .inSingletonScope();
-  container
-    .bind<VoiceTranscriptionJobRepository>(
-      VOICE_TRANSCRIPTION_JOB_REPOSITORY_ID
-    )
-    .to(SQLiteVoiceTranscriptionJobRepository)
     .inSingletonScope();
 };

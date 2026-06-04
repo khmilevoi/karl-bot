@@ -24,6 +24,16 @@ export const envSchema = z
       .min(1)
       .default('gpt-4o-mini-transcribe'),
     VOICE_MAX_DURATION_SECONDS: z.coerce.number().int().positive().default(120),
+    VOICE_TRANSCRIPTION_WAIT_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(120000),
+    VOICE_TRANSCRIPTION_RESULT_POLL_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(500),
   })
   .transform((env) => ({
     ...env,

@@ -93,6 +93,9 @@ export class TestEnvService implements EnvService {
       workerMaxAttempts: this.env.VOICE_WORKER_MAX_ATTEMPTS,
       transcriptionModel: this.env.VOICE_TRANSCRIPTION_MODEL,
       maxDurationSeconds: this.env.VOICE_MAX_DURATION_SECONDS,
+      transcriptionWaitTimeoutMs: this.env.VOICE_TRANSCRIPTION_WAIT_TIMEOUT_MS,
+      transcriptionResultPollIntervalMs:
+        this.env.VOICE_TRANSCRIPTION_RESULT_POLL_INTERVAL_MS,
     };
   }
 }

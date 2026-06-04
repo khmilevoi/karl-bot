@@ -17,6 +17,8 @@ export interface Env {
   VOICE_WORKER_MAX_ATTEMPTS: number;
   VOICE_TRANSCRIPTION_MODEL: string;
   VOICE_MAX_DURATION_SECONDS: number;
+  VOICE_TRANSCRIPTION_WAIT_TIMEOUT_MS: number;
+  VOICE_TRANSCRIPTION_RESULT_POLL_INTERVAL_MS: number;
 }
 
 export interface PromptFiles {

@@ -1,4 +1,10 @@
-import { existsSync, readdirSync, readFileSync, statSync, unlinkSync } from 'fs';
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  unlinkSync,
+} from 'fs';
 import { basename, join } from 'path';
 import { type Database, open } from 'sqlite';
 import sqlite3 from 'sqlite3';
@@ -42,7 +48,11 @@ function loadMigrations(dir = envService.getMigrationsDir()): Migration[] {
 function cleanupStaleWal(dbPath: string): void {
   const walFile = dbPath + '-wal';
   const shmFile = dbPath + '-shm';
-  if (existsSync(walFile) && statSync(walFile).size === 0 && existsSync(shmFile)) {
+  if (
+    existsSync(walFile) &&
+    statSync(walFile).size === 0 &&
+    existsSync(shmFile)
+  ) {
     logger.info({ walFile, shmFile }, 'Removing stale WAL/SHM files');
     unlinkSync(shmFile);
     unlinkSync(walFile);

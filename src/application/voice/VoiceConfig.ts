@@ -7,6 +7,8 @@ export interface VoiceConfig {
   workerMaxAttempts: number;
   transcriptionModel: string;
   maxDurationSeconds: number;
+  transcriptionWaitTimeoutMs: number;
+  transcriptionResultPollIntervalMs: number;
 }
 
 export const VOICE_CONFIG_ID = Symbol.for(

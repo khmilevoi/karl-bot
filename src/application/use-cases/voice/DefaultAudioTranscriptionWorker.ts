@@ -6,10 +6,6 @@ import {
   type LoggerFactory,
 } from '@/application/interfaces/logging/LoggerFactory';
 import {
-  MESSAGE_SERVICE_ID,
-  type MessageService,
-} from '@/application/interfaces/messages/MessageService';
-import {
   AUDIO_CONVERSION_SERVICE_ID,
   type AudioConversionService,
 } from '@/application/interfaces/voice/AudioConversionService';
@@ -21,35 +17,27 @@ import {
   TELEGRAM_FILE_DOWNLOAD_SERVICE_ID,
   type TelegramFileDownloadService,
 } from '@/application/interfaces/voice/TelegramFileDownloadService';
-import type { VoiceMessageWorker } from '@/application/interfaces/voice/VoiceMessageWorker';
+import type { AudioTranscriptionWorker } from '@/application/interfaces/voice/AudioTranscriptionWorker';
 import {
   VOICE_CONFIG_ID,
   type VoiceConfig,
 } from '@/application/voice/VoiceConfig';
 import {
-  BEHAVIOR_PIPELINE_ID,
-  type BehaviorPipeline,
-} from '@/application/behavior/BehaviorPipeline';
-import {
-  VOICE_TRANSCRIPTION_JOB_REPOSITORY_ID,
-  type VoiceTranscriptionJobRepository,
-} from '@/domain/repositories/VoiceTranscriptionJobRepository';
-import type { VoiceTranscriptionJob } from '@/domain/voice/VoiceTypes';
+  AUDIO_TRANSCRIPTION_JOB_REPOSITORY_ID,
+  type AudioTranscriptionJobRepository,
+} from '@/domain/repositories/AudioTranscriptionJobRepository';
+import type { AudioTranscriptionJob } from '@/domain/voice/AudioTranscriptionJobTypes';
 
 const BACKOFF_MS_BY_ATTEMPT = [30_000, 120_000, 600_000];
 
 @injectable()
-export class DefaultVoiceMessageWorker implements VoiceMessageWorker {
+export class DefaultAudioTranscriptionWorker implements AudioTranscriptionWorker {
   private polling = false;
   private readonly logger: Logger;
 
   constructor(
-    @inject(VOICE_TRANSCRIPTION_JOB_REPOSITORY_ID)
-    private readonly jobRepo: VoiceTranscriptionJobRepository,
-    @inject(MESSAGE_SERVICE_ID)
-    private readonly messageService: MessageService,
-    @inject(BEHAVIOR_PIPELINE_ID)
-    private readonly behaviorPipeline: BehaviorPipeline,
+    @inject(AUDIO_TRANSCRIPTION_JOB_REPOSITORY_ID)
+    private readonly jobRepo: AudioTranscriptionJobRepository,
     @inject(TELEGRAM_FILE_DOWNLOAD_SERVICE_ID)
     private readonly fileDownload: TelegramFileDownloadService,
     @inject(AUDIO_CONVERSION_SERVICE_ID)
@@ -61,7 +49,7 @@ export class DefaultVoiceMessageWorker implements VoiceMessageWorker {
     @inject(LOGGER_FACTORY_ID)
     loggerFactory: LoggerFactory
   ) {
-    this.logger = loggerFactory.create('DefaultVoiceMessageWorker');
+    this.logger = loggerFactory.create('DefaultAudioTranscriptionWorker');
   }
 
   start(): void {
@@ -87,63 +75,34 @@ export class DefaultVoiceMessageWorker implements VoiceMessageWorker {
     );
 
     const jobs = claims.filter(
-      (job): job is VoiceTranscriptionJob => job !== null
+      (job): job is AudioTranscriptionJob => job !== null
     );
 
     await Promise.all(jobs.map((job) => this.processJob(job)));
   }
 
-  private async processJob(job: VoiceTranscriptionJob): Promise<void> {
+  private async processJob(job: AudioTranscriptionJob): Promise<void> {
     try {
       const downloaded = await this.fileDownload.download(job.telegramFileId);
       const converted =
         await this.audioConversion.convertForTranscription(downloaded);
-      const transcript = await this.transcription.transcribe(converted);
+      const text = (await this.transcription.transcribe(converted)).trim();
 
-      if (!transcript.trim()) {
-        throw new Error('Empty transcript returned');
-      }
+      if (!text) throw new Error('Empty transcript returned');
 
-      const content = transcript.trim();
       const now = new Date().toISOString();
-
-      const updatedMessage = await this.messageService.markVoiceTranscribed(
-        job.messageId,
-        content
-      );
-
-      if (updatedMessage === null) {
-        await this.jobRepo.markCancelled(
-          job.id,
-          'message no longer active',
-          now
-        );
-        return;
-      }
-
-      const { id, chatId } = updatedMessage;
-      if (id === undefined) {
-        throw new Error('Transcribed message is missing id');
-      }
-
-      await this.behaviorPipeline.handleStoredMessage({
-        message: { ...updatedMessage, id, chatId },
-        directTrigger: null,
-      });
-
-      await this.jobRepo.markDone(job.id, now);
+      await this.jobRepo.markDone(job.id, text, now);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const now = new Date().toISOString();
 
       this.logger.error(
         { error: String(error), jobId: job.id },
-        'Voice job processing failed'
+        'Audio transcription job failed'
       );
 
       if (job.attempts >= this.config.workerMaxAttempts) {
         await this.jobRepo.markFailed(job.id, message, now);
-        await this.messageService.markVoiceFailed(job.messageId);
       } else {
         const backoffMs = BACKOFF_MS_BY_ATTEMPT[job.attempts - 1] ?? 600_000;
         const availableAt = new Date(Date.now() + backoffMs).toISOString();

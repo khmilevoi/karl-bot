@@ -1,18 +1,31 @@
+import 'reflect-metadata';
+
+import { Container } from 'inversify';
+
 import {
   LOGGER_FACTORY_ID,
   type LoggerFactory,
 } from './application/interfaces/logging/LoggerFactory';
 import {
-  VOICE_MESSAGE_WORKER_ID,
-  type VoiceMessageWorker,
-} from './application/interfaces/voice/VoiceMessageWorker';
-import { container } from './container';
+  AUDIO_TRANSCRIPTION_WORKER_ID,
+  type AudioTranscriptionWorker,
+} from './application/interfaces/voice/AudioTranscriptionWorker';
+import { register as registerRepositories } from './container/repositories';
+import { register as registerApplication } from './container/application';
+import { registerVoiceWorker } from './container/voice-worker';
 
-const loggerFactory = container.get<LoggerFactory>(LOGGER_FACTORY_ID);
+const workerContainer = new Container();
+registerRepositories(workerContainer);
+registerApplication(workerContainer);
+registerVoiceWorker(workerContainer);
+
+const loggerFactory = workerContainer.get<LoggerFactory>(LOGGER_FACTORY_ID);
 const logger = loggerFactory.create('voice-worker');
-const worker = container.get<VoiceMessageWorker>(VOICE_MESSAGE_WORKER_ID);
+const worker = workerContainer.get<AudioTranscriptionWorker>(
+  AUDIO_TRANSCRIPTION_WORKER_ID
+);
 
-logger.info('Starting voice worker');
+logger.info('Starting audio transcription worker');
 worker.start();
 
 function shutdown(reason: string): void {

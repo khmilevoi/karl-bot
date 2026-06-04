@@ -151,15 +151,20 @@ import {
   type VoiceConfig,
 } from '../application/voice/VoiceConfig';
 import {
-  VOICE_MESSAGE_SERVICE_ID,
-  type VoiceMessageService,
-} from '../application/interfaces/voice/VoiceMessageService';
-import { DefaultVoiceMessageService } from '../application/use-cases/voice/DefaultVoiceMessageService';
+  QUEUED_AUDIO_TRANSCRIPTION_SERVICE_ID,
+  type QueuedAudioTranscriptionService,
+} from '../application/interfaces/voice/QueuedAudioTranscriptionService';
+import { DefaultQueuedAudioTranscriptionService } from '../application/use-cases/voice/DefaultQueuedAudioTranscriptionService';
 import {
-  VOICE_MESSAGE_WORKER_ID,
-  type VoiceMessageWorker,
-} from '../application/interfaces/voice/VoiceMessageWorker';
-import { DefaultVoiceMessageWorker } from '../application/use-cases/voice/DefaultVoiceMessageWorker';
+  AUDIO_TRANSCRIPTION_WORKER_ID,
+  type AudioTranscriptionWorker,
+} from '../application/interfaces/voice/AudioTranscriptionWorker';
+import { DefaultAudioTranscriptionWorker } from '../application/use-cases/voice/DefaultAudioTranscriptionWorker';
+import {
+  AUDIO_TRANSCRIPTION_JOB_REPOSITORY_ID,
+  type AudioTranscriptionJobRepository,
+} from '../domain/repositories/AudioTranscriptionJobRepository';
+import { SQLiteAudioTranscriptionJobRepository } from '../infrastructure/persistence/sqlite/SQLiteAudioTranscriptionJobRepository';
 import {
   LOGGER_FACTORY_ID,
   type LoggerFactory,
@@ -465,13 +470,22 @@ export const register = (container: Container): void => {
     .inSingletonScope();
 
   container
-    .bind<VoiceMessageService>(VOICE_MESSAGE_SERVICE_ID)
-    .to(DefaultVoiceMessageService)
+    .bind<AudioTranscriptionJobRepository>(
+      AUDIO_TRANSCRIPTION_JOB_REPOSITORY_ID
+    )
+    .to(SQLiteAudioTranscriptionJobRepository)
     .inSingletonScope();
 
   container
-    .bind<VoiceMessageWorker>(VOICE_MESSAGE_WORKER_ID)
-    .to(DefaultVoiceMessageWorker)
+    .bind<QueuedAudioTranscriptionService>(
+      QUEUED_AUDIO_TRANSCRIPTION_SERVICE_ID
+    )
+    .to(DefaultQueuedAudioTranscriptionService)
+    .inSingletonScope();
+
+  container
+    .bind<AudioTranscriptionWorker>(AUDIO_TRANSCRIPTION_WORKER_ID)
+    .to(DefaultAudioTranscriptionWorker)
     .inSingletonScope();
 
   container

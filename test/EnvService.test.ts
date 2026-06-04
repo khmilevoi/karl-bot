@@ -126,6 +126,8 @@ describe('EnvService', () => {
       workerMaxAttempts: 3,
       transcriptionModel: 'gpt-4o-mini-transcribe',
       maxDurationSeconds: 120,
+      transcriptionWaitTimeoutMs: 120000,
+      transcriptionResultPollIntervalMs: 500,
     });
   });
 });
