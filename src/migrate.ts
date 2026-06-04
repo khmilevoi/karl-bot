@@ -1,5 +1,5 @@
-import { readdirSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readdirSync, readFileSync, statSync, unlinkSync } from 'fs';
+import { basename, join } from 'path';
 import { type Database, open } from 'sqlite';
 import sqlite3 from 'sqlite3';
 
@@ -39,8 +39,19 @@ function loadMigrations(dir = envService.getMigrationsDir()): Migration[] {
   });
 }
 
+function cleanupStaleWal(dbPath: string): void {
+  const walFile = dbPath + '-wal';
+  const shmFile = dbPath + '-shm';
+  if (existsSync(walFile) && statSync(walFile).size === 0 && existsSync(shmFile)) {
+    logger.info({ walFile, shmFile }, 'Removing stale WAL/SHM files');
+    unlinkSync(shmFile);
+    unlinkSync(walFile);
+  }
+}
+
 async function getDb(): Promise<SqliteDatabase> {
   logger.info({ filename }, 'Connecting to database');
+  cleanupStaleWal(filename);
   return open({ filename, driver: sqlite3.Database });
 }
 
@@ -229,28 +240,35 @@ async function checkMigrations(): Promise<boolean> {
   }
 }
 
-const direction = process.argv[2];
-logger.info({ direction }, 'Running migrations');
+// rspack compiles `require.main === module` into an unreliable runtime check
+// that evaluates false in the bundle, so `node dist/migrate.js up` would silently
+// no-op and exit 0. Detect direct CLI invocation via the entry filename instead
+// (process.argv[1] is set by Node and untouched by the bundler). Tests import
+// migrateUp from src — there argv[1] is the test runner, so this block is skipped.
+if (basename(process.argv[1] ?? '') === 'migrate.js') {
+  const direction = process.argv[2];
+  logger.info({ direction }, 'Running migrations');
 
-if (direction === 'down') {
-  migrateDown().catch((e) => {
-    logger.error(e, 'Migration DOWN failed');
-    process.exit(1);
-  });
-} else if (direction === 'check') {
-  checkMigrations()
-    .then((allApplied) => {
-      process.exit(allApplied ? 0 : 1);
-    })
-    .catch((e) => {
-      logger.error(e, 'Migration check failed');
+  if (direction === 'down') {
+    migrateDown().catch((e) => {
+      logger.error(e, 'Migration DOWN failed');
       process.exit(1);
     });
-} else {
-  migrateUp().catch((e) => {
-    logger.error(e, 'Migration UP failed');
-    process.exit(1);
-  });
+  } else if (direction === 'check') {
+    checkMigrations()
+      .then((allApplied) => {
+        process.exit(allApplied ? 0 : 1);
+      })
+      .catch((e) => {
+        logger.error(e, 'Migration check failed');
+        process.exit(1);
+      });
+  } else {
+    migrateUp().catch((e) => {
+      logger.error(e, 'Migration UP failed');
+      process.exit(1);
+    });
+  }
 }
 
 export { checkMigrations, migrateDown, migrateUp };

@@ -128,7 +128,7 @@ export const DEFAULT_STATE_EVOLUTION_CONFIG: StateEvolutionConfig = {
   cooldownMs: 5 * 60_000,
   maxIntervalMs: 60 * 60_000,
   recentMessageLimit: 60,
-  sweepCron: '*/5 * * * *',
+  sweepCron: '0 */3 * * *',
 };
 
 export const STATE_EVOLUTION_CONFIG_ID = Symbol.for(

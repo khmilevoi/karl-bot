@@ -160,6 +160,7 @@ describe('PromptBuilder', () => {
     expect(result[0].content).toContain('[TRIGGER]');
     expect(result[0].content).toContain('[GATE_CONTEXT]');
     expect(result[0].content).toContain('[BATCH]');
+    expect(result[0].content).toContain('[source:text]');
   });
 
   it('clears steps after build', async () => {

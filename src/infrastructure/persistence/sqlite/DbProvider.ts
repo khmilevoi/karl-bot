@@ -29,10 +29,19 @@ export class SQLiteDbProviderImpl implements DbProvider {
     this.logger = loggerFactory.create('SQLiteDbProviderImpl');
     const filename = parseDatabaseUrl(envService.env.DATABASE_URL);
     this.logger.info({ filename }, 'Opening SQLite database');
-    this.db = open({ filename, driver: sqlite3.Database }).catch((error) => {
-      this.logger.error({ filename, error }, 'Failed to open SQLite database');
-      throw error;
-    }) as Promise<SqlDatabase>;
+    this.db = open({ filename, driver: sqlite3.Database })
+      .then(async (db) => {
+        await db.run('PRAGMA journal_mode = WAL');
+        await db.run('PRAGMA busy_timeout = 5000');
+        return db;
+      })
+      .catch((error) => {
+        this.logger.error(
+          { filename, error },
+          'Failed to open SQLite database'
+        );
+        throw error;
+      }) as Promise<SqlDatabase>;
   }
 
   get(): Promise<SqlDatabase> {

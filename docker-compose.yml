@@ -1,25 +1,59 @@
+# Shared definition — every service runs the SAME image, differing only by the
+# command it executes. Compose builds the image once (tagged karl-bot:latest)
+# and reuses it for migrate / app / worker.
+x-app: &app
+  build:
+    context: .
+    target: runtime
+  image: karl-bot:latest
+  env_file:
+    - .env
+  environment: &app-env
+    DATABASE_URL: file:///data/memory.db
+    NODE_ENV: production
+  volumes:
+    - ./data:/data
+
 services:
-  db:
-    image: alpine:3.20
-    command: sh -c "mkdir -p /data && touch /data/.keep && tail -f /dev/null"
-    volumes:
-      - ./data:/data
-    restart: unless-stopped
+  # One-shot schema migrator. Long-running services wait for this to exit 0,
+  # so migrations run exactly once with no concurrent-writer race on SQLite.
+  # entrypoint is overridden to bypass the image's migrate-on-start safety net.
+  migrate:
+    <<: *app
+    entrypoint: ['node', 'dist/migrate.js']
+    command: ['up']
+    restart: 'no'
 
   app:
-    build:
-      context: .
-      target: runtime
-    env_file:
-      - .env
+    <<: *app
     environment:
-      DATABASE_URL: file:///data/memory.db
-      NODE_ENV: production
+      <<: *app-env
       PORT: 3000
     ports:
-      - "${PORT:-3000}:3000"
-    volumes:
-      - ./data:/data
+      - '${PORT:-3000}:3000'
+    init: true
     depends_on:
-      - db
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://127.0.0.1:3000',(r)=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  worker:
+    <<: *app
+    command: ['node', 'dist/voice-worker.js']
+    # init: true so the tiny docker-init reaps zombie ffmpeg children and
+    # forwards SIGTERM for a clean shutdown.
+    init: true
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped

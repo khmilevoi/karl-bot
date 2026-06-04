@@ -17,6 +17,7 @@ import type { ChatMessenger } from '../src/application/interfaces/chat/ChatMesse
 import type { MessageService } from '../src/application/interfaces/messages/MessageService';
 import type { BehaviorPipeline } from '../src/application/behavior/BehaviorPipeline';
 import type { StateEvolutionScheduler } from '../src/application/behavior/StateEvolutionScheduler';
+import type { VoiceMessageService } from '../src/application/interfaces/voice/VoiceMessageService';
 
 const createLoggerFactory = (): LoggerFactory =>
   ({
@@ -91,6 +92,11 @@ const makeDeps = (over: Partial<Record<string, unknown>> = {}) => ({
   },
   scheduler: { start: vi.fn().mockResolvedValue(undefined) },
   stateEvolutionScheduler: { start: vi.fn() },
+  voiceService: {
+    enqueue: vi
+      .fn()
+      .mockResolvedValue({ kind: 'queued', jobId: 1, messageId: 10 }),
+  },
   ...over,
 });
 
@@ -109,7 +115,8 @@ const buildService = (deps: ReturnType<typeof makeDeps>) =>
     createLoggerFactory(),
     deps.scheduler as unknown as TopicOfDayScheduler,
     deps.stateEvolutionScheduler as unknown as StateEvolutionScheduler,
-    createMockMessenger()
+    createMockMessenger(),
+    deps.voiceService as unknown as VoiceMessageService
   );
 
 const makeTextCtx = ({
@@ -190,7 +197,12 @@ describe('MainService (Minimal)', () => {
       createLoggerFactory(),
       scheduler,
       stateEvolutionScheduler,
-      messenger
+      messenger,
+      {
+        enqueue: vi
+          .fn()
+          .mockResolvedValue({ kind: 'queued', jobId: 1, messageId: 10 }),
+      } as unknown as VoiceMessageService
     );
 
     await service.launch();
@@ -260,7 +272,12 @@ describe('MainService (Minimal)', () => {
       createLoggerFactory(),
       scheduler,
       stateEvolutionScheduler,
-      messenger
+      messenger,
+      {
+        enqueue: vi
+          .fn()
+          .mockResolvedValue({ kind: 'queued', jobId: 1, messageId: 10 }),
+      } as unknown as VoiceMessageService
     );
 
     const chatData = await (service as any).getChatData(1);
@@ -336,7 +353,12 @@ describe('MainService (Minimal)', () => {
       createLoggerFactory(),
       scheduler,
       stateEvolutionScheduler,
-      messenger
+      messenger,
+      {
+        enqueue: vi
+          .fn()
+          .mockResolvedValue({ kind: 'queued', jobId: 1, messageId: 10 }),
+      } as unknown as VoiceMessageService
     );
 
     // Test admin chat - should return early

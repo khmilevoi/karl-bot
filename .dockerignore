@@ -5,5 +5,4 @@
 .dockerignore
 .env
 Dockerfile
-fly.toml
 prompts.log

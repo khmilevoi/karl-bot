@@ -95,4 +95,22 @@ export class RepositoryMessageService implements MessageService {
     this.logger.debug({ chatId }, 'Clearing messages table');
     await this.messageRepo.clearByChatId(chatId);
   }
+
+  async findPendingVoiceById(messageId: number): Promise<StoredMessage | null> {
+    this.logger.debug({ messageId }, 'Fetching pending voice message by id');
+    return this.messageRepo.findPendingVoiceById(messageId);
+  }
+
+  async markVoiceTranscribed(
+    messageId: number,
+    content: string
+  ): Promise<StoredMessage | null> {
+    this.logger.debug({ messageId }, 'Marking voice message as transcribed');
+    return this.messageRepo.markVoiceTranscribed(messageId, content);
+  }
+
+  async markVoiceFailed(messageId: number): Promise<void> {
+    this.logger.debug({ messageId }, 'Marking voice message as failed');
+    await this.messageRepo.markVoiceFailed(messageId);
+  }
 }

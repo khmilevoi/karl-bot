@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { envSchema } from '../src/infrastructure/config/envSchema';
 import { TestEnvService } from '../src/infrastructure/config/TestEnvService';
 
 const OLD_ENV = { ...process.env };
@@ -37,6 +38,26 @@ describe('EnvService', () => {
     expect(env.env.BOT_TOKEN).toBe('token');
     expect(env.env.LOG_LEVEL).toBe('silent');
     expect(env.env.LOG_PROMPTS).toBe(false);
+  });
+
+  it('enables prompt logging only in development builds', () => {
+    const baseEnv = {
+      BOT_TOKEN: 'token',
+      OPENAI_KEY: 'key',
+      DATABASE_URL: 'file:///tmp/test.db',
+      ADMIN_CHAT_ID: '1',
+    };
+
+    expect(envSchema.parse({ ...baseEnv, NODE_ENV: 'development' })).toEqual(
+      expect.objectContaining({ LOG_PROMPTS: true })
+    );
+    expect(
+      envSchema.parse({
+        ...baseEnv,
+        NODE_ENV: 'production',
+        LOG_PROMPTS: 'true',
+      })
+    ).toEqual(expect.objectContaining({ LOG_PROMPTS: false }));
   });
 
   it('getModels returns correct models', () => {
@@ -93,5 +114,18 @@ describe('EnvService', () => {
     setRequiredEnv();
     const env = new TestEnvService();
     expect(env.getMigrationsDir()).toBe('migrations');
+  });
+
+  it('getVoiceConfig returns default voice configuration', () => {
+    setRequiredEnv();
+    const env = new TestEnvService();
+    expect(env.getVoiceConfig()).toEqual({
+      workerConcurrency: 1,
+      workerPollIntervalMs: 1000,
+      workerLockMs: 300000,
+      workerMaxAttempts: 3,
+      transcriptionModel: 'gpt-4o-mini-transcribe',
+      maxDurationSeconds: 120,
+    });
   });
 });

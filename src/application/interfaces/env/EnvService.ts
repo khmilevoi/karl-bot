@@ -1,6 +1,8 @@
 import type { ServiceIdentifier } from 'inversify';
 import type { ChatModel } from 'openai/resources/shared';
 
+import type { VoiceConfig } from '@/application/voice/VoiceConfig';
+
 export interface Env {
   BOT_TOKEN: string;
   OPENAI_KEY: string;
@@ -9,6 +11,12 @@ export interface Env {
   ADMIN_CHAT_ID: number;
   NODE_ENV: string;
   LOG_PROMPTS: boolean;
+  VOICE_WORKER_CONCURRENCY: number;
+  VOICE_WORKER_POLL_INTERVAL_MS: number;
+  VOICE_WORKER_LOCK_MS: number;
+  VOICE_WORKER_MAX_ATTEMPTS: number;
+  VOICE_TRANSCRIPTION_MODEL: string;
+  VOICE_MAX_DURATION_SECONDS: number;
 }
 
 export interface PromptFiles {
@@ -57,6 +65,7 @@ export interface EnvService {
   getBotName(): string;
   getDialogueTimeoutMs(): number;
   getMigrationsDir(): string;
+  getVoiceConfig(): VoiceConfig;
 }
 
 export const ENV_SERVICE_ID = Symbol.for(
