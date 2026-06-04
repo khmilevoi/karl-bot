@@ -11,8 +11,13 @@ x-app: &app
   environment: &app-env
     DATABASE_URL: file:///data/memory.db
     NODE_ENV: production
+  # SQLite lives on a Docker-managed named volume (ext4 inside the VM), NOT a
+  # host bind mount. WAL needs mmap'd shared memory (-shm) + fcntl locks, which
+  # the Windows/macOS bind-mount translation layer doesn't support — opening a
+  # non-empty WAL there fails with SQLITE_IOERR on restart. A named volume is
+  # native ext4, so WAL works correctly. Inspect the DB via `docker cp` / exec.
   volumes:
-    - ./data:/data
+    - db-data:/data
 
 services:
   # One-shot schema migrator. Long-running services wait for this to exit 0,
@@ -57,3 +62,6 @@ services:
       migrate:
         condition: service_completed_successfully
     restart: unless-stopped
+
+volumes:
+  db-data:

@@ -87,8 +87,9 @@ describe('DefaultQueuedAudioTranscriptionService', () => {
 
     vi.useFakeTimers();
     const promise = service.transcribe({ telegramFileId: 'file-id' });
+    const assertion = expect(promise).rejects.toThrow();
     await vi.advanceTimersByTimeAsync(100);
-    await expect(promise).rejects.toThrow();
+    await assertion;
     vi.useRealTimers();
   });
 
@@ -106,8 +107,9 @@ describe('DefaultQueuedAudioTranscriptionService', () => {
 
     vi.useFakeTimers();
     const promise = service.transcribe({ telegramFileId: 'file-id' });
+    const assertion = expect(promise).rejects.toThrow();
     await vi.advanceTimersByTimeAsync(100);
-    await expect(promise).rejects.toThrow();
+    await assertion;
     vi.useRealTimers();
   });
 
@@ -125,8 +127,9 @@ describe('DefaultQueuedAudioTranscriptionService', () => {
 
     vi.useFakeTimers();
     const promise = service.transcribe({ telegramFileId: 'file-id' });
+    const assertion = expect(promise).rejects.toThrow(/timeout/i);
     await vi.advanceTimersByTimeAsync(600);
-    await expect(promise).rejects.toThrow(/timeout/i);
+    await assertion;
     vi.useRealTimers();
   });
 

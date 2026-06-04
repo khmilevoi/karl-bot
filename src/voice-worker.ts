@@ -12,12 +12,10 @@ import {
 } from './application/interfaces/voice/AudioTranscriptionWorker';
 import { register as registerRepositories } from './container/repositories';
 import { register as registerApplication } from './container/application';
-import { registerVoiceWorker } from './container/voice-worker';
 
 const workerContainer = new Container();
 registerRepositories(workerContainer);
 registerApplication(workerContainer);
-registerVoiceWorker(workerContainer);
 
 const loggerFactory = workerContainer.get<LoggerFactory>(LOGGER_FACTORY_ID);
 const logger = loggerFactory.create('voice-worker');

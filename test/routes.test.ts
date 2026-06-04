@@ -186,7 +186,7 @@ describe('setupBotRouting /start routing', () => {
       getChatConfig: vi.fn(),
       setHistoryLimit: vi.fn(),
       setTopicTime: vi.fn(),
-      checkChatStatus: vi.fn(),
+      checkChatStatus: vi.fn().mockResolvedValue('approved'),
       processMessage: vi.fn(),
       log: vi.fn(),
     }) as unknown as Actions;

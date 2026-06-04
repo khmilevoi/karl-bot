@@ -12,6 +12,7 @@ export default defineConfig({
   },
   test: {
     testTimeout: 30000,
+    exclude: ['**/node_modules/**', '**/.claude/**'],
     coverage: {
       provider: 'v8',
       thresholds: { lines: 70, functions: 70, branches: 70 },
