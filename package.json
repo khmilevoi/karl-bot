@@ -11,7 +11,7 @@
     "build": "rsbuild build",
     "start": "node dist/index.js",
     "dev": "nodemon -L --watch src --ext ts --exec \"rsbuild build && node dist/index.js\"",
-    "dev:worker": "nodemon --watch src --ext ts --exec \"rsbuild build && node dist/voice-worker.js\"",
+    "dev:worker": "nodemon -L --watch src --ext ts --exec \"rsbuild build && node dist/voice-worker.js\"",
     "docker:build:dev": "docker compose -f docker-compose.yml -f docker-compose.dev.yml build",
     "docker:build:prod": "docker compose -f docker-compose.yml build",
     "docker:dev": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build",

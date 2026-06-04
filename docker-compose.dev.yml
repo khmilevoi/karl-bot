@@ -37,4 +37,4 @@ services:
 
   worker:
     <<: *dev
-    command: pnpm dev:worker -- -L
+    command: pnpm dev:worker
