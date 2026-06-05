@@ -128,6 +128,7 @@ describe('precomputed behavior contract JSON schemas', () => {
             'user_relationship_signal',
             'group_truth_candidate',
             'personality_signal',
+            'ambient_reaction',
             'not_relevant',
           ],
         },

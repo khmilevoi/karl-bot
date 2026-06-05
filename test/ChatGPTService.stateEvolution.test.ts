@@ -19,6 +19,7 @@ interface ChatGPTServiceConstructor {
 
 const validDecision = {
   evolutionPatches: [],
+  truthPatches: [],
   personalitySnapshot: {
     identityNotes: [],
     values: [],

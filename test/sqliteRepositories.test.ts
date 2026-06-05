@@ -70,6 +70,8 @@ beforeEach(async () => {
         reply_text TEXT,
         reply_username TEXT,
         quote_text TEXT,
+        reply_to_message_id INTEGER,
+        reply_to_user_id INTEGER,
         is_active INTEGER NOT NULL DEFAULT 1,
         source_type TEXT NOT NULL DEFAULT 'text',
         processing_status TEXT NOT NULL DEFAULT 'ready',

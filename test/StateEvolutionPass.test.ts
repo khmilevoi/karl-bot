@@ -49,6 +49,7 @@ function mkEvent(id: number, slot = 'behaviorDecision') {
 
 const baseDecision = {
   evolutionPatches: [],
+  truthPatches: [],
   personalitySnapshot: {
     identityNotes: ['curious'],
     values: ['honesty'],
@@ -156,6 +157,7 @@ function makePass(overrides?: {
   const applicator: StatePatchApplicator = {
     applyPatches: vi.fn().mockResolvedValue([]),
     applyEvolutionPatches: vi.fn().mockResolvedValue([]),
+    applyTruthPatches: vi.fn().mockResolvedValue([]),
     ...overrides?.applicator,
   };
   const personalityRepo: PersonalityStateRepository = {
