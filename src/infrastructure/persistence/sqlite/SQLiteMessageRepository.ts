@@ -22,6 +22,8 @@ interface MessageRow {
   reply_text: string | null;
   reply_username: string | null;
   quote_text: string | null;
+  reply_to_message_id: number | null;
+  reply_to_user_id: number | null;
   user_id: number | null;
   chat_id: number | null;
   message_id: number | null;
@@ -30,7 +32,7 @@ interface MessageRow {
 }
 
 const SELECT_MESSAGE_COLUMNS =
-  'SELECT m.id, m.role, m.content, u.username, u.first_name, u.last_name, m.reply_text, m.reply_username, m.quote_text, m.user_id, c.chat_id, m.message_id, m.source_type, m.processing_status FROM messages m LEFT JOIN users u ON m.user_id = u.id LEFT JOIN chats c ON m.chat_id = c.chat_id';
+  'SELECT m.id, m.role, m.content, u.username, u.first_name, u.last_name, m.reply_text, m.reply_username, m.quote_text, m.reply_to_message_id, m.reply_to_user_id, m.user_id, c.chat_id, m.message_id, m.source_type, m.processing_status FROM messages m LEFT JOIN users u ON m.user_id = u.id LEFT JOIN chats c ON m.chat_id = c.chat_id';
 
 function rowToMessage(r: MessageRow): StoredMessage {
   const entry: StoredMessage = {
@@ -47,6 +49,9 @@ function rowToMessage(r: MessageRow): StoredMessage {
   if (r.reply_text) entry.replyText = r.reply_text;
   if (r.reply_username) entry.replyUsername = r.reply_username;
   if (r.quote_text) entry.quoteText = r.quote_text;
+  if (r.reply_to_message_id != null)
+    entry.replyToMessageId = r.reply_to_message_id;
+  if (r.reply_to_user_id != null) entry.replyToUserId = r.reply_to_user_id;
   if (r.user_id) entry.userId = r.user_id;
   if (r.message_id) entry.messageId = r.message_id;
   entry.sourceType = r.source_type;
@@ -69,12 +74,14 @@ export class SQLiteMessageRepository implements MessageRepository {
     replyText,
     replyUsername,
     quoteText,
+    replyToMessageId,
+    replyToUserId,
     sourceType,
     processingStatus,
   }: StoredMessage): Promise<number> {
     const db = await this.dbProvider.get();
     const result = (await db.run(
-      'INSERT INTO messages (chat_id, message_id, role, content, user_id, reply_text, reply_username, quote_text, source_type, processing_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO messages (chat_id, message_id, role, content, user_id, reply_text, reply_username, quote_text, reply_to_message_id, reply_to_user_id, source_type, processing_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       chatId,
       messageId ?? null,
       role,
@@ -83,6 +90,8 @@ export class SQLiteMessageRepository implements MessageRepository {
       replyText ?? null,
       replyUsername ?? null,
       quoteText ?? null,
+      replyToMessageId ?? null,
+      replyToUserId ?? null,
       sourceType ?? 'text',
       processingStatus ?? 'ready'
     )) as { lastID?: number };
