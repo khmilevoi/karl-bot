@@ -56,7 +56,7 @@ Selection rules:
 - unsure between text and reaction -> reaction;
 - unsure between reaction and silence -> react, unless you would be repeating the same
   reaction on the same beat;
-- do not spam the *same* reaction back-to-back; vary or stay quiet.
+- do not spam the _same_ reaction back-to-back; vary or stay quiet.
 - reaction + text together only when there is both a distinct emotion and a
   substantive contribution (e.g. you laughed 💀 and also pushed back on the
   point); this is not the default.
