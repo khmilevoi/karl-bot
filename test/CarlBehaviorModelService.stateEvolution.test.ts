@@ -182,7 +182,11 @@ describe('CarlBehaviorModelService proposeStateEvolution', () => {
       .mockResolvedValueOnce({
         parsed: radicalDecision,
         model: env.getModels().stateEvolution.default,
-        usage: { promptTokens: null, completionTokens: null, totalTokens: null },
+        usage: {
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+        },
         raw: {},
       })
       .mockResolvedValueOnce({
@@ -219,13 +223,21 @@ describe('CarlBehaviorModelService proposeStateEvolution', () => {
       .mockResolvedValueOnce({
         parsed: radicalAdjust,
         model: env.getModels().stateEvolution.default,
-        usage: { promptTokens: null, completionTokens: null, totalTokens: null },
+        usage: {
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+        },
         raw: {},
       })
       .mockResolvedValueOnce({
         parsed: radicalAdjust,
         model: env.getModels().stateEvolution.escalation,
-        usage: { promptTokens: null, completionTokens: null, totalTokens: null },
+        usage: {
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+        },
         raw: {},
       });
 
@@ -238,13 +250,21 @@ describe('CarlBehaviorModelService proposeStateEvolution', () => {
       .mockResolvedValueOnce({
         parsed: null,
         model: env.getModels().stateEvolution.default,
-        usage: { promptTokens: null, completionTokens: null, totalTokens: null },
+        usage: {
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+        },
         raw: {},
       })
       .mockResolvedValueOnce({
         parsed: validDecision,
         model: env.getModels().stateEvolution.escalation,
-        usage: { promptTokens: null, completionTokens: null, totalTokens: null },
+        usage: {
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+        },
         raw: {},
       });
 

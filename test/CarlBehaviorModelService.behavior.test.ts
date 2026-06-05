@@ -186,13 +186,21 @@ describe('CarlBehaviorModelService behavior methods', () => {
       .mockResolvedValueOnce({
         parsed: null,
         model: env.getModels().behaviorDecision.default,
-        usage: { promptTokens: null, completionTokens: null, totalTokens: null },
+        usage: {
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+        },
         raw: {},
       })
       .mockResolvedValueOnce({
         parsed: validDecision,
         model: env.getModels().behaviorDecision.escalation,
-        usage: { promptTokens: null, completionTokens: null, totalTokens: null },
+        usage: {
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+        },
         raw: {},
       });
 
@@ -208,13 +216,21 @@ describe('CarlBehaviorModelService behavior methods', () => {
       .mockResolvedValueOnce({
         parsed: lowConfidenceDecision,
         model: env.getModels().behaviorDecision.default,
-        usage: { promptTokens: null, completionTokens: null, totalTokens: null },
+        usage: {
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+        },
         raw: {},
       })
       .mockResolvedValueOnce({
         parsed: validDecision,
         model: env.getModels().behaviorDecision.escalation,
-        usage: { promptTokens: null, completionTokens: null, totalTokens: null },
+        usage: {
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+        },
         raw: {},
       });
 
@@ -247,13 +263,21 @@ describe('CarlBehaviorModelService behavior methods', () => {
       .mockResolvedValueOnce({
         parsed: conflictingDecision,
         model: env.getModels().behaviorDecision.default,
-        usage: { promptTokens: null, completionTokens: null, totalTokens: null },
+        usage: {
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+        },
         raw: {},
       })
       .mockResolvedValueOnce({
         parsed: validDecision,
         model: env.getModels().behaviorDecision.escalation,
-        usage: { promptTokens: null, completionTokens: null, totalTokens: null },
+        usage: {
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+        },
         raw: {},
       });
 
@@ -295,13 +319,21 @@ describe('CarlBehaviorModelService behavior methods', () => {
       .mockResolvedValueOnce({
         parsed: validDecision,
         model: env.getModels().behaviorDecision.default,
-        usage: { promptTokens: null, completionTokens: null, totalTokens: null },
+        usage: {
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+        },
         raw: {},
       })
       .mockResolvedValueOnce({
         parsed: validDecision,
         model: env.getModels().behaviorDecision.escalation,
-        usage: { promptTokens: null, completionTokens: null, totalTokens: null },
+        usage: {
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+        },
         raw: {},
       });
 

@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  BEHAVIOR_AI_SERVICE_ID,
-} from '../src/application/behavior/BehaviorAiService';
+import { BEHAVIOR_AI_SERVICE_ID } from '../src/application/behavior/BehaviorAiService';
 import { BEHAVIOR_DECISION_VALIDATOR_ID } from '../src/application/behavior/BehaviorDecisionValidator';
 import { BEHAVIOR_EXECUTOR_ID } from '../src/application/behavior/BehaviorExecutor';
 import { BEHAVIOR_PIPELINE_ID } from '../src/application/behavior/BehaviorPipeline';

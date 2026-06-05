@@ -1,6 +1,10 @@
 import { inject, injectable } from 'inversify';
 import OpenAI from 'openai';
 import { makeParseableResponseFormat } from 'openai/lib/parser';
+import type {
+  Response,
+  ResponseCreateParamsNonStreaming,
+} from 'openai/resources/responses/responses';
 
 import type {
   OpenAiMessage,
@@ -48,14 +52,12 @@ export class OpenAiSdkGateway implements OpenAiGateway {
     };
   }
 
-  async parseChatCompletion<T>(
-    input: {
-      model: AiModelId;
-      messages: OpenAiMessage[];
-      responseFormat: OpenAiResponseFormatSchema;
-      parse: (content: string) => T;
-    }
-  ): Promise<OpenAiParsedResult<T>> {
+  async parseChatCompletion<T>(input: {
+    model: AiModelId;
+    messages: OpenAiMessage[];
+    responseFormat: OpenAiResponseFormatSchema;
+    parse: (content: string) => T;
+  }): Promise<OpenAiParsedResult<T>> {
     const responseFormat = makeParseableResponseFormat(
       {
         type: 'json_schema',
@@ -79,12 +81,13 @@ export class OpenAiSdkGateway implements OpenAiGateway {
   async createResponse(
     input: Parameters<OpenAiGateway['createResponse']>[0]
   ): Promise<OpenAiResponseResult> {
-    const params = {
+    const params: ResponseCreateParamsNonStreaming = {
       model: input.model,
       input: input.input,
-      tools: input.tools,
-    } as unknown as Parameters<OpenAI['responses']['create']>[0];
-    const response = await this.client.responses.create(params);
+      tools:
+        input.tools as unknown as ResponseCreateParamsNonStreaming['tools'],
+    };
+    const response: Response = await this.client.responses.create(params);
     return {
       outputText: response.output_text,
       usage: this.normalizeUsage(response.usage),
