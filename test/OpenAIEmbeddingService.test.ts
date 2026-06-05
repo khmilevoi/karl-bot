@@ -1,20 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { OpenAiGateway } from '../src/application/interfaces/ai/OpenAiGateway';
+import type { AiGateway } from '../src/application/interfaces/ai/AiGateway';
 import { OpenAIEmbeddingService } from '../src/infrastructure/external/OpenAIEmbeddingService';
 
 let createEmbeddings: ReturnType<typeof vi.fn>;
-let gateway: OpenAiGateway;
+let gateway: AiGateway;
 
 beforeEach(() => {
   createEmbeddings = vi.fn();
   gateway = {
     createEmbeddings,
-  } as unknown as OpenAiGateway;
+  } as unknown as AiGateway;
 });
 
 describe('OpenAIEmbeddingService', () => {
-  it('delegates embedding creation to the OpenAI gateway', async () => {
+  it('delegates embedding creation to the AI gateway', async () => {
     createEmbeddings.mockResolvedValue([
       [1, 0],
       [0, 1],

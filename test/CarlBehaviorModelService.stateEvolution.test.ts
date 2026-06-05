@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_BEHAVIOR_PIPELINE_CONFIG } from '../src/application/behavior/BehaviorConfig';
 import type { StateEvolutionContext } from '../src/application/behavior/BehaviorTypes';
-import type { OpenAiGateway } from '../src/application/interfaces/ai/OpenAiGateway';
+import type { AiGateway } from '../src/application/interfaces/ai/AiGateway';
 import type { LoggerFactory } from '../src/application/interfaces/logging/LoggerFactory';
 import type { PromptDirector } from '../src/application/prompts/PromptDirector';
 import { CarlBehaviorModelService } from '../src/application/behavior/CarlBehaviorModelService';
@@ -61,14 +61,14 @@ describe('CarlBehaviorModelService proposeStateEvolution', () => {
   let parseChatCompletion: ReturnType<typeof vi.fn>;
   let prompts: Record<string, unknown>;
   let env: TestEnvService;
-  let gateway: OpenAiGateway;
+  let gateway: AiGateway;
   let loggerFactory: LoggerFactory;
 
   beforeEach(() => {
     parseChatCompletion = vi.fn();
     gateway = {
       parseChatCompletion,
-    } as unknown as OpenAiGateway;
+    } as unknown as AiGateway;
 
     prompts = {
       createBehaviorGatePrompt: vi

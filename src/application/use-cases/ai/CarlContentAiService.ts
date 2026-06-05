@@ -5,10 +5,10 @@ import path from 'path';
 import type { AiModelId } from '@/application/interfaces/ai/AiModelId';
 import type { AIService } from '@/application/interfaces/ai/AIService';
 import {
-  OPEN_AI_GATEWAY_ID,
-  type OpenAiGateway,
-  type OpenAiMessage,
-} from '@/application/interfaces/ai/OpenAiGateway';
+  AI_GATEWAY_ID,
+  type AiGateway,
+  type AiMessage,
+} from '@/application/interfaces/ai/AiGateway';
 import {
   ENV_SERVICE_ID,
   type EnvService,
@@ -34,7 +34,7 @@ export class CarlContentAiService implements AIService {
   constructor(
     @inject(ENV_SERVICE_ID) private readonly envService: EnvService,
     @inject(PROMPT_DIRECTOR_ID) private readonly prompts: PromptDirector,
-    @inject(OPEN_AI_GATEWAY_ID) private readonly gateway: OpenAiGateway,
+    @inject(AI_GATEWAY_ID) private readonly gateway: AiGateway,
     @inject(LOGGER_FACTORY_ID) private readonly loggerFactory: LoggerFactory
   ) {
     const models = this.envService.getModels();
@@ -53,7 +53,7 @@ export class CarlContentAiService implements AIService {
       users: params?.users,
       summary: params?.summary,
     });
-    const messages = this.toOpenAiMessages(prompt);
+    const messages = this.toAiMessages(prompt);
     this.logger.debug('Sending topic of day request');
     const start = Date.now();
     try {
@@ -101,7 +101,7 @@ export class CarlContentAiService implements AIService {
       'Sending summarization request'
     );
     const prompt = await this.prompts.createSummaryPrompt(history, prev);
-    const messages = this.toOpenAiMessages(prompt);
+    const messages = this.toAiMessages(prompt);
     const start = Date.now();
     try {
       const result = await this.gateway.createChatCompletion({
@@ -139,7 +139,7 @@ export class CarlContentAiService implements AIService {
 
   private async logPrompt(
     type: string,
-    messages: OpenAiMessage[],
+    messages: AiMessage[],
     response?: unknown
   ): Promise<void> {
     if (!this.envService.env.LOG_PROMPTS) {
@@ -162,7 +162,7 @@ export class CarlContentAiService implements AIService {
     }
   }
 
-  private toOpenAiMessages(messages: PromptMessage[]): OpenAiMessage[] {
+  private toAiMessages(messages: PromptMessage[]): AiMessage[] {
     return messages.map((m) => ({ role: m.role, content: m.content }));
   }
 }

@@ -1,14 +1,14 @@
 import { injectable } from 'inversify';
 
 import type { AiModelId } from '@/application/interfaces/ai/AiModelId';
-import type { OpenAiGateway } from '@/application/interfaces/ai/OpenAiGateway';
+import type { AiGateway } from '@/application/interfaces/ai/AiGateway';
 import type { AudioTranscriptionService } from '@/application/interfaces/voice/AudioTranscriptionService';
 import type { ConvertedAudioFile } from '@/application/interfaces/voice/AudioConversionService';
 
 @injectable()
 export class OpenAIAudioTranscriptionService implements AudioTranscriptionService {
   constructor(
-    private readonly gateway: OpenAiGateway,
+    private readonly gateway: AiGateway,
     private readonly model: AiModelId
   ) {}
 

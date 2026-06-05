@@ -7,19 +7,19 @@ import type {
 } from 'openai/resources/responses/responses';
 
 import type {
-  OpenAiMessage,
-  OpenAiGateway,
-  OpenAiParsedResult,
-  OpenAiResponseResult,
-  OpenAiTextResult,
-  OpenAiUsage,
-} from '@/application/interfaces/ai/OpenAiGateway';
+  AiMessage,
+  AiGateway,
+  AiParsedResult,
+  AiResponseResult,
+  AiTextResult,
+  AiUsage,
+} from '@/application/interfaces/ai/AiGateway';
 import type { AiModelId } from '@/application/interfaces/ai/AiModelId';
 import {
   ENV_SERVICE_ID,
   type EnvService,
 } from '@/application/interfaces/env/EnvService';
-import type { OpenAiResponseFormatSchema } from '@/domain/behavior/schemas/jsonSchema';
+import type { AiResponseFormatSchema } from '@/domain/behavior/schemas/jsonSchema';
 
 type SdkUsage = {
   prompt_tokens?: number;
@@ -30,7 +30,7 @@ type SdkUsage = {
 };
 
 @injectable()
-export class OpenAiSdkGateway implements OpenAiGateway {
+export class OpenAiSdkGateway implements AiGateway {
   private readonly client: OpenAI;
 
   constructor(@inject(ENV_SERVICE_ID) envService: EnvService) {
@@ -38,8 +38,8 @@ export class OpenAiSdkGateway implements OpenAiGateway {
   }
 
   async createChatCompletion(
-    input: Parameters<OpenAiGateway['createChatCompletion']>[0]
-  ): Promise<OpenAiTextResult> {
+    input: Parameters<AiGateway['createChatCompletion']>[0]
+  ): Promise<AiTextResult> {
     const response = await this.client.chat.completions.create({
       model: input.model,
       messages: input.messages,
@@ -54,10 +54,10 @@ export class OpenAiSdkGateway implements OpenAiGateway {
 
   async parseChatCompletion<T>(input: {
     model: AiModelId;
-    messages: OpenAiMessage[];
-    responseFormat: OpenAiResponseFormatSchema;
+    messages: AiMessage[];
+    responseFormat: AiResponseFormatSchema;
     parse: (content: string) => T;
-  }): Promise<OpenAiParsedResult<T>> {
+  }): Promise<AiParsedResult<T>> {
     const responseFormat = makeParseableResponseFormat(
       {
         type: 'json_schema',
@@ -79,8 +79,8 @@ export class OpenAiSdkGateway implements OpenAiGateway {
   }
 
   async createResponse(
-    input: Parameters<OpenAiGateway['createResponse']>[0]
-  ): Promise<OpenAiResponseResult> {
+    input: Parameters<AiGateway['createResponse']>[0]
+  ): Promise<AiResponseResult> {
     const params: ResponseCreateParamsNonStreaming = {
       model: input.model,
       input: input.input,
@@ -96,7 +96,7 @@ export class OpenAiSdkGateway implements OpenAiGateway {
   }
 
   async createEmbeddings(
-    input: Parameters<OpenAiGateway['createEmbeddings']>[0]
+    input: Parameters<AiGateway['createEmbeddings']>[0]
   ): Promise<number[][]> {
     const response = await this.client.embeddings.create({
       model: input.model,
@@ -108,7 +108,7 @@ export class OpenAiSdkGateway implements OpenAiGateway {
   }
 
   async transcribeAudio(
-    input: Parameters<OpenAiGateway['transcribeAudio']>[0]
+    input: Parameters<AiGateway['transcribeAudio']>[0]
   ): Promise<string> {
     const arrayBuffer = input.file.buffer.buffer.slice(
       input.file.buffer.byteOffset,
@@ -126,7 +126,7 @@ export class OpenAiSdkGateway implements OpenAiGateway {
     return result.text.trim();
   }
 
-  private normalizeUsage(usage: SdkUsage | null | undefined): OpenAiUsage {
+  private normalizeUsage(usage: SdkUsage | null | undefined): AiUsage {
     return {
       promptTokens: usage?.prompt_tokens ?? usage?.input_tokens ?? null,
       completionTokens:

@@ -4,11 +4,11 @@ import path from 'path';
 
 import type { AiModelId } from '@/application/interfaces/ai/AiModelId';
 import {
-  OPEN_AI_GATEWAY_ID,
-  type OpenAiGateway,
-  type OpenAiMessage,
-  type OpenAiUsage,
-} from '@/application/interfaces/ai/OpenAiGateway';
+  AI_GATEWAY_ID,
+  type AiGateway,
+  type AiMessage,
+  type AiUsage,
+} from '@/application/interfaces/ai/AiGateway';
 import {
   ENV_SERVICE_ID,
   type EnvService,
@@ -86,7 +86,7 @@ export class CarlBehaviorModelService implements BehaviorAiService {
     @inject(PROMPT_DIRECTOR_ID) private readonly prompts: PromptDirector,
     @inject(BEHAVIOR_PIPELINE_CONFIG_ID)
     private readonly behaviorConfig: BehaviorPipelineConfig,
-    @inject(OPEN_AI_GATEWAY_ID) private readonly gateway: OpenAiGateway,
+    @inject(AI_GATEWAY_ID) private readonly gateway: AiGateway,
     @inject(LOGGER_FACTORY_ID) private readonly loggerFactory: LoggerFactory
   ) {
     const models = this.envService.getModels();
@@ -106,13 +106,13 @@ export class CarlBehaviorModelService implements BehaviorAiService {
       messages,
       refMap
     );
-    const openaiMessages = this.toOpenAiMessages(prompt);
+    const aiMessages = this.toAiMessages(prompt);
     const start = Date.now();
 
     const result = await this.gateway.parseChatCompletion<BehaviorGateDecision>(
       {
         model: this.triggerGateModel,
-        messages: openaiMessages,
+        messages: aiMessages,
         responseFormat: behaviorGateJsonSchema,
         parse: (content) => {
           const parsed: unknown = JSON.parse(content);
@@ -123,7 +123,7 @@ export class CarlBehaviorModelService implements BehaviorAiService {
 
     const latencyMs = Date.now() - start;
     const raw = result.parsed;
-    void this.logPrompt('behaviorGate', openaiMessages, raw);
+    void this.logPrompt('behaviorGate', aiMessages, raw);
 
     if (raw == null) {
       throw new Error('Failed to parse evaluateGate JSON response');
@@ -166,7 +166,7 @@ export class CarlBehaviorModelService implements BehaviorAiService {
       context,
       refMap
     );
-    const openaiMessages = this.toOpenAiMessages(prompt);
+    const aiMessages = this.toAiMessages(prompt);
 
     const attempt = async (
       model: AiModelId,
@@ -175,7 +175,7 @@ export class CarlBehaviorModelService implements BehaviorAiService {
       const start = Date.now();
       const result = await this.gateway.parseChatCompletion<BehaviorDecision>({
         model,
-        messages: openaiMessages,
+        messages: aiMessages,
         responseFormat: behaviorDecisionJsonSchema,
         parse: (content) => {
           const parsed: unknown = JSON.parse(content);
@@ -188,7 +188,7 @@ export class CarlBehaviorModelService implements BehaviorAiService {
         escalationReason != null
           ? 'behaviorDecisionEscalated'
           : 'behaviorDecision';
-      void this.logPrompt(logType, openaiMessages, raw);
+      void this.logPrompt(logType, aiMessages, raw);
 
       if (raw == null) {
         const reason: BehaviorEscalationReason = 'schema_validation_failed';
@@ -263,7 +263,7 @@ export class CarlBehaviorModelService implements BehaviorAiService {
       context,
       refMap
     );
-    const openaiMessages = this.toOpenAiMessages(prompt);
+    const aiMessages = this.toAiMessages(prompt);
 
     const attempt = async (
       model: AiModelId,
@@ -273,7 +273,7 @@ export class CarlBehaviorModelService implements BehaviorAiService {
       const result =
         await this.gateway.parseChatCompletion<StateEvolutionDecision>({
           model,
-          messages: openaiMessages,
+          messages: aiMessages,
           responseFormat: stateEvolutionJsonSchema,
           parse: (content) => {
             const parsed: unknown = JSON.parse(content);
@@ -282,7 +282,7 @@ export class CarlBehaviorModelService implements BehaviorAiService {
         });
       const latencyMs = Date.now() - start;
       const raw = result.parsed;
-      void this.logPrompt('stateEvolution', openaiMessages, raw);
+      void this.logPrompt('stateEvolution', aiMessages, raw);
 
       if (raw == null) {
         if (model !== this.stateEvolutionEscalationModel) {
@@ -372,7 +372,7 @@ export class CarlBehaviorModelService implements BehaviorAiService {
     escalated: boolean,
     escalationReason: string | null,
     latencyMs: number,
-    usage: OpenAiUsage
+    usage: AiUsage
   ): AiCallMetadata {
     return {
       modelSlot,
@@ -386,7 +386,7 @@ export class CarlBehaviorModelService implements BehaviorAiService {
 
   private async logPrompt(
     type: string,
-    messages: OpenAiMessage[],
+    messages: AiMessage[],
     response?: unknown
   ): Promise<void> {
     if (!this.envService.env.LOG_PROMPTS) {
@@ -409,7 +409,7 @@ export class CarlBehaviorModelService implements BehaviorAiService {
     }
   }
 
-  private toOpenAiMessages(messages: PromptMessage[]): OpenAiMessage[] {
+  private toAiMessages(messages: PromptMessage[]): AiMessage[] {
     return messages.map((m) => ({ role: m.role, content: m.content }));
   }
 }

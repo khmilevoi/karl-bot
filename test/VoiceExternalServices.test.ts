@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import type { OpenAiGateway } from '../src/application/interfaces/ai/OpenAiGateway';
+import type { AiGateway } from '../src/application/interfaces/ai/AiGateway';
 import type { TelegramDownloadedFile } from '../src/application/interfaces/voice/TelegramFileDownloadService';
 
 // --- Telegram file download ---
@@ -86,13 +86,13 @@ describe('FfmpegAudioConversionService', () => {
 });
 
 describe('OpenAIAudioTranscriptionService', () => {
-  it('delegates audio transcription to the OpenAI gateway', async () => {
+  it('delegates audio transcription to the AI gateway', async () => {
     const { OpenAIAudioTranscriptionService } =
       await import('../src/infrastructure/external/OpenAIAudioTranscriptionService');
     const transcribeAudio = vi.fn().mockResolvedValue('hello world');
     const gateway = {
       transcribeAudio,
-    } as unknown as OpenAiGateway;
+    } as unknown as AiGateway;
     const service = new OpenAIAudioTranscriptionService(
       gateway,
       'gpt-4o-mini-transcribe'

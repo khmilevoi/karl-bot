@@ -2,57 +2,57 @@ import type { ServiceIdentifier } from 'inversify';
 
 import type { AiModelId } from '@/application/interfaces/ai/AiModelId';
 import type { ConvertedAudioFile } from '@/application/interfaces/voice/AudioConversionService';
-import type { OpenAiResponseFormatSchema } from '@/domain/behavior/schemas/jsonSchema';
+import type { AiResponseFormatSchema } from '@/domain/behavior/schemas/jsonSchema';
 
-export interface OpenAiMessage {
+export interface AiMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
-export interface OpenAiUsage {
+export interface AiUsage {
   promptTokens: number | null;
   completionTokens: number | null;
   totalTokens: number | null;
 }
 
-export interface OpenAiTextResult {
+export interface AiTextResult {
   content: string;
   model: AiModelId;
-  usage: OpenAiUsage;
+  usage: AiUsage;
   raw: unknown;
 }
 
-export interface OpenAiParsedResult<T> {
+export interface AiParsedResult<T> {
   parsed: T | null;
   model: AiModelId;
-  usage: OpenAiUsage;
+  usage: AiUsage;
   raw: unknown;
 }
 
-export interface OpenAiResponseResult {
+export interface AiResponseResult {
   outputText: string;
-  usage: OpenAiUsage;
+  usage: AiUsage;
   raw: unknown;
 }
 
-export interface OpenAiGateway {
+export interface AiGateway {
   createChatCompletion(input: {
     model: AiModelId;
-    messages: OpenAiMessage[];
-  }): Promise<OpenAiTextResult>;
+    messages: AiMessage[];
+  }): Promise<AiTextResult>;
 
   parseChatCompletion<T>(input: {
     model: AiModelId;
-    messages: OpenAiMessage[];
-    responseFormat: OpenAiResponseFormatSchema;
+    messages: AiMessage[];
+    responseFormat: AiResponseFormatSchema;
     parse: (content: string) => T;
-  }): Promise<OpenAiParsedResult<T>>;
+  }): Promise<AiParsedResult<T>>;
 
   createResponse(input: {
     model: AiModelId;
     input: string;
     tools: unknown[];
-  }): Promise<OpenAiResponseResult>;
+  }): Promise<AiResponseResult>;
 
   createEmbeddings(input: {
     model: AiModelId;
@@ -65,6 +65,6 @@ export interface OpenAiGateway {
   }): Promise<string>;
 }
 
-export const OPEN_AI_GATEWAY_ID = Symbol.for(
-  'OpenAiGateway'
-) as ServiceIdentifier<OpenAiGateway>;
+export const AI_GATEWAY_ID = Symbol.for(
+  'AiGateway'
+) as ServiceIdentifier<AiGateway>;

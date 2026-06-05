@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { OpenAiGateway } from '../src/application/interfaces/ai/OpenAiGateway';
+import type { AiGateway } from '../src/application/interfaces/ai/AiGateway';
 import type { LoggerFactory } from '../src/application/interfaces/logging/LoggerFactory';
 import type { PromptDirector } from '../src/application/prompts/PromptDirector';
 import { CarlContentAiService } from '../src/application/use-cases/ai/CarlContentAiService';
@@ -13,14 +13,14 @@ describe('CarlContentAiService', () => {
   let createChatCompletion: ReturnType<typeof vi.fn>;
   let prompts: Record<string, unknown>;
   let env: TestEnvService;
-  let gateway: OpenAiGateway;
+  let gateway: AiGateway;
   let loggerFactory: LoggerFactory;
 
   beforeEach(() => {
     createChatCompletion = vi.fn();
     gateway = {
       createChatCompletion,
-    } as unknown as OpenAiGateway;
+    } as unknown as AiGateway;
 
     prompts = {
       createSummaryPrompt: vi

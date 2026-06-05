@@ -14,7 +14,7 @@ import { STATE_EVOLUTION_SCHEDULER_ID } from '../src/application/behavior/StateE
 import { STATE_EVOLUTION_TRIGGER_ID } from '../src/application/behavior/StateEvolutionTrigger';
 import { STATE_EVOLUTION_WORKER_ID } from '../src/application/behavior/StateEvolutionWorker';
 import { AI_SERVICE_ID } from '../src/application/interfaces/ai/AIService';
-import { OPEN_AI_GATEWAY_ID } from '../src/application/interfaces/ai/OpenAiGateway';
+import { AI_GATEWAY_ID } from '../src/application/interfaces/ai/AiGateway';
 import { PERSONALITY_SIGNAL_REPOSITORY_ID } from '../src/domain/repositories/PersonalitySignalRepository';
 import { STATE_EVOLUTION_CURSOR_REPOSITORY_ID } from '../src/domain/repositories/StateEvolutionCursorRepository';
 import { USER_POLITICAL_PROFILE_REPOSITORY_ID } from '../src/domain/repositories/UserPoliticalProfileRepository';
@@ -25,10 +25,10 @@ describe('behavior DI', () => {
     expect(container.get(BEHAVIOR_PIPELINE_ID)).toBeTruthy();
   });
 
-  it('resolves AI services and the OpenAI gateway', () => {
+  it('resolves AI services and the AI gateway', () => {
     expect(container.get(AI_SERVICE_ID)).toBeTruthy();
     expect(container.get(BEHAVIOR_AI_SERVICE_ID)).toBeTruthy();
-    expect(container.get(OPEN_AI_GATEWAY_ID)).toBeTruthy();
+    expect(container.get(AI_GATEWAY_ID)).toBeTruthy();
   });
 
   it('resolves behavior validator and policy with default config', () => {
