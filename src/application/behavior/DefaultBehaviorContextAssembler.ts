@@ -1,6 +1,14 @@
 import { inject, injectable } from 'inversify';
 
 import {
+  CHAT_MESSENGER_ID,
+  type ChatMessenger,
+} from '@/application/interfaces/chat/ChatMessenger';
+import {
+  ENV_SERVICE_ID,
+  type EnvService,
+} from '@/application/interfaces/env/EnvService';
+import {
   MESSAGE_SERVICE_ID,
   type MessageService,
 } from '@/application/interfaces/messages/MessageService';
@@ -95,7 +103,9 @@ export class DefaultBehaviorContextAssembler implements BehaviorContextAssembler
     private readonly profileRepo: UserSocialProfileRepository,
     @inject(USER_POLITICAL_PROFILE_REPOSITORY_ID)
     private readonly userPoliticalRepo: UserPoliticalProfileRepository,
-    @inject(TRUTH_REPOSITORY_ID) private readonly truthRepo: TruthRepository
+    @inject(TRUTH_REPOSITORY_ID) private readonly truthRepo: TruthRepository,
+    @inject(CHAT_MESSENGER_ID) private readonly messenger: ChatMessenger,
+    @inject(ENV_SERVICE_ID) private readonly env: EnvService
   ) {}
 
   async assemble(
@@ -164,6 +174,11 @@ export class DefaultBehaviorContextAssembler implements BehaviorContextAssembler
         profiles,
         truths,
         userPolitical,
+      },
+      selfIdentity: {
+        id: this.messenger.bot.botInfo.id,
+        username: this.messenger.bot.botInfo.username ?? null,
+        name: this.env.getBotName(),
       },
     };
   }

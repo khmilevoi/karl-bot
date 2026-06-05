@@ -31,6 +31,12 @@ export interface BehaviorMessageMarkers {
   batchMessageIds: readonly number[];
 }
 
+export interface SelfIdentity {
+  id: number;
+  username: string | null;
+  name: string;
+}
+
 export interface BehaviorPromptContext {
   summary: string;
   messages: BehaviorPromptMessage[];
@@ -38,4 +44,5 @@ export interface BehaviorPromptContext {
   contextMessageIds: number[];
   batchMessageIds: number[];
   state: BehaviorPromptState;
+  selfIdentity?: SelfIdentity;
 }

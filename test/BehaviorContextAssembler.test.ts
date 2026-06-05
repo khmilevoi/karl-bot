@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import type { ChatMessenger } from '../src/application/interfaces/chat/ChatMessenger';
+import type { EnvService } from '../src/application/interfaces/env/EnvService';
 import type { MessageService } from '../src/application/interfaces/messages/MessageService';
 import type { SummaryService } from '../src/application/interfaces/summaries/SummaryService';
 import { DEFAULT_BEHAVIOR_PIPELINE_CONFIG } from '../src/application/behavior/BehaviorConfig';
@@ -70,6 +72,16 @@ function makeAssembler(overrides: {
     update: vi.fn(),
   } as unknown as TruthRepository;
 
+  const messenger: ChatMessenger = {
+    bot: {
+      botInfo: { id: 999, username: 'carl_bot' },
+    },
+  } as unknown as ChatMessenger;
+
+  const env: EnvService = {
+    getBotName: vi.fn().mockReturnValue('Карл'),
+  } as unknown as EnvService;
+
   const assembler = new DefaultBehaviorContextAssembler(
     DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
     messages,
@@ -78,7 +90,9 @@ function makeAssembler(overrides: {
     politicalRepo,
     profileRepo,
     userPoliticalRepo,
-    truthRepo
+    truthRepo,
+    messenger,
+    env
   );
 
   return { assembler, messages, summaries, personalityRepo, politicalRepo };
@@ -179,5 +193,21 @@ describe('DefaultBehaviorContextAssembler', () => {
     expect(ctx.summary).toBe('prev-summary');
     expect(ctx.state.profiles).toEqual([]);
     expect(ctx.state.truths).toEqual([]);
+  });
+
+  it('populates selfIdentity from messenger + env', async () => {
+    const { assembler } = makeAssembler({});
+    const ctx = await assembler.assemble({
+      chatId: -100,
+      triggerMessageIds: [],
+      contextMessageIds: [],
+      gate,
+    });
+
+    expect(ctx.selfIdentity).toEqual({
+      id: 999,
+      username: 'carl_bot',
+      name: 'Карл',
+    });
   });
 });
