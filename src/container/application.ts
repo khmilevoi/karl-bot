@@ -9,6 +9,10 @@ import {
   type AIService,
 } from '../application/interfaces/ai/AIService';
 import {
+  AI_GATEWAY_ID,
+  type AiGateway,
+} from '../application/interfaces/ai/AiGateway';
+import {
   AI_ERROR_LOGGER_ID,
   type AiErrorLogger,
 } from '../application/behavior/AiErrorLogger';
@@ -215,9 +219,11 @@ import { RepositoryMessageService } from '../application/use-cases/messages/Repo
 import { DefaultManualJobRunner } from '../application/use-cases/scheduler/DefaultManualJobRunner';
 import { TopicOfDaySchedulerImpl } from '../application/use-cases/scheduler/TopicOfDayScheduler';
 import { RepositorySummaryService } from '../application/use-cases/summaries/RepositorySummaryService';
+import { CarlContentAiService } from '../application/use-cases/ai/CarlContentAiService';
+import { CarlBehaviorModelService } from '../application/behavior/CarlBehaviorModelService';
 import { DefaultEnvService } from '../infrastructure/config/DefaultEnvService';
 import { TestEnvService } from '../infrastructure/config/TestEnvService';
-import { ChatGPTService } from '../infrastructure/external/ChatGPTService';
+import { OpenAiSdkGateway } from '../infrastructure/external/OpenAiSdkGateway';
 import { OpenAIEmbeddingService } from '../infrastructure/external/OpenAIEmbeddingService';
 import {
   EMBEDDING_SERVICE_ID,
@@ -255,6 +261,11 @@ export const register = (container: Container): void => {
   container
     .bind<VoiceConfig>(VOICE_CONFIG_ID)
     .toConstantValue(envService.getVoiceConfig());
+
+  container
+    .bind<AiGateway>(AI_GATEWAY_ID)
+    .to(OpenAiSdkGateway)
+    .inSingletonScope();
 
   container
     .bind<LoggerFactory>(LOGGER_FACTORY_ID)
@@ -311,12 +322,12 @@ export const register = (container: Container): void => {
 
   container
     .bind<AIService>(AI_SERVICE_ID)
-    .to(ChatGPTService)
+    .to(CarlContentAiService)
     .inSingletonScope();
 
   container
     .bind<BehaviorAiService>(BEHAVIOR_AI_SERVICE_ID)
-    .to(ChatGPTService)
+    .to(CarlBehaviorModelService)
     .inSingletonScope();
 
   container
@@ -504,8 +515,9 @@ export const register = (container: Container): void => {
     .bind<AudioTranscriptionService>(AUDIO_TRANSCRIPTION_SERVICE_ID)
     .toDynamicValue(() => {
       const voiceConfig = container.get<VoiceConfig>(VOICE_CONFIG_ID);
+      const gateway = container.get<AiGateway>(AI_GATEWAY_ID);
       return new OpenAIAudioTranscriptionService(
-        envService.env.OPENAI_KEY,
+        gateway,
         voiceConfig.transcriptionModel
       );
     })

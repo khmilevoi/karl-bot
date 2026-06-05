@@ -1,39 +1,30 @@
 import { promises as fs } from 'fs';
 import { inject, injectable } from 'inversify';
-import OpenAI from 'openai';
-import {
-  makeParseableResponseFormat,
-  type AutoParseableResponseFormat,
-} from 'openai/lib/parser';
-import type { ChatModel } from 'openai/resources/shared';
 import path from 'path';
 
-import type { AIService } from '@/application/interfaces/ai/AIService';
-import type { EnvService } from '@/application/interfaces/env/EnvService';
-import { ENV_SERVICE_ID } from '@/application/interfaces/env/EnvService';
+import type { AiModelId } from '@/application/interfaces/ai/AiModelId';
+import {
+  AI_GATEWAY_ID,
+  type AiGateway,
+  type AiMessage,
+  type AiUsage,
+} from '@/application/interfaces/ai/AiGateway';
+import {
+  ENV_SERVICE_ID,
+  type EnvService,
+} from '@/application/interfaces/env/EnvService';
 import type { Logger } from '@/application/interfaces/logging/Logger';
 import {
   LOGGER_FACTORY_ID,
   type LoggerFactory,
 } from '@/application/interfaces/logging/LoggerFactory';
-import type { PromptDirector } from '@/application/prompts/PromptDirector';
-import { PROMPT_DIRECTOR_ID } from '@/application/prompts/PromptDirector';
-import type { PromptMessage } from '@/application/prompts/PromptMessage';
-import { MessageReferenceMap } from '@/application/prompts/MessageReferenceMap';
 import type { BehaviorAiService } from '@/application/behavior/BehaviorAiService';
-import {
-  translateEvolutionPatches,
-  translateGateDecision,
-  translateLivePatches,
-  translateTruthPatches,
-} from '@/application/behavior/OrdinalTranslation';
 import {
   BEHAVIOR_PIPELINE_CONFIG_ID,
   type BehaviorPipelineConfig,
 } from '@/application/behavior/BehaviorConfig';
 import type {
   AiCallMetadata,
-  AiCallUsage,
   BehaviorAiDecisionResult,
   BehaviorDecisionContext,
   GateAiResult,
@@ -41,7 +32,18 @@ import type {
   StateEvolutionResult,
   StoredBehaviorMessage,
 } from '@/application/behavior/BehaviorTypes';
-import type { ChatMessage } from '@/domain/messages/ChatMessage';
+import {
+  translateEvolutionPatches,
+  translateGateDecision,
+  translateLivePatches,
+  translateTruthPatches,
+} from '@/application/behavior/OrdinalTranslation';
+import { MessageReferenceMap } from '@/application/prompts/MessageReferenceMap';
+import {
+  PROMPT_DIRECTOR_ID,
+  type PromptDirector,
+} from '@/application/prompts/PromptDirector';
+import type { PromptMessage } from '@/application/prompts/PromptMessage';
 import {
   behaviorDecisionJsonSchema,
   behaviorDecisionSchema,
@@ -70,51 +72,13 @@ type EvolutionEscalationReason =
   | 'schema_validation_failed'
   | 'radical_review';
 
-const behaviorDecisionResponseFormat: AutoParseableResponseFormat<BehaviorDecision> =
-  makeParseableResponseFormat(
-    {
-      type: 'json_schema',
-      json_schema: behaviorDecisionJsonSchema,
-    },
-    (content) => {
-      const parsed: unknown = JSON.parse(content);
-      return behaviorDecisionSchema.parse(parsed);
-    }
-  );
-
-const behaviorGateResponseFormat: AutoParseableResponseFormat<BehaviorGateDecision> =
-  makeParseableResponseFormat(
-    {
-      type: 'json_schema',
-      json_schema: behaviorGateJsonSchema,
-    },
-    (content) => {
-      const parsed: unknown = JSON.parse(content);
-      return behaviorGateDecisionSchema.parse(parsed);
-    }
-  );
-
-const stateEvolutionResponseFormat: AutoParseableResponseFormat<StateEvolutionDecision> =
-  makeParseableResponseFormat(
-    {
-      type: 'json_schema',
-      json_schema: stateEvolutionJsonSchema,
-    },
-    (content) => {
-      const parsed: unknown = JSON.parse(content);
-      return stateEvolutionDecisionSchema.parse(parsed);
-    }
-  );
-
 @injectable()
-export class ChatGPTService implements AIService, BehaviorAiService {
-  private openai: OpenAI;
-  private readonly triggerGateModel: ChatModel;
-  private readonly behaviorDecisionModel: ChatModel;
-  private readonly behaviorDecisionEscalationModel: ChatModel;
-  private readonly stateEvolutionModel: ChatModel;
-  private readonly stateEvolutionEscalationModel: ChatModel;
-  private readonly summarizationModel: ChatModel;
+export class CarlBehaviorModelService implements BehaviorAiService {
+  private readonly triggerGateModel: AiModelId;
+  private readonly behaviorDecisionModel: AiModelId;
+  private readonly behaviorDecisionEscalationModel: AiModelId;
+  private readonly stateEvolutionModel: AiModelId;
+  private readonly stateEvolutionEscalationModel: AiModelId;
   private readonly logger: Logger;
 
   constructor(
@@ -122,19 +86,16 @@ export class ChatGPTService implements AIService, BehaviorAiService {
     @inject(PROMPT_DIRECTOR_ID) private readonly prompts: PromptDirector,
     @inject(BEHAVIOR_PIPELINE_CONFIG_ID)
     private readonly behaviorConfig: BehaviorPipelineConfig,
-    @inject(LOGGER_FACTORY_ID) private loggerFactory: LoggerFactory
+    @inject(AI_GATEWAY_ID) private readonly gateway: AiGateway,
+    @inject(LOGGER_FACTORY_ID) private readonly loggerFactory: LoggerFactory
   ) {
-    const env = this.envService.env;
-    this.openai = new OpenAI({ apiKey: env.OPENAI_KEY });
     const models = this.envService.getModels();
     this.triggerGateModel = models.triggerGate.default;
     this.behaviorDecisionModel = models.behaviorDecision.default;
     this.behaviorDecisionEscalationModel = models.behaviorDecision.escalation;
     this.stateEvolutionModel = models.stateEvolution.default;
     this.stateEvolutionEscalationModel = models.stateEvolution.escalation;
-    this.summarizationModel = models.summarization.default;
-    this.logger = this.loggerFactory.create('ChatGPTService');
-    this.logger.debug('ChatGPTService initialized');
+    this.logger = this.loggerFactory.create('CarlBehaviorModelService');
   }
 
   public async evaluateGate(
@@ -145,18 +106,24 @@ export class ChatGPTService implements AIService, BehaviorAiService {
       messages,
       refMap
     );
-    const openaiMessages = this.toOpenAiMessages(prompt);
+    const aiMessages = this.toAiMessages(prompt);
     const start = Date.now();
 
-    const completion = await this.openai.chat.completions.parse({
-      model: this.triggerGateModel,
-      messages: openaiMessages,
-      response_format: behaviorGateResponseFormat,
-    });
+    const result = await this.gateway.parseChatCompletion<BehaviorGateDecision>(
+      {
+        model: this.triggerGateModel,
+        messages: aiMessages,
+        responseFormat: behaviorGateJsonSchema,
+        parse: (content) => {
+          const parsed: unknown = JSON.parse(content);
+          return behaviorGateDecisionSchema.parse(parsed);
+        },
+      }
+    );
 
     const latencyMs = Date.now() - start;
-    const raw = completion.choices[0]?.message?.parsed;
-    void this.logPrompt('behaviorGate', openaiMessages, raw);
+    const raw = result.parsed;
+    void this.logPrompt('behaviorGate', aiMessages, raw);
 
     if (raw == null) {
       throw new Error('Failed to parse evaluateGate JSON response');
@@ -179,7 +146,7 @@ export class ChatGPTService implements AIService, BehaviorAiService {
         false,
         null,
         latencyMs,
-        completion.usage
+        result.usage
       ),
     };
   }
@@ -199,25 +166,29 @@ export class ChatGPTService implements AIService, BehaviorAiService {
       context,
       refMap
     );
-    const openaiMessages = this.toOpenAiMessages(prompt);
+    const aiMessages = this.toAiMessages(prompt);
 
     const attempt = async (
-      model: ChatModel,
+      model: AiModelId,
       escalationReason: BehaviorEscalationReason | null
     ): Promise<BehaviorAiDecisionResult> => {
       const start = Date.now();
-      const completion = await this.openai.chat.completions.parse({
+      const result = await this.gateway.parseChatCompletion<BehaviorDecision>({
         model,
-        messages: openaiMessages,
-        response_format: behaviorDecisionResponseFormat,
+        messages: aiMessages,
+        responseFormat: behaviorDecisionJsonSchema,
+        parse: (content) => {
+          const parsed: unknown = JSON.parse(content);
+          return behaviorDecisionSchema.parse(parsed);
+        },
       });
       const latencyMs = Date.now() - start;
-      const raw = completion.choices[0]?.message?.parsed;
+      const raw = result.parsed;
       const logType =
         escalationReason != null
           ? 'behaviorDecisionEscalated'
           : 'behaviorDecision';
-      void this.logPrompt(logType, openaiMessages, raw);
+      void this.logPrompt(logType, aiMessages, raw);
 
       if (raw == null) {
         const reason: BehaviorEscalationReason = 'schema_validation_failed';
@@ -268,7 +239,7 @@ export class ChatGPTService implements AIService, BehaviorAiService {
           escalationReason != null,
           escalationReason,
           latencyMs,
-          completion.usage
+          result.usage
         ),
       };
     };
@@ -292,21 +263,26 @@ export class ChatGPTService implements AIService, BehaviorAiService {
       context,
       refMap
     );
-    const openaiMessages = this.toOpenAiMessages(prompt);
+    const aiMessages = this.toAiMessages(prompt);
 
     const attempt = async (
-      model: ChatModel,
+      model: AiModelId,
       escalationReason: EvolutionEscalationReason | null
     ): Promise<StateEvolutionResult> => {
       const start = Date.now();
-      const completion = await this.openai.chat.completions.parse({
-        model,
-        messages: openaiMessages,
-        response_format: stateEvolutionResponseFormat,
-      });
+      const result =
+        await this.gateway.parseChatCompletion<StateEvolutionDecision>({
+          model,
+          messages: aiMessages,
+          responseFormat: stateEvolutionJsonSchema,
+          parse: (content) => {
+            const parsed: unknown = JSON.parse(content);
+            return stateEvolutionDecisionSchema.parse(parsed);
+          },
+        });
       const latencyMs = Date.now() - start;
-      const raw = completion.choices[0]?.message?.parsed;
-      void this.logPrompt('stateEvolution', openaiMessages, raw);
+      const raw = result.parsed;
+      void this.logPrompt('stateEvolution', aiMessages, raw);
 
       if (raw == null) {
         if (model !== this.stateEvolutionEscalationModel) {
@@ -357,7 +333,7 @@ export class ChatGPTService implements AIService, BehaviorAiService {
           escalationReason != null,
           escalationReason,
           latencyMs,
-          completion.usage
+          result.usage
         ),
       };
     };
@@ -392,132 +368,25 @@ export class ChatGPTService implements AIService, BehaviorAiService {
 
   private buildMetadata(
     modelSlot: string,
-    selectedModel: ChatModel,
+    selectedModel: AiModelId,
     escalated: boolean,
     escalationReason: string | null,
     latencyMs: number,
-    usage:
-      | {
-          prompt_tokens?: number;
-          completion_tokens?: number;
-          total_tokens?: number;
-        }
-      | null
-      | undefined
+    usage: AiUsage
   ): AiCallMetadata {
-    const usageResult: AiCallUsage = {
-      promptTokens: usage?.prompt_tokens ?? null,
-      completionTokens: usage?.completion_tokens ?? null,
-      totalTokens: usage?.total_tokens ?? null,
-    };
     return {
       modelSlot,
       selectedModel,
       escalated,
       escalationReason,
       latencyMs,
-      usage: usageResult,
+      usage,
     };
-  }
-
-  public async generateTopicOfDay(params?: {
-    chatTitle?: string;
-    summary?: string;
-    users?: { username: string; fullName: string }[];
-  }): Promise<string> {
-    const prompt = await this.prompts.createTopicOfDayPrompt({
-      chatTitle: params?.chatTitle,
-      users: params?.users,
-      summary: params?.summary,
-    });
-    const messages = this.toOpenAiMessages(prompt);
-    this.logger.debug('Sending topic of day request');
-    const start = Date.now();
-    try {
-      const completion = await this.openai.chat.completions.create({
-        model: this.behaviorDecisionModel,
-        messages,
-      });
-      const elapsedMs = Date.now() - start;
-      this.logger.debug(
-        {
-          model: completion.model,
-          promptTokens: completion.usage?.prompt_tokens,
-          completionTokens: completion.usage?.completion_tokens,
-          totalTokens: completion.usage?.total_tokens,
-          elapsedMs,
-        },
-        'Received topic of day response'
-      );
-      const response = completion.choices[0]?.message?.content ?? '';
-      void this.logPrompt('topicOfDay', messages, response);
-      return response;
-    } catch (err) {
-      const elapsedMs = Date.now() - start;
-      this.logger.error(
-        {
-          err,
-          model: this.behaviorDecisionModel,
-          messages: messages.length,
-          elapsedMs,
-        },
-        'Topic of day request failed'
-      );
-      throw err;
-    }
-  }
-
-  public async summarize(
-    history: ChatMessage[],
-    prev?: string
-  ): Promise<string> {
-    this.logger.debug(
-      {
-        history: history.length,
-        prevLength: prev?.length ?? 0,
-      },
-      'Sending summarization request'
-    );
-    const prompt = await this.prompts.createSummaryPrompt(history, prev);
-    const messages = this.toOpenAiMessages(prompt);
-    const start = Date.now();
-    try {
-      const completion = await this.openai.chat.completions.create({
-        model: this.summarizationModel,
-        messages,
-      });
-      const elapsedMs = Date.now() - start;
-      this.logger.debug(
-        {
-          model: completion.model,
-          promptTokens: completion.usage?.prompt_tokens,
-          completionTokens: completion.usage?.completion_tokens,
-          totalTokens: completion.usage?.total_tokens,
-          elapsedMs,
-        },
-        'Received summary response'
-      );
-      const response = completion.choices[0]?.message?.content ?? prev ?? '';
-      void this.logPrompt('summary', messages, response);
-      return response;
-    } catch (err) {
-      const elapsedMs = Date.now() - start;
-      this.logger.error(
-        {
-          err,
-          model: this.summarizationModel,
-          messages: messages.length,
-          elapsedMs,
-        },
-        'Summarization request failed'
-      );
-      throw err;
-    }
   }
 
   private async logPrompt(
     type: string,
-    messages: OpenAI.ChatCompletionMessageParam[],
+    messages: AiMessage[],
     response?: unknown
   ): Promise<void> {
     if (!this.envService.env.LOG_PROMPTS) {
@@ -540,9 +409,7 @@ export class ChatGPTService implements AIService, BehaviorAiService {
     }
   }
 
-  private toOpenAiMessages(
-    messages: PromptMessage[]
-  ): OpenAI.ChatCompletionMessageParam[] {
+  private toAiMessages(messages: PromptMessage[]): AiMessage[] {
     return messages.map((m) => ({ role: m.role, content: m.content }));
   }
 }

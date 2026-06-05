@@ -1,7 +1,7 @@
 import type { ZodType } from 'zod';
 import { z } from 'zod';
 
-export interface OpenAiResponseFormatSchema {
+export interface AiResponseFormatSchema {
   name: string;
   strict: true;
   schema: Record<string, unknown>;
@@ -61,7 +61,7 @@ function normalize(node: JsonValue): JsonValue {
 export function toOpenAiJsonSchema(
   schema: ZodType,
   name: string
-): OpenAiResponseFormatSchema {
+): AiResponseFormatSchema {
   const raw = z.toJSONSchema(schema, {
     target: 'draft-2020-12',
   }) as unknown as JsonValue;
