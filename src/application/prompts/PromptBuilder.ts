@@ -388,9 +388,10 @@ export class PromptBuilder {
         if (m.replyText != null && m.replyText.length > 0) {
           const targetOrdinal = replyTargetOrdinal(m);
           const onRef = targetOrdinal != null ? ` на #${targetOrdinal}` : '';
-          const who = replyToSelf
-            ? 'ОТВЕЧАЮТ ТЕБЕ (Carl)'
-            : `ответ @${m.replyUsername ?? 'N/A'}`;
+          const who =
+            replyToSelf && selfIdentity != null
+              ? `ОТВЕЧАЮТ ТЕБЕ (${selfIdentity.name})`
+              : `ответ @${m.replyUsername ?? 'N/A'}`;
           replyLine = `\n↳ ${who}${onRef}: "${this.truncate(m.replyText)}"`;
         }
         const quoteLine =

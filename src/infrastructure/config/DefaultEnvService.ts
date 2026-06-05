@@ -68,7 +68,7 @@ export class DefaultEnvService implements EnvService {
   }
 
   getBotName(): string {
-    return 'Карл';
+    return this.env.BOT_NAME;
   }
 
   getDialogueTimeoutMs(): number {

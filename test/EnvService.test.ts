@@ -122,9 +122,9 @@ describe('EnvService', () => {
   });
 
   it('getBotName returns the bot name', () => {
-    setRequiredEnv();
+    setRequiredEnv({ BOT_NAME: 'RuntimeBot' });
     const env = new TestEnvService();
-    expect(env.getBotName()).toBe('Карл');
+    expect(env.getBotName()).toBe('RuntimeBot');
   });
 
   it('getDialogueTimeoutMs returns timeout in ms', () => {

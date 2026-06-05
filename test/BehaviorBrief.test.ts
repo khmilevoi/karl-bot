@@ -101,9 +101,9 @@ describe('buildBehaviorBrief', () => {
     const brief = buildBehaviorBrief({
       state: emptyState(),
       messages: [msg(1, 7, 'oleg')],
-      selfIdentity: { id: 999, username: 'carl_bot', name: 'Карл' },
+      selfIdentity: { id: 999, username: 'assistant_bot', name: 'Bot' },
     });
-    expect(brief).toContain('@carl_bot');
-    expect(brief).toContain('Карл');
+    expect(brief).toContain('@assistant_bot');
+    expect(brief).toContain('Bot');
   });
 });

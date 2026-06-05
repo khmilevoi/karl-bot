@@ -26,7 +26,7 @@ import type { PromptMessage } from '@/application/prompts/PromptMessage';
 import type { ChatMessage } from '@/domain/messages/ChatMessage';
 
 @injectable()
-export class CarlContentAiService implements AIService {
+export class DefaultContentAiService implements AIService {
   private readonly behaviorDecisionModel: AiModelId;
   private readonly summarizationModel: AiModelId;
   private readonly logger: Logger;
@@ -40,7 +40,7 @@ export class CarlContentAiService implements AIService {
     const models = this.envService.getModels();
     this.behaviorDecisionModel = models.behaviorDecision.default;
     this.summarizationModel = models.summarization.default;
-    this.logger = this.loggerFactory.create('CarlContentAiService');
+    this.logger = this.loggerFactory.create('DefaultContentAiService');
   }
 
   public async generateTopicOfDay(params?: {

@@ -5,7 +5,7 @@ import type { StateEvolutionContext } from '../src/application/behavior/Behavior
 import type { AiGateway } from '../src/application/interfaces/ai/AiGateway';
 import type { LoggerFactory } from '../src/application/interfaces/logging/LoggerFactory';
 import type { PromptDirector } from '../src/application/prompts/PromptDirector';
-import { CarlBehaviorModelService } from '../src/application/behavior/CarlBehaviorModelService';
+import { DefaultBehaviorAiService } from '../src/application/behavior/DefaultBehaviorAiService';
 import { stateEvolutionJsonSchema } from '../src/domain/behavior/schemas/evolution';
 import { TestEnvService } from '../src/infrastructure/config/TestEnvService';
 
@@ -56,8 +56,8 @@ function makeContext(
   };
 }
 
-describe('CarlBehaviorModelService proposeStateEvolution', () => {
-  let service: CarlBehaviorModelService;
+describe('DefaultBehaviorAiService proposeStateEvolution', () => {
+  let service: DefaultBehaviorAiService;
   let parseChatCompletion: ReturnType<typeof vi.fn>;
   let prompts: Record<string, unknown>;
   let env: TestEnvService;
@@ -93,7 +93,7 @@ describe('CarlBehaviorModelService proposeStateEvolution', () => {
       }),
     } as unknown as LoggerFactory;
 
-    service = new CarlBehaviorModelService(
+    service = new DefaultBehaviorAiService(
       env,
       prompts as unknown as PromptDirector,
       DEFAULT_BEHAVIOR_PIPELINE_CONFIG,

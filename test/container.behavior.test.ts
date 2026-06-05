@@ -64,7 +64,7 @@ describe('behavior DI', () => {
     expect(
       policy.evaluate({
         type: 'truth.add',
-        text: 'Carl likes structured logs',
+        text: 'Bot likes structured logs',
         relatedTruthIds: [],
         contradictsTruthIds: [],
         evidence: {

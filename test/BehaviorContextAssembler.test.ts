@@ -74,12 +74,12 @@ function makeAssembler(overrides: {
 
   const messenger: ChatMessenger = {
     bot: {
-      botInfo: { id: 999, username: 'carl_bot' },
+      botInfo: { id: 999, username: 'assistant_bot' },
     },
   } as unknown as ChatMessenger;
 
   const env: EnvService = {
-    getBotName: vi.fn().mockReturnValue('Карл'),
+    getBotName: vi.fn().mockReturnValue('Bot'),
   } as unknown as EnvService;
 
   const assembler = new DefaultBehaviorContextAssembler(
@@ -206,8 +206,8 @@ describe('DefaultBehaviorContextAssembler', () => {
 
     expect(ctx.selfIdentity).toEqual({
       id: 999,
-      username: 'carl_bot',
-      name: 'Карл',
+      username: 'assistant_bot',
+      name: 'Bot',
     });
   });
 });

@@ -237,7 +237,7 @@ describe('DefaultStatePatchApplicator', () => {
       {
         type: 'user.add_grudge',
         userId: 7,
-        text: 'kept poking Carl',
+        text: 'kept poking the bot',
         evidence: evidence([7]),
       },
     ];
@@ -483,7 +483,7 @@ describe('DefaultStatePatchApplicator', () => {
   it('merges a near-duplicate truth.add into the existing truth instead of inserting', async () => {
     const existing = makeTruth({
       id: 10,
-      text: 'Carl is from the north of Russia.',
+      text: 'The bot is from the north of Russia.',
       confidence: 0.8,
       sourceMessageIds: [1],
       status: 'stable',
@@ -493,8 +493,8 @@ describe('DefaultStatePatchApplicator', () => {
     });
     const shared = [1, 0, 0];
     const embeddings = makeEmbeddings({
-      'Carl is from the north of Russia.': shared,
-      'Carl is from Russia, specifically the north.': shared,
+      'The bot is from the north of Russia.': shared,
+      'The bot is from Russia, specifically the north.': shared,
     });
     const applicator = makeApplicator({ profileRepo, truthRepo, embeddings });
 
@@ -503,7 +503,7 @@ describe('DefaultStatePatchApplicator', () => {
       patches: [
         {
           type: 'truth.add',
-          text: 'Carl is from Russia, specifically the north.',
+          text: 'The bot is from Russia, specifically the north.',
           relatedTruthIds: [],
           contradictsTruthIds: [],
           evidence: evidence([2], 0.9),
@@ -530,7 +530,7 @@ describe('DefaultStatePatchApplicator', () => {
   it('inserts a new truth when no existing truth is similar enough', async () => {
     const existing = makeTruth({
       id: 10,
-      text: 'Carl likes fixing radios.',
+      text: 'The bot likes fixing radios.',
       status: 'stable',
     });
     const { profileRepo, truthRepo, truths } = makeRepos({
@@ -543,7 +543,7 @@ describe('DefaultStatePatchApplicator', () => {
       patches: [
         {
           type: 'truth.add',
-          text: 'Carl was promoted to OpenAI usage tier 2.',
+          text: 'The bot was promoted to OpenAI usage tier 2.',
           relatedTruthIds: [],
           contradictsTruthIds: [],
           evidence: evidence([3], 0.9),
@@ -562,7 +562,7 @@ describe('DefaultStatePatchApplicator', () => {
   it('does not merge into a truth the add explicitly contradicts', async () => {
     const existing = makeTruth({
       id: 10,
-      text: 'Carl was born in Poland.',
+      text: 'The bot was born in Poland.',
       status: 'stable',
     });
     const { profileRepo, truthRepo, truths } = makeRepos({
@@ -570,8 +570,8 @@ describe('DefaultStatePatchApplicator', () => {
     });
     const shared = [1, 0, 0];
     const embeddings = makeEmbeddings({
-      'Carl was born in Poland.': shared,
-      'Carl was born in Russia, not Poland.': shared,
+      'The bot was born in Poland.': shared,
+      'The bot was born in Russia, not Poland.': shared,
     });
     const applicator = makeApplicator({ profileRepo, truthRepo, embeddings });
 
@@ -580,7 +580,7 @@ describe('DefaultStatePatchApplicator', () => {
       patches: [
         {
           type: 'truth.add',
-          text: 'Carl was born in Russia, not Poland.',
+          text: 'The bot was born in Russia, not Poland.',
           relatedTruthIds: [],
           contradictsTruthIds: [10],
           evidence: evidence([4], 0.9),
@@ -608,7 +608,7 @@ describe('DefaultStatePatchApplicator', () => {
       patches: [
         {
           type: 'truth.add',
-          text: 'Carl owns a cat.',
+          text: 'The bot owns a cat.',
           relatedTruthIds: [],
           contradictsTruthIds: [],
           evidence: evidence([5], 0.9),
@@ -627,7 +627,7 @@ describe('DefaultStatePatchApplicator', () => {
   it('dedups a second identical truth.add within the same batch', async () => {
     const { profileRepo, truthRepo, truths } = makeRepos();
     const shared = [1, 0, 0];
-    const embeddings = makeEmbeddings({ 'Carl hates Mondays.': shared });
+    const embeddings = makeEmbeddings({ 'The bot hates Mondays.': shared });
     const applicator = makeApplicator({ profileRepo, truthRepo, embeddings });
 
     const results = await applicator.applyPatches({
@@ -635,14 +635,14 @@ describe('DefaultStatePatchApplicator', () => {
       patches: [
         {
           type: 'truth.add',
-          text: 'Carl hates Mondays.',
+          text: 'The bot hates Mondays.',
           relatedTruthIds: [],
           contradictsTruthIds: [],
           evidence: evidence([6], 0.9),
         },
         {
           type: 'truth.add',
-          text: 'Carl hates Mondays.',
+          text: 'The bot hates Mondays.',
           relatedTruthIds: [],
           contradictsTruthIds: [],
           evidence: evidence([7], 0.9),

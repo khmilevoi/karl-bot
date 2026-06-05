@@ -219,8 +219,8 @@ import { RepositoryMessageService } from '../application/use-cases/messages/Repo
 import { DefaultManualJobRunner } from '../application/use-cases/scheduler/DefaultManualJobRunner';
 import { TopicOfDaySchedulerImpl } from '../application/use-cases/scheduler/TopicOfDayScheduler';
 import { RepositorySummaryService } from '../application/use-cases/summaries/RepositorySummaryService';
-import { CarlContentAiService } from '../application/use-cases/ai/CarlContentAiService';
-import { CarlBehaviorModelService } from '../application/behavior/CarlBehaviorModelService';
+import { DefaultContentAiService } from '../application/use-cases/ai/DefaultContentAiService';
+import { DefaultBehaviorAiService } from '../application/behavior/DefaultBehaviorAiService';
 import { DefaultEnvService } from '../infrastructure/config/DefaultEnvService';
 import { TestEnvService } from '../infrastructure/config/TestEnvService';
 import { OpenAiSdkGateway } from '../infrastructure/external/OpenAiSdkGateway';
@@ -322,12 +322,12 @@ export const register = (container: Container): void => {
 
   container
     .bind<AIService>(AI_SERVICE_ID)
-    .to(CarlContentAiService)
+    .to(DefaultContentAiService)
     .inSingletonScope();
 
   container
     .bind<BehaviorAiService>(BEHAVIOR_AI_SERVICE_ID)
-    .to(CarlBehaviorModelService)
+    .to(DefaultBehaviorAiService)
     .inSingletonScope();
 
   container

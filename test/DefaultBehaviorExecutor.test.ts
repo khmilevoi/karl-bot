@@ -71,7 +71,7 @@ describe('DefaultBehaviorExecutor assistant persistence', () => {
     } as unknown as MessageService;
     const messenger: ChatMessenger = {
       sendMessage: vi.fn().mockResolvedValue(55501),
-      bot: { botInfo: { id: 42, username: 'carl_bot' } },
+      bot: { botInfo: { id: 42, username: 'assistant_bot' } },
     } as unknown as ChatMessenger;
 
     const executor = new DefaultBehaviorExecutor(
@@ -96,7 +96,7 @@ describe('DefaultBehaviorExecutor assistant persistence', () => {
         chatId: -100,
         messageId: 55501,
         userId: 42,
-        username: 'carl_bot',
+        username: 'assistant_bot',
       })
     );
   });
@@ -108,7 +108,7 @@ describe('DefaultBehaviorExecutor assistant persistence', () => {
     } as unknown as MessageService;
     const messenger: ChatMessenger = {
       sendMessage: vi.fn().mockRejectedValue(new Error('telegram down')),
-      bot: { botInfo: { id: 42, username: 'carl_bot' } },
+      bot: { botInfo: { id: 42, username: 'assistant_bot' } },
     } as unknown as ChatMessenger;
 
     const executor = new DefaultBehaviorExecutor(

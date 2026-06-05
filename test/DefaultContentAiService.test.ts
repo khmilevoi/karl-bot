@@ -4,12 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AiGateway } from '../src/application/interfaces/ai/AiGateway';
 import type { LoggerFactory } from '../src/application/interfaces/logging/LoggerFactory';
 import type { PromptDirector } from '../src/application/prompts/PromptDirector';
-import { CarlContentAiService } from '../src/application/use-cases/ai/CarlContentAiService';
+import { DefaultContentAiService } from '../src/application/use-cases/ai/DefaultContentAiService';
 import type { ChatMessage } from '../src/domain/messages/ChatMessage';
 import { TestEnvService } from '../src/infrastructure/config/TestEnvService';
 
-describe('CarlContentAiService', () => {
-  let service: CarlContentAiService;
+describe('DefaultContentAiService', () => {
+  let service: DefaultContentAiService;
   let createChatCompletion: ReturnType<typeof vi.fn>;
   let prompts: Record<string, unknown>;
   let env: TestEnvService;
@@ -41,7 +41,7 @@ describe('CarlContentAiService', () => {
         child: vi.fn(),
       }),
     } as unknown as LoggerFactory;
-    service = new CarlContentAiService(
+    service = new DefaultContentAiService(
       env,
       prompts as unknown as PromptDirector,
       gateway,
@@ -151,7 +151,7 @@ describe('CarlContentAiService', () => {
 
     const env1 = new TestEnvService();
     (env1.env as unknown as { LOG_PROMPTS: boolean }).LOG_PROMPTS = false;
-    const service1 = new CarlContentAiService(
+    const service1 = new DefaultContentAiService(
       env1,
       prompts as unknown as PromptDirector,
       gateway,
@@ -163,7 +163,7 @@ describe('CarlContentAiService', () => {
 
     const env2 = new TestEnvService();
     (env2.env as unknown as { LOG_PROMPTS: boolean }).LOG_PROMPTS = true;
-    const service2 = new CarlContentAiService(
+    const service2 = new DefaultContentAiService(
       env2,
       prompts as unknown as PromptDirector,
       gateway,

@@ -19,7 +19,7 @@ describe('DEFAULT_BEHAVIOR_PIPELINE_CONFIG', () => {
 
 describe('DEFAULT_BEHAVIOR_RATE_LIMITER_CONFIG', () => {
   it('allows a biography interrogation burst of truth.add within one window', () => {
-    // Carl's persona invents and persists self-facts when asked about his past.
+    // The bot persona invents and persists self-facts when asked about its past.
     // A single biography Q&A (origin, a story, parents, parents' jobs, ...) can
     // emit well over the old cap of 3 truth.add patches inside one window; the
     // cap must be high enough not to silently drop that burst.

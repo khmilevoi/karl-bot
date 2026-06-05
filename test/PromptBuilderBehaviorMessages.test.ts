@@ -69,7 +69,7 @@ describe('PromptBuilder.addBehaviorMessages', () => {
         username: 'oleg',
         messageId: 100,
         replyToUserId: 999,
-        replyText: 'предыдущий ответ Carl',
+        replyText: 'предыдущий ответ бота',
       },
     ];
     const refMap = MessageReferenceMap.fromMessages(botMessages);
@@ -77,8 +77,8 @@ describe('PromptBuilder.addBehaviorMessages', () => {
     const [out] = await builder
       .addBehaviorMessages(botMessages, refMap, undefined, {
         id: 999,
-        username: 'carl_bot',
-        name: 'Карл',
+        username: 'assistant_bot',
+        name: 'Bot',
       })
       .build();
     expect(out.content).toContain('[to:you]');
@@ -115,8 +115,8 @@ describe('PromptBuilder.addBehaviorMessages', () => {
     const [out] = await builder
       .addBehaviorMessages(chatMessages, refMap, undefined, {
         id: 999,
-        username: 'carl_bot',
-        name: 'Карл',
+        username: 'assistant_bot',
+        name: 'Bot',
       })
       .build();
     expect(out.content).toContain('[to:@anna]');
@@ -140,8 +140,8 @@ describe('PromptBuilder.addBehaviorMessages', () => {
     const [out] = await builder
       .addBehaviorMessages(roomMessages, refMap, undefined, {
         id: 999,
-        username: 'carl_bot',
-        name: 'Карл',
+        username: 'assistant_bot',
+        name: 'Bot',
       })
       .build();
     expect(out.content).toContain('[to:room]');
@@ -155,7 +155,7 @@ describe('PromptBuilder.addBehaviorMessages', () => {
         [
           {
             ...messages[0],
-            content: 'Карл, привет',
+            content: 'Bot, привет',
             sourceType: 'voice',
             processingStatus: 'ready',
           },
@@ -170,7 +170,7 @@ describe('PromptBuilder.addBehaviorMessages', () => {
       .build();
 
     expect(out.content).toContain('[source:voice]');
-    expect(out.content).toContain('Карл, привет');
+    expect(out.content).toContain('Bot, привет');
     expect(out.content).not.toContain('[voice]');
   });
 });

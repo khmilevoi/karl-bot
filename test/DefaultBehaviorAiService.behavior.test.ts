@@ -8,7 +8,7 @@ import type { BehaviorDecisionContext } from '../src/application/behavior/Behavi
 import type { AiGateway } from '../src/application/interfaces/ai/AiGateway';
 import type { LoggerFactory } from '../src/application/interfaces/logging/LoggerFactory';
 import type { PromptDirector } from '../src/application/prompts/PromptDirector';
-import { CarlBehaviorModelService } from '../src/application/behavior/CarlBehaviorModelService';
+import { DefaultBehaviorAiService } from '../src/application/behavior/DefaultBehaviorAiService';
 import {
   behaviorDecisionJsonSchema,
   type BehaviorGateDecision,
@@ -58,8 +58,8 @@ function makeContext(
   };
 }
 
-describe('CarlBehaviorModelService behavior methods', () => {
-  let service: CarlBehaviorModelService;
+describe('DefaultBehaviorAiService behavior methods', () => {
+  let service: DefaultBehaviorAiService;
   let parseChatCompletion: ReturnType<typeof vi.fn>;
   let prompts: Record<string, unknown>;
   let env: TestEnvService;
@@ -92,7 +92,7 @@ describe('CarlBehaviorModelService behavior methods', () => {
       }),
     } as unknown as LoggerFactory;
 
-    service = new CarlBehaviorModelService(
+    service = new DefaultBehaviorAiService(
       env,
       prompts as unknown as PromptDirector,
       DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
@@ -308,7 +308,7 @@ describe('CarlBehaviorModelService behavior methods', () => {
       ...DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
       minDecisionConfidence: 0.95,
     };
-    service = new CarlBehaviorModelService(
+    service = new DefaultBehaviorAiService(
       env,
       prompts as unknown as PromptDirector,
       config,

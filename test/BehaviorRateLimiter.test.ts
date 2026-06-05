@@ -36,7 +36,7 @@ const summarizeAction: BehaviorAction = {
 
 const truthAddPatch: LiveStatePatch = {
   type: 'truth.add',
-  text: 'Carl likes bounded writes',
+  text: 'Bot likes bounded writes',
   relatedTruthIds: [],
   contradictsTruthIds: [],
   evidence: {

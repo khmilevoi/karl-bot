@@ -12,6 +12,7 @@ const booleanEnv = z.preprocess((value) => {
 export const envSchema = z
   .object({
     BOT_TOKEN: z.string().min(1),
+    BOT_NAME: z.string().min(1).default('Bot'),
     OPENAI_KEY: z.string().min(1),
     DATABASE_URL: z.string().min(1),
     LOG_LEVEL: z.string().default('debug'),

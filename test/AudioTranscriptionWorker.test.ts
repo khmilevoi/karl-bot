@@ -107,7 +107,7 @@ function makeWorker(
     ...overrides.convert,
   } as unknown as AudioConversionService;
   const transcribe = {
-    transcribe: vi.fn().mockResolvedValue('hello Carl'),
+    transcribe: vi.fn().mockResolvedValue('hello bot'),
     ...overrides.transcribe,
   } as unknown as AudioTranscriptionService;
   const loggerFactory = makeLoggerFactory();
@@ -132,7 +132,7 @@ describe('DefaultAudioTranscriptionWorker', () => {
 
     expect(repo.markDone).toHaveBeenCalledWith(
       job.id,
-      'hello Carl',
+      'hello bot',
       expect.any(String)
     );
   });

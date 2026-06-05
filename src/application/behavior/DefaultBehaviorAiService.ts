@@ -73,7 +73,7 @@ type EvolutionEscalationReason =
   | 'radical_review';
 
 @injectable()
-export class CarlBehaviorModelService implements BehaviorAiService {
+export class DefaultBehaviorAiService implements BehaviorAiService {
   private readonly triggerGateModel: AiModelId;
   private readonly behaviorDecisionModel: AiModelId;
   private readonly behaviorDecisionEscalationModel: AiModelId;
@@ -95,7 +95,7 @@ export class CarlBehaviorModelService implements BehaviorAiService {
     this.behaviorDecisionEscalationModel = models.behaviorDecision.escalation;
     this.stateEvolutionModel = models.stateEvolution.default;
     this.stateEvolutionEscalationModel = models.stateEvolution.escalation;
-    this.logger = this.loggerFactory.create('CarlBehaviorModelService');
+    this.logger = this.loggerFactory.create('DefaultBehaviorAiService');
   }
 
   public async evaluateGate(

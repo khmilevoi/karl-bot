@@ -18,6 +18,7 @@ export class TestEnvService implements EnvService {
   constructor() {
     this.env = envSchema.parse({
       BOT_TOKEN: process.env.BOT_TOKEN ?? 'test',
+      BOT_NAME: process.env.BOT_NAME ?? 'Bot',
       OPENAI_KEY: process.env.OPENAI_KEY ?? 'test',
       DATABASE_URL: process.env.DATABASE_URL ?? 'file:///tmp/test.db',
       LOG_LEVEL: process.env.LOG_LEVEL ?? 'silent',
@@ -74,7 +75,7 @@ export class TestEnvService implements EnvService {
   }
 
   getBotName(): string {
-    return 'Карл';
+    return this.env.BOT_NAME;
   }
 
   getDialogueTimeoutMs(): number {

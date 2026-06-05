@@ -5,6 +5,7 @@ import type { VoiceConfig } from '@/application/voice/VoiceConfig';
 
 export interface Env {
   BOT_TOKEN: string;
+  BOT_NAME: string;
   OPENAI_KEY: string;
   DATABASE_URL: string;
   LOG_LEVEL: string;

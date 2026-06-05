@@ -18,7 +18,9 @@ const allowingLimiter: BehaviorRateLimiter = {
 
 function makeMessenger(overrides?: Partial<ChatMessenger>): ChatMessenger {
   return {
-    bot: { botInfo: { id: 42, username: 'carl_bot' } } as ChatMessenger['bot'],
+    bot: {
+      botInfo: { id: 42, username: 'assistant_bot' },
+    } as ChatMessenger['bot'],
     sendMessage: vi.fn().mockResolvedValue(null),
     reactToMessage: vi.fn().mockResolvedValue(undefined),
     launch: vi.fn(),

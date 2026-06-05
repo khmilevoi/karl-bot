@@ -133,7 +133,7 @@ describe('behavior event repositories', () => {
       severity: 'error',
       errorCode: 'INVALID_JSON',
       message: 'could not parse',
-      component: 'CarlBehaviorModelService',
+      component: 'DefaultBehaviorAiService',
       operation: 'decideBehavior',
       inputRefJson: null,
       outputRefJson: '{"raw":"..."}',

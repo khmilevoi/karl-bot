@@ -129,7 +129,7 @@ const makeTextCtx = ({
   ({
     chat: { id: chatId, title: 'Test chat' },
     from: { id: 10, username: 'alice', first_name: 'Alice' },
-    me: { username: 'CarlBot' },
+    me: { username: 'AssistantBot' },
     message: { message_id: messageId, text },
     reply: vi.fn().mockResolvedValue(undefined),
     replyWithChatAction: vi.fn().mockResolvedValue(undefined),
@@ -378,14 +378,18 @@ describe('MainService (Minimal)', () => {
       }),
     };
     const service = buildService(deps);
-    const ctx = makeTextCtx({ chatId: 2, messageId: 77, text: '@Carl hi' });
+    const ctx = makeTextCtx({
+      chatId: 2,
+      messageId: 77,
+      text: '@Assistant hi',
+    });
 
     await (service as any).handleMessage(ctx);
 
     expect(deps.messages.addMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: 2,
-        content: '@Carl hi',
+        content: '@Assistant hi',
       })
     );
     expect(deps.behaviorPipeline.handleStoredMessage).toHaveBeenCalledWith({
