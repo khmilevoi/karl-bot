@@ -85,7 +85,7 @@ export const DEFAULT_BEHAVIOR_RATE_LIMITER_CONFIG: BehaviorRateLimiterConfig = {
   initiativeWindowMs: 60_000,
   maxInitiativesPerWindow: 3,
   reactionWindowMs: 60_000,
-  maxReactionsPerWindow: 8,
+  maxReactionsPerWindow: 20,
   truthAddWindowMs: 10 * 60_000,
   // Carl invents and persists biographical self-facts when asked about his
   // past; a single biography Q&A can emit well over a dozen truth.add patches
