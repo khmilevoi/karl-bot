@@ -222,7 +222,8 @@ describe('PromptDirector', () => {
         triggerMessageIds: context.triggerMessageIds,
         contextMessageIds: context.contextMessageIds,
         batchMessageIds: context.batchMessageIds,
-      }
+      },
+      context.selfIdentity
     );
   });
 

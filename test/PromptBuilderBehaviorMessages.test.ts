@@ -58,6 +58,95 @@ describe('PromptBuilder.addBehaviorMessages', () => {
     expect(out.content).not.toContain('telegramId');
   });
 
+  it('marks a reply to the bot as addressed to you', async () => {
+    const botMessages: BehaviorPromptMessage[] = [
+      {
+        id: 1,
+        chatId: -100,
+        role: 'user',
+        content: 'ты тут?',
+        userId: 7,
+        username: 'oleg',
+        messageId: 100,
+        replyToUserId: 999,
+        replyText: 'предыдущий ответ Carl',
+      },
+    ];
+    const refMap = MessageReferenceMap.fromMessages(botMessages);
+    const builder = new PromptBuilder(templates);
+    const [out] = await builder
+      .addBehaviorMessages(botMessages, refMap, undefined, {
+        id: 999,
+        username: 'carl_bot',
+        name: 'Карл',
+      })
+      .build();
+    expect(out.content).toContain('[to:you]');
+    expect(out.content).toContain('ОТВЕЧАЮТ ТЕБЕ');
+  });
+
+  it('marks a reply to another user and links #N when in context', async () => {
+    const chatMessages: BehaviorPromptMessage[] = [
+      {
+        id: 5,
+        chatId: -100,
+        role: 'user',
+        content: 'оригинал',
+        userId: 8,
+        username: 'anna',
+        messageId: 200,
+      },
+      {
+        id: 6,
+        chatId: -100,
+        role: 'user',
+        content: 'согласен',
+        userId: 7,
+        username: 'oleg',
+        messageId: 201,
+        replyToUserId: 8,
+        replyToMessageId: 200,
+        replyText: 'оригинал',
+        replyUsername: 'anna',
+      },
+    ];
+    const refMap = MessageReferenceMap.fromMessages(chatMessages);
+    const builder = new PromptBuilder(templates);
+    const [out] = await builder
+      .addBehaviorMessages(chatMessages, refMap, undefined, {
+        id: 999,
+        username: 'carl_bot',
+        name: 'Карл',
+      })
+      .build();
+    expect(out.content).toContain('[to:@anna]');
+    expect(out.content).toContain('на #1');
+  });
+
+  it('marks unrelated chatter as to:room', async () => {
+    const roomMessages: BehaviorPromptMessage[] = [
+      {
+        id: 9,
+        chatId: -100,
+        role: 'user',
+        content: 'погода супер',
+        userId: 8,
+        username: 'anna',
+        messageId: 300,
+      },
+    ];
+    const refMap = MessageReferenceMap.fromMessages(roomMessages);
+    const builder = new PromptBuilder(templates);
+    const [out] = await builder
+      .addBehaviorMessages(roomMessages, refMap, undefined, {
+        id: 999,
+        username: 'carl_bot',
+        name: 'Карл',
+      })
+      .build();
+    expect(out.content).toContain('[to:room]');
+  });
+
   it('renders voice messages with an explicit source field', async () => {
     const refMap = MessageReferenceMap.fromMessages(messages);
     const builder = new PromptBuilder(templates);

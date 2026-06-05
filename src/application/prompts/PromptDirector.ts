@@ -74,11 +74,16 @@ export class PromptDirector {
       .addUserPoliticalProfiles(context.state.userPolitical)
       .addTruths(context.state.truths)
       .addBehaviorBrief(context.state, context.messages, context.selfIdentity)
-      .addBehaviorMessages(context.messages, refMap, {
-        triggerMessageIds: context.triggerMessageIds,
-        contextMessageIds: context.contextMessageIds,
-        batchMessageIds: context.batchMessageIds,
-      })
+      .addBehaviorMessages(
+        context.messages,
+        refMap,
+        {
+          triggerMessageIds: context.triggerMessageIds,
+          contextMessageIds: context.contextMessageIds,
+          batchMessageIds: context.batchMessageIds,
+        },
+        context.selfIdentity
+      )
       .build();
   }
 

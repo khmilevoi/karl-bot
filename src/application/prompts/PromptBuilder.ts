@@ -322,24 +322,59 @@ export class PromptBuilder {
   addBehaviorMessages(
     messages: BehaviorPromptMessage[],
     refMap: MessageReferenceMap,
-    markers?: BehaviorMessageMarkers
+    markers?: BehaviorMessageMarkers,
+    selfIdentity?: SelfIdentity
   ): this {
     this.steps.push(async () => {
       const template = await this.templates.loadTemplate('behaviorMessages');
       const triggerSet = new Set(markers?.triggerMessageIds ?? []);
       const contextSet = new Set(markers?.contextMessageIds ?? []);
       const batchSet = new Set(markers?.batchMessageIds ?? []);
+
+      const telegramToStored = new Map<number, number>();
+      for (const m of messages) {
+        if (m.messageId != null) {
+          telegramToStored.set(m.messageId, m.id);
+        }
+      }
+
+      const addressedToSelf = (m: BehaviorPromptMessage): boolean => {
+        if (selfIdentity == null) return false;
+        if (m.replyToUserId != null && m.replyToUserId === selfIdentity.id)
+          return true;
+        const content = m.content.toLowerCase();
+        if (
+          selfIdentity.username &&
+          content.includes(`@${selfIdentity.username.toLowerCase()}`)
+        )
+          return true;
+        const name = selfIdentity.name.toLowerCase();
+        return name.length > 0 && content.includes(name);
+      };
+
+      const replyTargetOrdinal = (m: BehaviorPromptMessage): number | null => {
+        if (m.replyToMessageId == null) return null;
+        const storedId = telegramToStored.get(m.replyToMessageId);
+        return storedId != null ? (refMap.ordinalFor(storedId) ?? null) : null;
+      };
+
       const lines = messages.map((m) => {
         const markerParts = [];
-        if (triggerSet.has(m.id)) {
-          markerParts.push('[TRIGGER]');
-        }
-        if (contextSet.has(m.id)) {
-          markerParts.push('[GATE_CONTEXT]');
-        }
-        if (batchSet.has(m.id)) {
-          markerParts.push('[BATCH]');
-        }
+        if (triggerSet.has(m.id)) markerParts.push('[TRIGGER]');
+        if (contextSet.has(m.id)) markerParts.push('[GATE_CONTEXT]');
+        if (batchSet.has(m.id)) markerParts.push('[BATCH]');
+
+        const replyToSelf =
+          selfIdentity != null &&
+          m.replyToUserId != null &&
+          m.replyToUserId === selfIdentity.id;
+        const addressing = addressedToSelf(m)
+          ? '[to:you]'
+          : m.replyUsername != null && m.replyUsername.length > 0
+            ? `[to:@${m.replyUsername}]`
+            : '[to:room]';
+        markerParts.push(addressing);
+
         const marker =
           markerParts.length > 0 ? ` ${markerParts.join(' ')}` : '';
         const fullName =
@@ -348,10 +383,16 @@ export class PromptBuilder {
         const ordinal = refMap.ordinalFor(m.id) ?? 0;
         const source = m.sourceType ?? 'text';
         const header = `[#${ordinal}] [userId:${m.userId ?? 0}] [username:${m.username ?? 'N/A'}] [fullName:${fullName}] [role:${m.role}] [source:${source}]${marker}`;
-        const replyLine =
-          m.replyText != null && m.replyText.length > 0
-            ? `\n↳ ответ @${m.replyUsername ?? 'N/A'}: "${this.truncate(m.replyText)}"`
-            : '';
+
+        let replyLine = '';
+        if (m.replyText != null && m.replyText.length > 0) {
+          const targetOrdinal = replyTargetOrdinal(m);
+          const onRef = targetOrdinal != null ? ` на #${targetOrdinal}` : '';
+          const who = replyToSelf
+            ? 'ОТВЕЧАЮТ ТЕБЕ (Carl)'
+            : `ответ @${m.replyUsername ?? 'N/A'}`;
+          replyLine = `\n↳ ${who}${onRef}: "${this.truncate(m.replyText)}"`;
+        }
         const quoteLine =
           m.quoteText != null && m.quoteText.length > 0
             ? `\n❝ цитата: "${this.truncate(m.quoteText)}"`
