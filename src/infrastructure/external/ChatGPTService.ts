@@ -25,6 +25,7 @@ import {
   translateEvolutionPatches,
   translateGateDecision,
   translateLivePatches,
+  translateTruthPatches,
 } from '@/application/behavior/OrdinalTranslation';
 import {
   BEHAVIOR_PIPELINE_CONFIG_ID,
@@ -338,6 +339,7 @@ export class ChatGPTService implements AIService, BehaviorAiService {
           parsed.data.evolutionPatches,
           refMap
         ),
+        truthPatches: translateTruthPatches(parsed.data.truthPatches, refMap),
       };
 
       if (

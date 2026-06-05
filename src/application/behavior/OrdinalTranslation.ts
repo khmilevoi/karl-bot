@@ -3,6 +3,7 @@ import type { BehaviorGateDecision } from '@/domain/behavior/schemas/gate';
 import type {
   EvolutionPatch,
   LiveStatePatch,
+  TruthPatch,
 } from '@/domain/behavior/schemas/patches';
 import type { PatchEvidence } from '@/domain/behavior/schemas/primitives';
 
@@ -41,5 +42,12 @@ export function translateEvolutionPatches(
   patches: readonly EvolutionPatch[],
   refMap: MessageReferenceMap
 ): EvolutionPatch[] {
+  return patches.map((patch) => withTranslatedEvidence(patch, refMap));
+}
+
+export function translateTruthPatches(
+  patches: readonly TruthPatch[],
+  refMap: MessageReferenceMap
+): TruthPatch[] {
   return patches.map((patch) => withTranslatedEvidence(patch, refMap));
 }
