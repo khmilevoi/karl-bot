@@ -8,10 +8,13 @@ import type { ChatMessage } from '@/domain/messages/ChatMessage';
 
 import type { MessageReferenceMap } from './MessageReferenceMap';
 import type { PromptMessage } from './PromptMessage';
+import { buildBehaviorBrief } from './BehaviorBrief';
 import type {
   BehaviorMessageMarkers,
   BehaviorPromptMessage,
+  BehaviorPromptState,
   PromptChatUser,
+  SelfIdentity,
 } from './PromptTypes';
 import type {
   BotPersonalityState,
@@ -246,6 +249,18 @@ export class PromptBuilder {
           content: template.replace('{{truthsJson}}', this.stringify(truths)),
         },
       ];
+    });
+    return this;
+  }
+
+  addBehaviorBrief(
+    state: BehaviorPromptState,
+    messages: BehaviorPromptMessage[],
+    selfIdentity?: SelfIdentity
+  ): this {
+    this.steps.push(async () => {
+      const brief = buildBehaviorBrief({ state, messages, selfIdentity });
+      return [{ role: 'system', content: brief }];
     });
     return this;
   }

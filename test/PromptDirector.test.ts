@@ -80,6 +80,10 @@ function createBuilder() {
       calls.push('addTruths');
       return builder;
     }),
+    addBehaviorBrief: vi.fn(() => {
+      calls.push('addBehaviorBrief');
+      return builder;
+    }),
     addBehaviorMessages: vi.fn(() => {
       calls.push('addBehaviorMessages');
       return builder;
@@ -206,6 +210,7 @@ describe('PromptDirector', () => {
       'addUserProfiles',
       'addUserPoliticalProfiles',
       'addTruths',
+      'addBehaviorBrief',
       'addBehaviorMessages',
       'build',
     ]);

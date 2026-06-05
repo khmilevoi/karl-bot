@@ -73,6 +73,7 @@ export class PromptDirector {
       .addUserProfiles(context.state.profiles)
       .addUserPoliticalProfiles(context.state.userPolitical)
       .addTruths(context.state.truths)
+      .addBehaviorBrief(context.state, context.messages, context.selfIdentity)
       .addBehaviorMessages(context.messages, refMap, {
         triggerMessageIds: context.triggerMessageIds,
         contextMessageIds: context.contextMessageIds,
