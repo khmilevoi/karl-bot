@@ -1,6 +1,6 @@
 import { injectable } from 'inversify';
-import type { ChatModel } from 'openai/resources/shared';
 
+import type { AiModelId } from '@/application/interfaces/ai/AiModelId';
 import type {
   AiModelSlots,
   Env,
@@ -29,22 +29,22 @@ export class TestEnvService implements EnvService {
 
   getModels(): AiModelSlots {
     return {
-      triggerGate: { default: 'gpt-5.4-mini' as ChatModel },
+      triggerGate: { default: 'gpt-5.4-mini' as AiModelId },
       behaviorDecision: {
-        default: 'gpt-5.4-mini' as ChatModel,
-        escalation: 'gpt-5.5' as ChatModel,
+        default: 'gpt-5.4-mini' as AiModelId,
+        escalation: 'gpt-5.5' as AiModelId,
       },
       summarization: {
-        default: 'gpt-5.4-mini' as ChatModel,
-        escalation: 'gpt-5.5' as ChatModel,
+        default: 'gpt-5.4-mini' as AiModelId,
+        escalation: 'gpt-5.5' as AiModelId,
       },
       stateEvolution: {
-        default: 'gpt-5.4-mini' as ChatModel,
-        escalation: 'gpt-5.5' as ChatModel,
+        default: 'gpt-5.4-mini' as AiModelId,
+        escalation: 'gpt-5.5' as AiModelId,
       },
       errorRepair: {
-        default: 'gpt-5.4-mini' as ChatModel,
-        escalation: 'gpt-5.5' as ChatModel,
+        default: 'gpt-5.4-mini' as AiModelId,
+        escalation: 'gpt-5.5' as AiModelId,
       },
     };
   }

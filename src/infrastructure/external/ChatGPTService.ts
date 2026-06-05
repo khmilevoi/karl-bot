@@ -5,9 +5,9 @@ import {
   makeParseableResponseFormat,
   type AutoParseableResponseFormat,
 } from 'openai/lib/parser';
-import type { ChatModel } from 'openai/resources/shared';
 import path from 'path';
 
+import type { AiModelId } from '@/application/interfaces/ai/AiModelId';
 import type { AIService } from '@/application/interfaces/ai/AIService';
 import type { EnvService } from '@/application/interfaces/env/EnvService';
 import { ENV_SERVICE_ID } from '@/application/interfaces/env/EnvService';
@@ -109,12 +109,12 @@ const stateEvolutionResponseFormat: AutoParseableResponseFormat<StateEvolutionDe
 @injectable()
 export class ChatGPTService implements AIService, BehaviorAiService {
   private openai: OpenAI;
-  private readonly triggerGateModel: ChatModel;
-  private readonly behaviorDecisionModel: ChatModel;
-  private readonly behaviorDecisionEscalationModel: ChatModel;
-  private readonly stateEvolutionModel: ChatModel;
-  private readonly stateEvolutionEscalationModel: ChatModel;
-  private readonly summarizationModel: ChatModel;
+  private readonly triggerGateModel: AiModelId;
+  private readonly behaviorDecisionModel: AiModelId;
+  private readonly behaviorDecisionEscalationModel: AiModelId;
+  private readonly stateEvolutionModel: AiModelId;
+  private readonly stateEvolutionEscalationModel: AiModelId;
+  private readonly summarizationModel: AiModelId;
   private readonly logger: Logger;
 
   constructor(
@@ -202,7 +202,7 @@ export class ChatGPTService implements AIService, BehaviorAiService {
     const openaiMessages = this.toOpenAiMessages(prompt);
 
     const attempt = async (
-      model: ChatModel,
+      model: AiModelId,
       escalationReason: BehaviorEscalationReason | null
     ): Promise<BehaviorAiDecisionResult> => {
       const start = Date.now();
@@ -295,7 +295,7 @@ export class ChatGPTService implements AIService, BehaviorAiService {
     const openaiMessages = this.toOpenAiMessages(prompt);
 
     const attempt = async (
-      model: ChatModel,
+      model: AiModelId,
       escalationReason: EvolutionEscalationReason | null
     ): Promise<StateEvolutionResult> => {
       const start = Date.now();
@@ -392,7 +392,7 @@ export class ChatGPTService implements AIService, BehaviorAiService {
 
   private buildMetadata(
     modelSlot: string,
-    selectedModel: ChatModel,
+    selectedModel: AiModelId,
     escalated: boolean,
     escalationReason: string | null,
     latencyMs: number,

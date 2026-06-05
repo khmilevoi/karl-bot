@@ -1,6 +1,6 @@
 import type { ServiceIdentifier } from 'inversify';
-import type { ChatModel } from 'openai/resources/shared';
 
+import type { AiModelId } from '@/application/interfaces/ai/AiModelId';
 import type { VoiceConfig } from '@/application/voice/VoiceConfig';
 
 export interface Env {
@@ -44,12 +44,12 @@ export interface PromptFiles {
 }
 
 export interface SingleModelSlot {
-  default: ChatModel;
+  default: AiModelId;
 }
 
 export interface EscalatingModelSlot {
-  default: ChatModel;
-  escalation: ChatModel;
+  default: AiModelId;
+  escalation: AiModelId;
 }
 
 export interface AiModelSlots {

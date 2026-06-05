@@ -1,5 +1,4 @@
-import type { ChatModel } from 'openai/resources/shared';
-
+import type { AiModelId } from '@/application/interfaces/ai/AiModelId';
 import type { BehaviorPromptContext } from '@/application/prompts/PromptTypes';
 import type { StateImpactRisk } from '@/domain/behavior/schemas/primitives';
 import type { PersonalitySignal } from '@/domain/behavior/schemas/state';
@@ -40,7 +39,7 @@ export interface AiCallUsage {
 
 export interface AiCallMetadata {
   modelSlot: string;
-  selectedModel: ChatModel;
+  selectedModel: AiModelId;
   escalated: boolean;
   escalationReason: string | null;
   latencyMs: number;
