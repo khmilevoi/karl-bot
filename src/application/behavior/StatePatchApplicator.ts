@@ -3,6 +3,7 @@ import type { ServiceIdentifier } from 'inversify';
 import type {
   EvolutionPatch,
   LiveStatePatch,
+  TruthPatch,
 } from '@/domain/behavior/schemas/patches';
 import type { ChatMessage } from '@/domain/messages/ChatMessage';
 
@@ -31,6 +32,11 @@ export interface StatePatchApplicator {
     chatId: number;
     patches: readonly EvolutionPatch[];
     reviewedByStrongModel: boolean;
+    nowIso?: string;
+  }): Promise<BehaviorPatchResult[]>;
+  applyTruthPatches(params: {
+    chatId: number;
+    patches: readonly TruthPatch[];
     nowIso?: string;
   }): Promise<BehaviorPatchResult[]>;
 }

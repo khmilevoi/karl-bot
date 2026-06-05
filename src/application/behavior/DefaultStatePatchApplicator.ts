@@ -793,6 +793,19 @@ export class DefaultStatePatchApplicator implements StatePatchApplicator {
     return results;
   }
 
+  async applyTruthPatches(params: {
+    chatId: number;
+    patches: readonly TruthPatch[];
+    nowIso?: string;
+  }): Promise<BehaviorPatchResult[]> {
+    const nowIso = params.nowIso ?? new Date().toISOString();
+    return Promise.all(
+      params.patches.map((patch) =>
+        this.applyTruthPatch({ chatId: params.chatId, nowIso, patch })
+      )
+    );
+  }
+
   private async loadPolitical(
     chatId: number,
     nowIso: string

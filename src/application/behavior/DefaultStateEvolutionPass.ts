@@ -172,12 +172,18 @@ export class DefaultStateEvolutionPass implements StateEvolutionPass {
       'AI responded — applying patches'
     );
     const reviewedByStrongModel = result.metadata.escalated;
-    const patchResults = await this.applicator.applyEvolutionPatches({
+    const evolutionPatchResults = await this.applicator.applyEvolutionPatches({
       chatId,
       patches: result.decision.evolutionPatches,
       reviewedByStrongModel,
       nowIso,
     });
+    const truthPatchResults = await this.applicator.applyTruthPatches({
+      chatId,
+      patches: result.decision.truthPatches,
+      nowIso,
+    });
+    const patchResults = [...evolutionPatchResults, ...truthPatchResults];
 
     await this.writePersonalitySnapshot(
       chatId,
