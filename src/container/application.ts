@@ -219,9 +219,10 @@ import { RepositoryMessageService } from '../application/use-cases/messages/Repo
 import { DefaultManualJobRunner } from '../application/use-cases/scheduler/DefaultManualJobRunner';
 import { TopicOfDaySchedulerImpl } from '../application/use-cases/scheduler/TopicOfDayScheduler';
 import { RepositorySummaryService } from '../application/use-cases/summaries/RepositorySummaryService';
+import { CarlContentAiService } from '../application/use-cases/ai/CarlContentAiService';
+import { CarlBehaviorModelService } from '../application/behavior/CarlBehaviorModelService';
 import { DefaultEnvService } from '../infrastructure/config/DefaultEnvService';
 import { TestEnvService } from '../infrastructure/config/TestEnvService';
-import { ChatGPTService } from '../infrastructure/external/ChatGPTService';
 import { OpenAiSdkGateway } from '../infrastructure/external/OpenAiSdkGateway';
 import { OpenAIEmbeddingService } from '../infrastructure/external/OpenAIEmbeddingService';
 import {
@@ -321,12 +322,12 @@ export const register = (container: Container): void => {
 
   container
     .bind<AIService>(AI_SERVICE_ID)
-    .to(ChatGPTService)
+    .to(CarlContentAiService)
     .inSingletonScope();
 
   container
     .bind<BehaviorAiService>(BEHAVIOR_AI_SERVICE_ID)
-    .to(ChatGPTService)
+    .to(CarlBehaviorModelService)
     .inSingletonScope();
 
   container

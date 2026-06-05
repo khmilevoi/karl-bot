@@ -1,36 +1,26 @@
 import { promises as fs } from 'fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ChatMessage } from '../src/domain/messages/ChatMessage';
-import type { ChatGPTService as ChatGPTServiceType } from '../src/infrastructure/external/ChatGPTService';
-import { TestEnvService } from '../src/infrastructure/config/TestEnvService';
-import { DEFAULT_BEHAVIOR_PIPELINE_CONFIG } from '../src/application/behavior/BehaviorConfig';
-import type { PromptDirector } from '../src/application/prompts/PromptDirector';
+import type { OpenAiGateway } from '../src/application/interfaces/ai/OpenAiGateway';
 import type { LoggerFactory } from '../src/application/interfaces/logging/LoggerFactory';
+import type { PromptDirector } from '../src/application/prompts/PromptDirector';
+import { CarlContentAiService } from '../src/application/use-cases/ai/CarlContentAiService';
+import type { ChatMessage } from '../src/domain/messages/ChatMessage';
+import { TestEnvService } from '../src/infrastructure/config/TestEnvService';
 
-interface ChatGPTServiceConstructor {
-  new (
-    env: TestEnvService,
-    prompts: PromptDirector,
-    behaviorConfig: typeof DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
-    logger: LoggerFactory
-  ): ChatGPTServiceType;
-}
-
-describe('ChatGPTService', () => {
-  let ChatGPTService: ChatGPTServiceConstructor;
-  let service: ChatGPTServiceType;
-  let openaiCreate: ReturnType<typeof vi.fn<[], unknown>>;
+describe('CarlContentAiService', () => {
+  let service: CarlContentAiService;
+  let createChatCompletion: ReturnType<typeof vi.fn>;
   let prompts: Record<string, unknown>;
   let env: TestEnvService;
+  let gateway: OpenAiGateway;
   let loggerFactory: LoggerFactory;
 
-  beforeEach(async () => {
-    vi.resetModules();
-
-    openaiCreate = vi.fn<[], unknown>();
-    const openaiMock = { chat: { completions: { create: openaiCreate } } };
-    vi.doMock('openai', () => ({ default: vi.fn(() => openaiMock) }));
+  beforeEach(() => {
+    createChatCompletion = vi.fn();
+    gateway = {
+      createChatCompletion,
+    } as unknown as OpenAiGateway;
 
     prompts = {
       createSummaryPrompt: vi
@@ -51,12 +41,10 @@ describe('ChatGPTService', () => {
         child: vi.fn(),
       }),
     } as unknown as LoggerFactory;
-    ({ ChatGPTService } =
-      await import('../src/infrastructure/external/ChatGPTService'));
-    service = new ChatGPTService(
+    service = new CarlContentAiService(
       env,
       prompts as unknown as PromptDirector,
-      DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
+      gateway,
       loggerFactory
     );
   });
@@ -67,12 +55,17 @@ describe('ChatGPTService', () => {
   });
 
   it('generateTopicOfDay sends prompt', async () => {
-    openaiCreate.mockResolvedValue({
-      choices: [{ message: { content: 'article' } }],
+    createChatCompletion.mockResolvedValue({
+      content: 'article',
+      model: env.getModels().behaviorDecision.default,
+      usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+      raw: {},
     });
+
     const res = await service.generateTopicOfDay();
+
     expect(res).toBe('article');
-    expect(openaiCreate).toHaveBeenCalledWith({
+    expect(createChatCompletion).toHaveBeenCalledWith({
       model: env.getModels().behaviorDecision.default,
       messages: [{ role: 'user', content: 'topic' }],
     });
@@ -80,14 +73,19 @@ describe('ChatGPTService', () => {
   });
 
   it('generateTopicOfDay passes context params to director', async () => {
-    openaiCreate.mockResolvedValue({
-      choices: [{ message: { content: 'article' } }],
+    createChatCompletion.mockResolvedValue({
+      content: 'article',
+      model: env.getModels().behaviorDecision.default,
+      usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+      raw: {},
     });
+
     const res = await service.generateTopicOfDay({
       chatTitle: 'Chat',
       summary: 'S',
       users: [{ username: 'u', fullName: 'F' }],
     });
+
     expect(res).toBe('article');
     expect(prompts.createTopicOfDayPrompt).toHaveBeenCalledWith({
       chatTitle: 'Chat',
@@ -97,8 +95,11 @@ describe('ChatGPTService', () => {
   });
 
   it('summarize builds history and uses previous summary', async () => {
-    openaiCreate.mockResolvedValueOnce({
-      choices: [{ message: { content: undefined } }],
+    createChatCompletion.mockResolvedValueOnce({
+      content: '',
+      model: env.getModels().summarization.default,
+      usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+      raw: {},
     });
     const history: ChatMessage[] = [
       {
@@ -110,9 +111,11 @@ describe('ChatGPTService', () => {
       },
       { role: 'assistant', content: 'a1' },
     ];
+
     const res = await service.summarize(history, 'prev');
+
     expect(res).toBe('prev');
-    expect(openaiCreate).toHaveBeenCalledWith({
+    expect(createChatCompletion).toHaveBeenCalledWith({
       model: env.getModels().summarization.default,
       messages: [{ role: 'user', content: 'summary' }],
     });
@@ -120,12 +123,17 @@ describe('ChatGPTService', () => {
   });
 
   it('summarize works without previous summary', async () => {
-    openaiCreate.mockResolvedValueOnce({
-      choices: [{ message: { content: 'sum' } }],
+    createChatCompletion.mockResolvedValueOnce({
+      content: 'sum',
+      model: env.getModels().summarization.default,
+      usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+      raw: {},
     });
+
     const resSum = await service.summarize([]);
+
     expect(resSum).toBe('sum');
-    expect(openaiCreate).toHaveBeenCalledWith({
+    expect(createChatCompletion).toHaveBeenCalledWith({
       model: env.getModels().summarization.default,
       messages: [{ role: 'user', content: 'summary' }],
     });
@@ -133,17 +141,20 @@ describe('ChatGPTService', () => {
   });
 
   it('logPrompt writes only when LOG_PROMPTS=true', async () => {
-    openaiCreate.mockResolvedValue({
-      choices: [{ message: { content: 'r' } }],
+    createChatCompletion.mockResolvedValue({
+      content: 'r',
+      model: env.getModels().summarization.default,
+      usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+      raw: {},
     });
     const appendSpy = vi.spyOn(fs, 'appendFile').mockResolvedValue(undefined);
 
     const env1 = new TestEnvService();
     (env1.env as unknown as { LOG_PROMPTS: boolean }).LOG_PROMPTS = false;
-    const service1 = new ChatGPTService(
+    const service1 = new CarlContentAiService(
       env1,
       prompts as unknown as PromptDirector,
-      DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
+      gateway,
       loggerFactory
     );
     await service1.summarize([]);
@@ -152,10 +163,10 @@ describe('ChatGPTService', () => {
 
     const env2 = new TestEnvService();
     (env2.env as unknown as { LOG_PROMPTS: boolean }).LOG_PROMPTS = true;
-    const service2 = new ChatGPTService(
+    const service2 = new CarlContentAiService(
       env2,
       prompts as unknown as PromptDirector,
-      DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
+      gateway,
       loggerFactory
     );
     await service2.summarize([]);

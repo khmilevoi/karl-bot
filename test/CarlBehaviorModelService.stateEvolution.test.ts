@@ -1,21 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ChatGPTService as ChatGPTServiceType } from '../src/infrastructure/external/ChatGPTService';
-import { TestEnvService } from '../src/infrastructure/config/TestEnvService';
 import { DEFAULT_BEHAVIOR_PIPELINE_CONFIG } from '../src/application/behavior/BehaviorConfig';
-import type { PromptDirector } from '../src/application/prompts/PromptDirector';
-import type { LoggerFactory } from '../src/application/interfaces/logging/LoggerFactory';
 import type { StateEvolutionContext } from '../src/application/behavior/BehaviorTypes';
+import type { OpenAiGateway } from '../src/application/interfaces/ai/OpenAiGateway';
+import type { LoggerFactory } from '../src/application/interfaces/logging/LoggerFactory';
+import type { PromptDirector } from '../src/application/prompts/PromptDirector';
+import { CarlBehaviorModelService } from '../src/application/behavior/CarlBehaviorModelService';
 import { stateEvolutionJsonSchema } from '../src/domain/behavior/schemas/evolution';
-
-interface ChatGPTServiceConstructor {
-  new (
-    env: TestEnvService,
-    prompts: PromptDirector,
-    behaviorConfig: typeof DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
-    logger: LoggerFactory
-  ): ChatGPTServiceType;
-}
+import { TestEnvService } from '../src/infrastructure/config/TestEnvService';
 
 const validDecision = {
   evolutionPatches: [],
@@ -64,22 +56,19 @@ function makeContext(
   };
 }
 
-describe('ChatGPTService proposeStateEvolution', () => {
-  let ChatGPTService: ChatGPTServiceConstructor;
-  let service: ChatGPTServiceType;
-  let openaiParse: ReturnType<typeof vi.fn>;
+describe('CarlBehaviorModelService proposeStateEvolution', () => {
+  let service: CarlBehaviorModelService;
+  let parseChatCompletion: ReturnType<typeof vi.fn>;
   let prompts: Record<string, unknown>;
   let env: TestEnvService;
+  let gateway: OpenAiGateway;
   let loggerFactory: LoggerFactory;
 
-  beforeEach(async () => {
-    vi.resetModules();
-
-    openaiParse = vi.fn();
-    const openaiMock = {
-      chat: { completions: { create: vi.fn(), parse: openaiParse } },
-    };
-    vi.doMock('openai', () => ({ default: vi.fn(() => openaiMock) }));
+  beforeEach(() => {
+    parseChatCompletion = vi.fn();
+    gateway = {
+      parseChatCompletion,
+    } as unknown as OpenAiGateway;
 
     prompts = {
       createBehaviorGatePrompt: vi
@@ -104,12 +93,11 @@ describe('ChatGPTService proposeStateEvolution', () => {
       }),
     } as unknown as LoggerFactory;
 
-    ({ ChatGPTService } =
-      await import('../src/infrastructure/external/ChatGPTService'));
-    service = new ChatGPTService(
+    service = new CarlBehaviorModelService(
       env,
       prompts as unknown as PromptDirector,
       DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
+      gateway,
       loggerFactory
     );
   });
@@ -119,18 +107,20 @@ describe('ChatGPTService proposeStateEvolution', () => {
   });
 
   it('uses stateEvolution default model on non-high risk and returns not escalated', async () => {
-    openaiParse.mockResolvedValue({
-      choices: [{ message: { parsed: validDecision } }],
-      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+    parseChatCompletion.mockResolvedValue({
+      parsed: validDecision,
+      model: env.getModels().stateEvolution.default,
+      usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+      raw: {},
     });
 
     const result = await service.proposeStateEvolution(makeContext('low'));
 
-    expect(openaiParse).toHaveBeenCalledTimes(1);
-    expect(openaiParse).toHaveBeenCalledWith(
+    expect(parseChatCompletion).toHaveBeenCalledTimes(1);
+    expect(parseChatCompletion).toHaveBeenCalledWith(
       expect.objectContaining({
         model: env.getModels().stateEvolution.default,
-        response_format: expect.objectContaining({ type: 'json_schema' }),
+        responseFormat: stateEvolutionJsonSchema,
       })
     );
     expect(result.metadata.escalated).toBe(false);
@@ -138,14 +128,16 @@ describe('ChatGPTService proposeStateEvolution', () => {
   });
 
   it('starts on escalation model when maxStateImpactRisk is high', async () => {
-    openaiParse.mockResolvedValue({
-      choices: [{ message: { parsed: validDecision } }],
-      usage: {},
+    parseChatCompletion.mockResolvedValue({
+      parsed: validDecision,
+      model: env.getModels().stateEvolution.escalation,
+      usage: { promptTokens: null, completionTokens: null, totalTokens: null },
+      raw: {},
     });
 
     const result = await service.proposeStateEvolution(makeContext('high'));
 
-    expect(openaiParse).toHaveBeenCalledWith(
+    expect(parseChatCompletion).toHaveBeenCalledWith(
       expect.objectContaining({
         model: env.getModels().stateEvolution.escalation,
       })
@@ -154,6 +146,22 @@ describe('ChatGPTService proposeStateEvolution', () => {
     expect(result.metadata.selectedModel).toBe(
       env.getModels().stateEvolution.escalation
     );
+  });
+
+  it('passes Zod parser to gateway for state evolution', async () => {
+    parseChatCompletion.mockResolvedValue({
+      parsed: validDecision,
+      model: env.getModels().stateEvolution.default,
+      usage: { promptTokens: null, completionTokens: null, totalTokens: null },
+      raw: {},
+    });
+
+    await service.proposeStateEvolution(makeContext('low'));
+
+    const call = parseChatCompletion.mock.calls[0][0] as {
+      parse: (content: string) => unknown;
+    };
+    expect(call.parse(JSON.stringify(validDecision))).toEqual(validDecision);
   });
 
   it('re-runs on escalation model when proposal contains radical politics.add_position', async () => {
@@ -170,20 +178,24 @@ describe('ChatGPTService proposeStateEvolution', () => {
       ],
     };
 
-    openaiParse
+    parseChatCompletion
       .mockResolvedValueOnce({
-        choices: [{ message: { parsed: radicalDecision } }],
-        usage: {},
+        parsed: radicalDecision,
+        model: env.getModels().stateEvolution.default,
+        usage: { promptTokens: null, completionTokens: null, totalTokens: null },
+        raw: {},
       })
       .mockResolvedValueOnce({
-        choices: [{ message: { parsed: radicalDecision } }],
-        usage: { prompt_tokens: 20, completion_tokens: 10, total_tokens: 30 },
+        parsed: radicalDecision,
+        model: env.getModels().stateEvolution.escalation,
+        usage: { promptTokens: 20, completionTokens: 10, totalTokens: 30 },
+        raw: {},
       });
 
     const result = await service.proposeStateEvolution(makeContext('low'));
 
-    expect(openaiParse).toHaveBeenCalledTimes(2);
-    expect(openaiParse.mock.calls[1][0].model).toBe(
+    expect(parseChatCompletion).toHaveBeenCalledTimes(2);
+    expect(parseChatCompletion.mock.calls[1][0].model).toBe(
       env.getModels().stateEvolution.escalation
     );
     expect(result.metadata.escalated).toBe(true);
@@ -203,55 +215,61 @@ describe('ChatGPTService proposeStateEvolution', () => {
       ],
     };
 
-    openaiParse
+    parseChatCompletion
       .mockResolvedValueOnce({
-        choices: [{ message: { parsed: radicalAdjust } }],
-        usage: {},
+        parsed: radicalAdjust,
+        model: env.getModels().stateEvolution.default,
+        usage: { promptTokens: null, completionTokens: null, totalTokens: null },
+        raw: {},
       })
       .mockResolvedValueOnce({
-        choices: [{ message: { parsed: radicalAdjust } }],
-        usage: {},
+        parsed: radicalAdjust,
+        model: env.getModels().stateEvolution.escalation,
+        usage: { promptTokens: null, completionTokens: null, totalTokens: null },
+        raw: {},
       });
 
     await service.proposeStateEvolution(makeContext('low'));
-    expect(openaiParse).toHaveBeenCalledTimes(2);
+    expect(parseChatCompletion).toHaveBeenCalledTimes(2);
   });
 
   it('re-runs on escalation model when schema parse fails on default model', async () => {
-    openaiParse
+    parseChatCompletion
       .mockResolvedValueOnce({
-        choices: [{ message: { parsed: null } }],
-        usage: {},
+        parsed: null,
+        model: env.getModels().stateEvolution.default,
+        usage: { promptTokens: null, completionTokens: null, totalTokens: null },
+        raw: {},
       })
       .mockResolvedValueOnce({
-        choices: [{ message: { parsed: validDecision } }],
-        usage: {},
+        parsed: validDecision,
+        model: env.getModels().stateEvolution.escalation,
+        usage: { promptTokens: null, completionTokens: null, totalTokens: null },
+        raw: {},
       });
 
     const result = await service.proposeStateEvolution(makeContext('low'));
 
-    expect(openaiParse).toHaveBeenCalledTimes(2);
+    expect(parseChatCompletion).toHaveBeenCalledTimes(2);
     expect(result.metadata.escalated).toBe(true);
     expect(result.metadata.escalationReason).toBe('schema_validation_failed');
   });
 
   it('uses OpenAI-compatible stateEvolutionJsonSchema without oneOf', async () => {
-    openaiParse.mockResolvedValue({
-      choices: [{ message: { parsed: validDecision } }],
-      usage: {},
+    parseChatCompletion.mockResolvedValue({
+      parsed: validDecision,
+      model: env.getModels().stateEvolution.default,
+      usage: { promptTokens: null, completionTokens: null, totalTokens: null },
+      raw: {},
     });
 
     await service.proposeStateEvolution(makeContext('low'));
 
-    const responseFormat = openaiParse.mock.calls[0]?.[0]?.response_format;
-    expect(openaiParse).toHaveBeenCalledWith(
+    expect(parseChatCompletion).toHaveBeenCalledWith(
       expect.objectContaining({
-        response_format: expect.objectContaining({
-          type: 'json_schema',
-          json_schema: stateEvolutionJsonSchema,
-        }),
+        responseFormat: stateEvolutionJsonSchema,
       })
     );
-    expect(JSON.stringify(responseFormat)).not.toContain('"oneOf"');
+    expect(JSON.stringify(stateEvolutionJsonSchema)).not.toContain('"oneOf"');
   });
 });

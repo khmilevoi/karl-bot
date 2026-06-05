@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import {
+  BEHAVIOR_AI_SERVICE_ID,
+} from '../src/application/behavior/BehaviorAiService';
 import { BEHAVIOR_DECISION_VALIDATOR_ID } from '../src/application/behavior/BehaviorDecisionValidator';
 import { BEHAVIOR_EXECUTOR_ID } from '../src/application/behavior/BehaviorExecutor';
 import { BEHAVIOR_PIPELINE_ID } from '../src/application/behavior/BehaviorPipeline';
@@ -12,6 +15,8 @@ import { STATE_EVOLUTION_PASS_ID } from '../src/application/behavior/StateEvolut
 import { STATE_EVOLUTION_SCHEDULER_ID } from '../src/application/behavior/StateEvolutionScheduler';
 import { STATE_EVOLUTION_TRIGGER_ID } from '../src/application/behavior/StateEvolutionTrigger';
 import { STATE_EVOLUTION_WORKER_ID } from '../src/application/behavior/StateEvolutionWorker';
+import { AI_SERVICE_ID } from '../src/application/interfaces/ai/AIService';
+import { OPEN_AI_GATEWAY_ID } from '../src/application/interfaces/ai/OpenAiGateway';
 import { PERSONALITY_SIGNAL_REPOSITORY_ID } from '../src/domain/repositories/PersonalitySignalRepository';
 import { STATE_EVOLUTION_CURSOR_REPOSITORY_ID } from '../src/domain/repositories/StateEvolutionCursorRepository';
 import { USER_POLITICAL_PROFILE_REPOSITORY_ID } from '../src/domain/repositories/UserPoliticalProfileRepository';
@@ -20,6 +25,12 @@ import { container } from '../src/container';
 describe('behavior DI', () => {
   it('resolves the behavior pipeline', () => {
     expect(container.get(BEHAVIOR_PIPELINE_ID)).toBeTruthy();
+  });
+
+  it('resolves AI services and the OpenAI gateway', () => {
+    expect(container.get(AI_SERVICE_ID)).toBeTruthy();
+    expect(container.get(BEHAVIOR_AI_SERVICE_ID)).toBeTruthy();
+    expect(container.get(OPEN_AI_GATEWAY_ID)).toBeTruthy();
   });
 
   it('resolves behavior validator and policy with default config', () => {
