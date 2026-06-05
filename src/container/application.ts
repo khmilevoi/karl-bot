@@ -9,6 +9,10 @@ import {
   type AIService,
 } from '../application/interfaces/ai/AIService';
 import {
+  OPEN_AI_GATEWAY_ID,
+  type OpenAiGateway,
+} from '../application/interfaces/ai/OpenAiGateway';
+import {
   AI_ERROR_LOGGER_ID,
   type AiErrorLogger,
 } from '../application/behavior/AiErrorLogger';
@@ -218,6 +222,7 @@ import { RepositorySummaryService } from '../application/use-cases/summaries/Rep
 import { DefaultEnvService } from '../infrastructure/config/DefaultEnvService';
 import { TestEnvService } from '../infrastructure/config/TestEnvService';
 import { ChatGPTService } from '../infrastructure/external/ChatGPTService';
+import { OpenAiSdkGateway } from '../infrastructure/external/OpenAiSdkGateway';
 import { OpenAIEmbeddingService } from '../infrastructure/external/OpenAIEmbeddingService';
 import {
   EMBEDDING_SERVICE_ID,
@@ -255,6 +260,11 @@ export const register = (container: Container): void => {
   container
     .bind<VoiceConfig>(VOICE_CONFIG_ID)
     .toConstantValue(envService.getVoiceConfig());
+
+  container
+    .bind<OpenAiGateway>(OPEN_AI_GATEWAY_ID)
+    .to(OpenAiSdkGateway)
+    .inSingletonScope();
 
   container
     .bind<LoggerFactory>(LOGGER_FACTORY_ID)
