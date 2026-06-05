@@ -14,6 +14,8 @@ export interface ChatMessage {
   replyText?: string;
   replyUsername?: string;
   quoteText?: string;
+  replyToMessageId?: number;
+  replyToUserId?: number;
   userId?: number;
   // Telegram message_id. Do not use this for behavior evidence references.
   messageId?: number;

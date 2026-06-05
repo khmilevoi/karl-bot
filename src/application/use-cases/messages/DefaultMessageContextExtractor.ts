@@ -20,6 +20,8 @@ export class DefaultMessageContextExtractor implements MessageContextExtractor {
     let replyText: string | undefined;
     let replyUsername: string | undefined;
     let quoteText: string | undefined;
+    let replyToMessageId: number | undefined;
+    let replyToUserId: number | undefined;
 
     if (message?.reply_to_message) {
       const pieces: string[] = [];
@@ -34,10 +36,22 @@ export class DefaultMessageContextExtractor implements MessageContextExtractor {
         replyText = pieces.join('; ');
       }
 
+      if (typeof reply.message_id === 'number') {
+        replyToMessageId = reply.message_id;
+      }
+
       const from = message.reply_to_message.from as
-        | { first_name?: string; last_name?: string; username?: string }
+        | {
+            id?: number;
+            first_name?: string;
+            last_name?: string;
+            username?: string;
+          }
         | undefined;
       if (from) {
+        if (typeof from.id === 'number') {
+          replyToUserId = from.id;
+        }
         if (from.first_name && from.last_name) {
           replyUsername = from.first_name + ' ' + from.last_name;
         } else {
@@ -56,6 +70,14 @@ export class DefaultMessageContextExtractor implements MessageContextExtractor {
         ? ctx.from.first_name + ' ' + ctx.from.last_name
         : (ctx.from?.first_name ?? ctx.from?.last_name ?? username);
 
-    return { replyText, replyUsername, quoteText, username, fullName };
+    return {
+      replyText,
+      replyUsername,
+      quoteText,
+      replyToMessageId,
+      replyToUserId,
+      username,
+      fullName,
+    };
   }
 }
