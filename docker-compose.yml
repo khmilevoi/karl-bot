@@ -18,6 +18,9 @@ x-app: &app
   # native ext4, so WAL works correctly. Inspect the DB via `docker cp` / exec.
   volumes:
     - db-data:/data
+    # Prompt logs stay on the host so they can be read without entering the
+    # container. Keep the DB on the named volume above for SQLite WAL safety.
+    - ./prompts.log:/app/prompts.log
 
 services:
   # One-shot schema migrator. Long-running services wait for this to exit 0,
