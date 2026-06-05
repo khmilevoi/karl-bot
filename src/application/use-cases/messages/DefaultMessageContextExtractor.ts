@@ -39,6 +39,10 @@ export class DefaultMessageContextExtractor implements MessageContextExtractor {
         replyToMessageId = reply.message_id;
       }
 
+      if (typeof reply.message_id === 'number') {
+        replyToMessageId = reply.message_id;
+      }
+
       const from = message.reply_to_message.from as
         | {
             id?: number;

@@ -40,7 +40,7 @@ describe('EnvService', () => {
     expect(env.env.LOG_PROMPTS).toBe(false);
   });
 
-  it('enables prompt logging only in development builds', () => {
+  it('defaults prompt logging to development builds only', () => {
     const baseEnv = {
       BOT_TOKEN: 'token',
       OPENAI_KEY: 'key',
@@ -55,7 +55,30 @@ describe('EnvService', () => {
       envSchema.parse({
         ...baseEnv,
         NODE_ENV: 'production',
+      })
+    ).toEqual(expect.objectContaining({ LOG_PROMPTS: false }));
+  });
+
+  it('honors explicit prompt logging configuration', () => {
+    const baseEnv = {
+      BOT_TOKEN: 'token',
+      OPENAI_KEY: 'key',
+      DATABASE_URL: 'file:///tmp/test.db',
+      ADMIN_CHAT_ID: '1',
+    };
+
+    expect(
+      envSchema.parse({
+        ...baseEnv,
+        NODE_ENV: 'production',
         LOG_PROMPTS: 'true',
+      })
+    ).toEqual(expect.objectContaining({ LOG_PROMPTS: true }));
+    expect(
+      envSchema.parse({
+        ...baseEnv,
+        NODE_ENV: 'development',
+        LOG_PROMPTS: 'false',
       })
     ).toEqual(expect.objectContaining({ LOG_PROMPTS: false }));
   });

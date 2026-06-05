@@ -2,6 +2,13 @@ import { z } from 'zod';
 
 import type { Env } from '@/application/interfaces/env/EnvService';
 
+const booleanEnv = z.preprocess((value) => {
+  if (typeof value !== 'string') {
+    return value;
+  }
+  return value.toLowerCase() === 'true';
+}, z.boolean());
+
 export const envSchema = z
   .object({
     BOT_TOKEN: z.string().min(1),
@@ -10,7 +17,7 @@ export const envSchema = z
     LOG_LEVEL: z.string().default('debug'),
     ADMIN_CHAT_ID: z.coerce.number(),
     NODE_ENV: z.string().default('development'),
-    LOG_PROMPTS: z.coerce.boolean().default(false),
+    LOG_PROMPTS: booleanEnv.optional(),
     VOICE_WORKER_CONCURRENCY: z.coerce.number().int().positive().default(1),
     VOICE_WORKER_POLL_INTERVAL_MS: z.coerce
       .number()
@@ -37,5 +44,5 @@ export const envSchema = z
   })
   .transform((env) => ({
     ...env,
-    LOG_PROMPTS: env.NODE_ENV === 'development',
+    LOG_PROMPTS: env.LOG_PROMPTS ?? env.NODE_ENV === 'development',
   })) as z.ZodType<Env>;
