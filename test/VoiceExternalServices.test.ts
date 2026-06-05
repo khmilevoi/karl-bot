@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import type { OpenAiGateway } from '../src/application/interfaces/ai/OpenAiGateway';
 import type { TelegramDownloadedFile } from '../src/application/interfaces/voice/TelegramFileDownloadService';
 
 // --- Telegram file download ---
@@ -84,23 +85,16 @@ describe('FfmpegAudioConversionService', () => {
   });
 });
 
-// --- OpenAI transcription ---
-const { mockCreate } = vi.hoisted(() => ({
-  mockCreate: vi.fn().mockResolvedValue({ text: '  hello world  ' }),
-}));
-
-vi.mock('openai', () => ({
-  default: class {
-    audio = { transcriptions: { create: mockCreate } };
-  },
-}));
-
 describe('OpenAIAudioTranscriptionService', () => {
-  it('calls OpenAI audio transcriptions and returns trimmed text', async () => {
+  it('delegates audio transcription to the OpenAI gateway', async () => {
     const { OpenAIAudioTranscriptionService } =
       await import('../src/infrastructure/external/OpenAIAudioTranscriptionService');
+    const transcribeAudio = vi.fn().mockResolvedValue('hello world');
+    const gateway = {
+      transcribeAudio,
+    } as unknown as OpenAiGateway;
     const service = new OpenAIAudioTranscriptionService(
-      'api-key',
+      gateway,
       'gpt-4o-mini-transcribe'
     );
     const file = {
@@ -112,8 +106,9 @@ describe('OpenAIAudioTranscriptionService', () => {
     const result = await service.transcribe(file);
 
     expect(result).toBe('hello world');
-    expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ model: 'gpt-4o-mini-transcribe' })
-    );
+    expect(transcribeAudio).toHaveBeenCalledWith({
+      model: 'gpt-4o-mini-transcribe',
+      file,
+    });
   });
 });

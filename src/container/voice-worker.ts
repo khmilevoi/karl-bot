@@ -5,6 +5,10 @@ import {
   type EnvService,
 } from '@/application/interfaces/env/EnvService';
 import {
+  OPEN_AI_GATEWAY_ID,
+  type OpenAiGateway,
+} from '@/application/interfaces/ai/OpenAiGateway';
+import {
   VOICE_CONFIG_ID,
   type VoiceConfig,
 } from '@/application/voice/VoiceConfig';
@@ -42,12 +46,12 @@ export const registerVoiceWorker = (container: Container): void => {
 
   container
     .bind<AudioTranscriptionService>(AUDIO_TRANSCRIPTION_SERVICE_ID)
-    .toDynamicValue(
-      () =>
-        new OpenAIAudioTranscriptionService(
-          envService.env.OPENAI_KEY,
-          voiceConfig.transcriptionModel
-        )
-    )
+    .toDynamicValue(() => {
+      const gateway = container.get<OpenAiGateway>(OPEN_AI_GATEWAY_ID);
+      return new OpenAIAudioTranscriptionService(
+        gateway,
+        voiceConfig.transcriptionModel
+      );
+    })
     .inSingletonScope();
 };

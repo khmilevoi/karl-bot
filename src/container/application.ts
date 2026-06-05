@@ -515,8 +515,9 @@ export const register = (container: Container): void => {
     .bind<AudioTranscriptionService>(AUDIO_TRANSCRIPTION_SERVICE_ID)
     .toDynamicValue(() => {
       const voiceConfig = container.get<VoiceConfig>(VOICE_CONFIG_ID);
+      const gateway = container.get<OpenAiGateway>(OPEN_AI_GATEWAY_ID);
       return new OpenAIAudioTranscriptionService(
-        envService.env.OPENAI_KEY,
+        gateway,
         voiceConfig.transcriptionModel
       );
     })
