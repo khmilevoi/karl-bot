@@ -587,6 +587,10 @@ export class DefaultStatePatchApplicator implements StatePatchApplicator {
           }
           political ??= await this.loadPolitical(chatId, nowIso);
           const posId = this.nextPositionId(political.positions);
+          const posOrigin: PoliticalPosition['origin'] =
+            patch.requestedOrigin === 'bot_reflection'
+              ? 'bot_reflection'
+              : 'chat_discussion';
           const newPos: PoliticalPosition = {
             id: posId,
             topic: patch.topic,
@@ -596,12 +600,12 @@ export class DefaultStatePatchApplicator implements StatePatchApplicator {
             status: 'active',
             evidenceMessageIds: this.uniqueIds(patch.evidence.messageIds),
             opposingEvidenceMessageIds: [],
-            origin: 'chat_discussion',
+            origin: posOrigin,
             updatedAt: nowIso,
           };
           political.positions.push(newPos);
           political.influenceHistory.push({
-            source: 'chat_discussion',
+            source: posOrigin,
             summary: `${patch.topic}: ${patch.stance}`,
             evidenceMessageIds: this.uniqueIds(patch.evidence.messageIds),
             confidence: this.clampConfidence(patch.evidence.confidence),

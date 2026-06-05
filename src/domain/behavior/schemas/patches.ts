@@ -121,6 +121,10 @@ export const politicsAddPositionPatchSchema = z.object({
   topic: z.string(),
   stance: z.string(),
   requestedIntensity: intensitySchema,
+  requestedOrigin: z
+    .enum(['chat_discussion', 'bot_reflection'])
+    .nullable()
+    .default(null),
   evidence: patchEvidenceSchema,
 });
 
