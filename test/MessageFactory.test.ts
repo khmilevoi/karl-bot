@@ -50,6 +50,57 @@ describe('MessageFactory', () => {
     );
   });
 
+  it('fromUser carries reply target ids', () => {
+    const ctx = {
+      message: { text: 'привет', message_id: 10 },
+      from: { id: 7, first_name: 'Олег' },
+      chat: { id: -100 },
+    } as unknown as Context;
+    const metaWithReply: MessageContext = {
+      username: 'oleg',
+      fullName: 'Олег',
+      replyText: 'orig',
+      replyUsername: 'Анна',
+      replyToMessageId: 555,
+      replyToUserId: 42,
+    };
+
+    const stored = MessageFactory.fromUser(ctx, metaWithReply);
+
+    expect(stored.replyToMessageId).toBe(555);
+    expect(stored.replyToUserId).toBe(42);
+    expect(stored.replyText).toBe('orig');
+  });
+
+  it('fromUserContent (voice) carries reply context', () => {
+    const ctx = {
+      message: { message_id: 11 },
+      from: { id: 7, first_name: 'Олег' },
+      chat: { id: -100 },
+    } as unknown as Context;
+    const metaWithReply: MessageContext = {
+      username: 'oleg',
+      fullName: 'Олег',
+      replyText: 'orig',
+      replyUsername: 'Анна',
+      quoteText: 'q',
+      replyToMessageId: 555,
+      replyToUserId: 42,
+    };
+
+    const stored = MessageFactory.fromUserContent(
+      ctx,
+      metaWithReply,
+      'распознанный текст',
+      'voice'
+    );
+
+    expect(stored.replyToMessageId).toBe(555);
+    expect(stored.replyToUserId).toBe(42);
+    expect(stored.replyText).toBe('orig');
+    expect(stored.quoteText).toBe('q');
+  });
+
   it('fromAssistant uses ctx.me and chatId', () => {
     const ctx = {
       me: { username: 'bot' },
