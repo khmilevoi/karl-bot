@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { toOpenAiJsonSchema } from './jsonSchema';
-import { evolutionPatchSchema } from './patches';
+import { evolutionPatchSchema, truthPatchSchema } from './patches';
 import { messageIdSchema } from './primitives';
 import { politicalCompassSchema, speechStyleSchema } from './state';
 
@@ -28,6 +28,7 @@ export const userCompassSnapshotSchema = z.object({
 
 export const stateEvolutionDecisionSchema = z.object({
   evolutionPatches: z.array(evolutionPatchSchema),
+  truthPatches: z.array(truthPatchSchema),
   personalitySnapshot: personalitySnapshotSchema,
   userSnapshots: z.array(userProfileSnapshotSchema),
   botCompass: politicalCompassSchema,
