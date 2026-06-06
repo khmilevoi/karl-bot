@@ -120,6 +120,7 @@ describe('FactCheck pipeline e2e', () => {
         },
         metadata: {
           usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+          selectedModel: 'extract-model',
           escalated: false,
         },
         requestJson: {},
@@ -129,6 +130,7 @@ describe('FactCheck pipeline e2e', () => {
         result: { findings: [] },
         metadata: {
           usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+          selectedModel: 'verify-model',
           escalated: false,
         },
         requestJson: {},
@@ -209,7 +211,7 @@ describe('FactCheck pipeline e2e', () => {
             messageId: msgId,
             claimText: 'The sky is green',
             category: 'external_fact',
-            needsExternalSources: false,
+            needsExternalSources: true,
             riskLevel: 'low',
             whyCheckable: 'color of sky',
             contextMessageIds: [],
@@ -218,6 +220,7 @@ describe('FactCheck pipeline e2e', () => {
       },
       metadata: {
         usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+        selectedModel: 'extract-model',
         escalated: false,
       },
       requestJson: {},
@@ -235,13 +238,14 @@ describe('FactCheck pipeline e2e', () => {
             correctedFact: 'The sky is blue',
             explanation: 'Basic atmospheric optics',
             sourceRequirementsMet: true,
-            sourceIndexes: [],
+            sourceIndexes: [0],
             shouldNotifyImmediately: false,
           },
         ],
       },
       metadata: {
         usage: { promptTokens: 20, completionTokens: 10, totalTokens: 30 },
+        selectedModel: 'verify-model',
         escalated: false,
       },
       requestJson: {},
@@ -260,7 +264,16 @@ describe('FactCheck pipeline e2e', () => {
       } as unknown as ChatRepository,
       { extractClaims, verifyClaims } as unknown as FactCheckReasoningService,
       {
-        search: vi.fn().mockResolvedValue([]),
+        search: vi.fn().mockResolvedValue([
+          {
+            url: 'https://example.com/sky',
+            title: 'Sky color',
+            publisher: 'Example',
+            snippet: 'The sky commonly appears blue.',
+            reliability: 'media',
+            retrievedAt: '2026-06-06T00:00:00.000Z',
+          },
+        ]),
       } as unknown as SourceSearchService,
       factCheckRepo,
       factCheckRepo,
