@@ -24,6 +24,11 @@ export interface FactCheckStatsReportInput {
   categories: FactCheckStatsCategoryRow[];
 }
 
+export interface FactCheckDigestChunk {
+  text: string;
+  findingIds: number[];
+}
+
 const MAX_CHUNK_CHARS = 4000;
 
 export function escapeTelegramHtml(value: string): string {
@@ -90,46 +95,60 @@ export function formatHourlyDigest(
   findings: readonly FactCheckFindingWithSources[],
   config: FactCheckConfig
 ): string[] {
+  return formatHourlyDigestChunks(findings, config).map((c) => c.text);
+}
+
+export function formatHourlyDigestChunks(
+  findings: readonly FactCheckFindingWithSources[],
+  config: FactCheckConfig
+): FactCheckDigestChunk[] {
   if (findings.length === 0) return [];
 
   const confirmed = findings.filter((f) => f.status === 'confirmed');
   const uncertain = findings.filter((f) => f.status === 'uncertain');
 
-  const allParts: string[] = [];
+  const allParts: { text: string; findingId: number | null }[] = [];
 
   if (confirmed.length > 0) {
-    allParts.push('<b>Фактические ошибки</b>');
+    allParts.push({ text: '<b>Фактические ошибки</b>', findingId: null });
     for (const f of confirmed) {
-      allParts.push(
-        formatSingleFinding(f, config.maxDisplayedSourcesPerFinding)
-      );
+      allParts.push({
+        text: formatSingleFinding(f, config.maxDisplayedSourcesPerFinding),
+        findingId: f.id,
+      });
     }
   }
 
   if (uncertain.length > 0) {
-    allParts.push('<b>Возможные неточности</b>');
+    allParts.push({ text: '<b>Возможные неточности</b>', findingId: null });
     for (const f of uncertain) {
-      allParts.push(
-        formatSingleFinding(f, config.maxDisplayedSourcesPerFinding)
-      );
+      allParts.push({
+        text: formatSingleFinding(f, config.maxDisplayedSourcesPerFinding),
+        findingId: f.id,
+      });
     }
   }
 
   // Chunk by count and char budget
-  const chunks: string[] = [];
-  let current: string[] = [];
+  const chunks: FactCheckDigestChunk[] = [];
+  let current: { text: string; findingId: number | null }[] = [];
   let currentLen = 0;
   let countInChunk = 0;
 
   for (const part of allParts) {
-    const partLen = part.length + 2; // +2 for \n\n separator
+    const partLen = part.text.length + 2; // +2 for \n\n separator
     const wouldExceedCount =
-      !part.startsWith('<b>') &&
+      part.findingId != null &&
       countInChunk >= config.maxFindingsPerDigestMessage;
     const wouldExceedLen = currentLen + partLen > MAX_CHUNK_CHARS;
 
     if (current.length > 0 && (wouldExceedCount || wouldExceedLen)) {
-      chunks.push(current.join('\n\n'));
+      chunks.push({
+        text: current.map((p) => p.text).join('\n\n'),
+        findingIds: current
+          .map((p) => p.findingId)
+          .filter((id): id is number => id != null),
+      });
       current = [];
       currentLen = 0;
       countInChunk = 0;
@@ -137,11 +156,16 @@ export function formatHourlyDigest(
 
     current.push(part);
     currentLen += partLen;
-    if (!part.startsWith('<b>')) countInChunk++;
+    if (part.findingId != null) countInChunk++;
   }
 
   if (current.length > 0) {
-    chunks.push(current.join('\n\n'));
+    chunks.push({
+      text: current.map((p) => p.text).join('\n\n'),
+      findingIds: current
+        .map((p) => p.findingId)
+        .filter((id): id is number => id != null),
+    });
   }
 
   return chunks;

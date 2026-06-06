@@ -60,6 +60,7 @@ function makeFinding(id: number): FactCheckFindingWithSources {
     confidence: 0.9,
     sourcePolicy: 'reliable_or_media_allowed',
     sourceRequirementsMet: true,
+    shouldNotifyImmediately: false,
     messageUrl: null,
     immediateNotifiedAt: null,
     digestNotifiedAt: null,
@@ -172,6 +173,42 @@ describe('DefaultFactCheckNotifier', () => {
     expect(messenger.sendMessage).toHaveBeenCalled();
     expect(findingRepo.markDigestNotified).toHaveBeenCalledWith(
       [10, 11],
+      expect.any(String)
+    );
+  });
+
+  it('sendHourlyDigest marks only successfully sent chunks', async () => {
+    const findings = [makeFinding(20), makeFinding(21)];
+    const findingRepo = {
+      findUnsentDigest: vi.fn().mockResolvedValue(findings),
+      markDigestNotified: vi.fn().mockResolvedValue(undefined),
+    } as unknown as FactCheckFindingRepository;
+    const messenger = {
+      sendMessage: vi
+        .fn()
+        .mockResolvedValueOnce(99)
+        .mockRejectedValueOnce(new Error('network error')),
+    } as unknown as ChatMessenger;
+
+    const notifier = new DefaultFactCheckNotifier(
+      findingRepo,
+      {
+        ...makeConfig(),
+        maxFindingsPerDigestMessage: 1,
+      },
+      messenger,
+      {} as unknown as FactCheckStatsService,
+      makeLoggerFactory()
+    );
+
+    await notifier.sendHourlyDigest(1);
+
+    expect(findingRepo.markDigestNotified).toHaveBeenCalledWith(
+      [20],
+      expect.any(String)
+    );
+    expect(findingRepo.markDigestNotified).not.toHaveBeenCalledWith(
+      expect.arrayContaining([21]),
       expect.any(String)
     );
   });

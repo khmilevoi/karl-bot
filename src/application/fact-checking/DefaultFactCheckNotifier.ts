@@ -16,7 +16,7 @@ import {
 import { FACT_CHECK_CONFIG_ID, type FactCheckConfig } from './FactCheckConfig';
 import {
   formatImmediateFactCheck,
-  formatHourlyDigest,
+  formatHourlyDigestChunks,
 } from './FactCheckFormatter';
 import {
   FACT_CHECK_STATS_SERVICE_ID,
@@ -75,21 +75,28 @@ export class DefaultFactCheckNotifier implements FactCheckNotifier {
 
     if (findings.length === 0) return;
 
-    const chunks = formatHourlyDigest(findings, this.config);
+    const chunks = formatHourlyDigestChunks(findings, this.config);
     const now = new Date().toISOString();
+    const sentIds: number[] = [];
 
     for (const chunk of chunks) {
       try {
-        await this.messenger.sendMessage(chatId, chunk, {
+        await this.messenger.sendMessage(chatId, chunk.text, {
           parse_mode: 'HTML',
           disable_web_page_preview: true,
         });
+        sentIds.push(...chunk.findingIds);
       } catch (err) {
-        this.logger.warn({ err }, 'Digest chunk send failed');
+        this.logger.warn(
+          { err, findingIds: chunk.findingIds },
+          'Digest chunk send failed'
+        );
       }
     }
 
-    const ids = findings.map((f) => f.id);
+    const ids = [...new Set(sentIds)];
+    if (ids.length === 0) return;
+
     await this.findingRepo
       .markDigestNotified(ids, now)
       .catch((err: unknown) => {

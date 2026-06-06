@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   escapeTelegramHtml,
+  formatHourlyDigestChunks,
   formatHourlyDigest,
   formatImmediateFactCheck,
 } from '../src/application/fact-checking/FactCheckFormatter';
@@ -33,6 +34,7 @@ function makeFinding(
     confidence: 0.9,
     sourcePolicy: 'reliable_or_media_allowed',
     sourceRequirementsMet: true,
+    shouldNotifyImmediately: false,
     messageUrl: null,
     immediateNotifiedAt: null,
     digestNotifiedAt: null,
@@ -124,6 +126,23 @@ describe('FactCheckFormatter', () => {
       ];
       const chunks = formatHourlyDigest(findings, smallConfig);
       expect(chunks.length).toBeGreaterThan(1);
+    });
+
+    it('returns finding ids for each digest chunk', () => {
+      const smallConfig: FactCheckConfig = {
+        ...defaultConfig,
+        maxFindingsPerDigestMessage: 1,
+      };
+      const chunks = formatHourlyDigestChunks(
+        [
+          makeFinding('confirmed', { id: 10 }),
+          makeFinding('confirmed', { id: 11, normalizedClaimKey: 'k2' }),
+        ],
+        smallConfig
+      );
+
+      expect(chunks.map((c) => c.findingIds)).toEqual([[10], [11]]);
+      expect(formatHourlyDigest([], defaultConfig)).toEqual([]);
     });
 
     it('splits chunk when content would exceed ~4000 chars', () => {
