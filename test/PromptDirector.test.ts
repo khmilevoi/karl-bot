@@ -100,6 +100,26 @@ function createBuilder() {
       calls.push('addUserPoliticalProfiles');
       return builder;
     }),
+    addFactCheckClaimExtractionSystem: vi.fn(() => {
+      calls.push('addFactCheckClaimExtractionSystem');
+      return builder;
+    }),
+    addFactCheckVerificationSystem: vi.fn(() => {
+      calls.push('addFactCheckVerificationSystem');
+      return builder;
+    }),
+    addFactCheckMessages: vi.fn(() => {
+      calls.push('addFactCheckMessages');
+      return builder;
+    }),
+    addFactCheckCandidates: vi.fn(() => {
+      calls.push('addFactCheckCandidates');
+      return builder;
+    }),
+    addFactCheckSources: vi.fn(() => {
+      calls.push('addFactCheckSources');
+      return builder;
+    }),
     build: vi.fn(async () => {
       calls.push('build');
       return 'result';
@@ -244,5 +264,69 @@ describe('PromptDirector', () => {
       'addChatUsers',
       'build',
     ]);
+  });
+
+  it('creates fact check extraction prompt', async () => {
+    const builder = createBuilder();
+    const factory: PromptBuilderFactory = () => builder;
+    const director = new PromptDirector(factory);
+    const batchMsg: ChatMessage = { role: 'user', content: 'msg', messageId: 1 };
+    await director.createFactCheckExtractionPrompt({
+      batchMessages: [batchMsg],
+      contextMessages: [],
+    });
+
+    expect(builder.calls).toEqual([
+      'addFactCheckClaimExtractionSystem',
+      'addFactCheckMessages',
+      'build',
+    ]);
+    expect(builder.addFactCheckMessages).toHaveBeenCalledWith({
+      batchMessages: [batchMsg],
+      contextMessages: [],
+    });
+  });
+
+  it('creates fact check verification prompt', async () => {
+    const builder = createBuilder();
+    const factory: PromptBuilderFactory = () => builder;
+    const director = new PromptDirector(factory);
+    const batchMsg: ChatMessage = { role: 'user', content: 'msg', messageId: 1 };
+    const candidate = {
+      messageId: 1,
+      claimText: 'claim',
+      category: 'external_fact' as const,
+      needsExternalSources: true,
+      riskLevel: 'low' as const,
+      whyCheckable: 'reason',
+      contextMessageIds: [],
+    };
+    const source = {
+      url: 'https://example.com',
+      title: 'Source',
+      publisher: null,
+      snippet: 'text',
+      reliability: 'authoritative',
+    };
+    await director.createFactCheckVerificationPrompt({
+      candidates: [candidate],
+      batchMessages: [batchMsg],
+      contextMessages: [],
+      sources: [source],
+    });
+
+    expect(builder.calls).toEqual([
+      'addFactCheckVerificationSystem',
+      'addFactCheckMessages',
+      'addFactCheckCandidates',
+      'addFactCheckSources',
+      'build',
+    ]);
+    expect(builder.addFactCheckCandidates).toHaveBeenCalledWith({
+      candidates: [candidate],
+    });
+    expect(builder.addFactCheckSources).toHaveBeenCalledWith({
+      sources: [source],
+    });
   });
 });

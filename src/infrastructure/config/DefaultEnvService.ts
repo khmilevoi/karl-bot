@@ -71,6 +71,10 @@ export class DefaultEnvService implements EnvService {
       stateEvolutionSystem: 'prompts/state_evolution_system_prompt.md',
       personalitySignals: 'prompts/personality_signals_prompt.md',
       userPoliticalProfiles: 'prompts/user_political_profiles_prompt.md',
+      factCheckClaimExtractionSystem:
+        'prompts/fact_check_claim_extraction_system_prompt.md',
+      factCheckVerificationSystem:
+        'prompts/fact_check_verification_system_prompt.md',
     };
   }
 

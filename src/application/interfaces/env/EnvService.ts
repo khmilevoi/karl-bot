@@ -57,6 +57,8 @@ export interface PromptFiles {
   stateEvolutionSystem: string;
   personalitySignals: string;
   userPoliticalProfiles: string;
+  factCheckClaimExtractionSystem: string;
+  factCheckVerificationSystem: string;
 }
 
 export interface SingleModelSlot {

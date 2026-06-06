@@ -24,6 +24,8 @@ describe('PromptBuilder', () => {
       userProfiles: 'profiles:{{userProfilesJson}}',
       truths: 'truths:{{truthsJson}}',
       behaviorMessages: '{{behaviorMessages}}',
+      factCheckClaimExtractionSystem: 'extraction-system',
+      factCheckVerificationSystem: 'verification-system',
     };
     templates = {
       loadTemplate: vi.fn((name: string) => Promise.resolve(map[name])),
@@ -161,6 +163,84 @@ describe('PromptBuilder', () => {
     expect(result[0].content).toContain('[GATE_CONTEXT]');
     expect(result[0].content).toContain('[BATCH]');
     expect(result[0].content).toContain('[source:text]');
+  });
+
+  it('adds fact check extraction system message', async () => {
+    const builder = new PromptBuilder(templates);
+    const result = await builder.addFactCheckClaimExtractionSystem().build();
+    expect(result).toEqual([{ role: 'system', content: 'extraction-system' }]);
+  });
+
+  it('adds fact check verification system message', async () => {
+    const builder = new PromptBuilder(templates);
+    const result = await builder.addFactCheckVerificationSystem().build();
+    expect(result).toEqual([{ role: 'system', content: 'verification-system' }]);
+  });
+
+  it('adds fact check messages with context and batch sections', async () => {
+    const builder = new PromptBuilder(templates);
+    const batchMsg: ChatMessage = {
+      role: 'user',
+      content: 'batch content',
+      messageId: 10,
+      username: 'alice',
+    };
+    const contextMsg: ChatMessage = {
+      role: 'user',
+      content: 'context content',
+      messageId: 5,
+      username: 'bob',
+    };
+    const result = await builder
+      .addFactCheckMessages({ batchMessages: [batchMsg], contextMessages: [contextMsg] })
+      .build();
+    expect(result).toHaveLength(1);
+    expect(result[0].role).toBe('user');
+    expect(result[0].content).toContain('Context messages');
+    expect(result[0].content).toContain('Batch messages');
+    expect(result[0].content).toContain('"id":5');
+    expect(result[0].content).toContain('"id":10');
+  });
+
+  it('adds fact check candidates', async () => {
+    const builder = new PromptBuilder(templates);
+    const claim = {
+      messageId: 1,
+      claimText: 'Earth is flat',
+      category: 'external_fact' as const,
+      needsExternalSources: true,
+      riskLevel: 'low' as const,
+      whyCheckable: 'factual geography claim',
+      contextMessageIds: [],
+    };
+    const result = await builder
+      .addFactCheckCandidates({ candidates: [claim] })
+      .build();
+    expect(result[0].content).toContain('Earth is flat');
+  });
+
+  it('adds fact check sources', async () => {
+    const builder = new PromptBuilder(templates);
+    const source = {
+      url: 'https://example.com',
+      title: 'Example',
+      publisher: null,
+      snippet: 'snippet text',
+      reliability: 'authoritative',
+    };
+    const result = await builder
+      .addFactCheckSources({ sources: [source] })
+      .build();
+    expect(result[0].content).toContain('https://example.com');
+    expect(result[0].content).toContain('snippet text');
+  });
+
+  it('skips fact check sources when empty', async () => {
+    const builder = new PromptBuilder(templates);
+    const result = await builder
+      .addFactCheckSources({ sources: [] })
+      .build();
+    expect(result).toHaveLength(0);
   });
 
   it('clears steps after build', async () => {
