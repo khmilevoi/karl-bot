@@ -221,6 +221,15 @@ import { TopicOfDaySchedulerImpl } from '../application/use-cases/scheduler/Topi
 import { RepositorySummaryService } from '../application/use-cases/summaries/RepositorySummaryService';
 import { DefaultContentAiService } from '../application/use-cases/ai/DefaultContentAiService';
 import { DefaultBehaviorAiService } from '../application/behavior/DefaultBehaviorAiService';
+import {
+  FACT_CHECK_CONFIG_ID,
+  type FactCheckConfig,
+} from '../application/fact-checking/FactCheckConfig';
+import { DefaultFactCheckReasoningService } from '../application/fact-checking/DefaultFactCheckReasoningService';
+import {
+  FACT_CHECK_REASONING_SERVICE_ID,
+  type FactCheckReasoningService,
+} from '../application/fact-checking/FactCheckReasoningService';
 import { DefaultEnvService } from '../infrastructure/config/DefaultEnvService';
 import { TestEnvService } from '../infrastructure/config/TestEnvService';
 import { OpenAiSdkGateway } from '../infrastructure/external/OpenAiSdkGateway';
@@ -261,6 +270,10 @@ export const register = (container: Container): void => {
   container
     .bind<VoiceConfig>(VOICE_CONFIG_ID)
     .toConstantValue(envService.getVoiceConfig());
+
+  container
+    .bind<FactCheckConfig>(FACT_CHECK_CONFIG_ID)
+    .toConstantValue(envService.getFactCheckConfig());
 
   container
     .bind<AiGateway>(AI_GATEWAY_ID)
@@ -328,6 +341,11 @@ export const register = (container: Container): void => {
   container
     .bind<BehaviorAiService>(BEHAVIOR_AI_SERVICE_ID)
     .to(DefaultBehaviorAiService)
+    .inSingletonScope();
+
+  container
+    .bind<FactCheckReasoningService>(FACT_CHECK_REASONING_SERVICE_ID)
+    .to(DefaultFactCheckReasoningService)
     .inSingletonScope();
 
   container
