@@ -1,14 +1,13 @@
 import { mkdtempSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
-import { open } from 'sqlite';
-import sqlite3 from 'sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SQLiteDbProviderImpl } from '../src/infrastructure/persistence/sqlite/DbProvider';
 import { SQLiteFactCheckMessageWindowRepository } from '../src/infrastructure/persistence/sqlite/SQLiteFactCheckMessageWindowRepository';
 import { TestEnvService } from '../src/infrastructure/config/TestEnvService';
 import type { LoggerFactory } from '../src/application/interfaces/logging/LoggerFactory';
+import type { SqlDatabase } from '../src/domain/repositories/DbProvider';
 
 const createLoggerFactory = (): LoggerFactory =>
   ({
@@ -25,12 +24,12 @@ const createLoggerFactory = (): LoggerFactory =>
 
 describe('SQLiteFactCheckMessageWindowRepository', () => {
   let repo: SQLiteFactCheckMessageWindowRepository;
-  let dbFile: string;
+  let db: SqlDatabase;
 
   beforeEach(async () => {
     vi.resetModules();
     const dir = mkdtempSync(path.join(tmpdir(), 'fact-msg-window-'));
-    dbFile = path.join(dir, 'test.db');
+    const dbFile = path.join(dir, 'test.db');
     process.env.DATABASE_URL = `file://${dbFile}`;
 
     const { migrateUp } = await import('../src/migrate');
@@ -38,6 +37,7 @@ describe('SQLiteFactCheckMessageWindowRepository', () => {
 
     const env = new TestEnvService();
     const provider = new SQLiteDbProviderImpl(env, createLoggerFactory());
+    db = await provider.get();
     repo = new SQLiteFactCheckMessageWindowRepository(provider);
   });
 
@@ -49,13 +49,11 @@ describe('SQLiteFactCheckMessageWindowRepository', () => {
     chatId: number,
     status: 'ready' | 'pending' | 'failed' = 'ready'
   ): Promise<number> {
-    const db = await open({ filename: dbFile, driver: sqlite3.Database });
     const result = (await db.run(
       "INSERT INTO messages (chat_id, message_id, role, content, user_id, source_type, processing_status) VALUES (?, NULL, 'user', 'hi', 0, 'text', ?)",
       chatId,
       status
     )) as { lastID?: number };
-    await db.close();
     return result.lastID ?? 0;
   }
 
@@ -93,12 +91,10 @@ describe('SQLiteFactCheckMessageWindowRepository', () => {
     await insertMessage(1, 'ready');   // id=3
 
     // Simulate id=2 transcribed to ready
-    const db = await open({ filename: dbFile, driver: sqlite3.Database });
     await db.run(
       "UPDATE messages SET processing_status = 'ready' WHERE id = ?",
       2
     );
-    await db.close();
 
     const secondPass = await repo.findReadyByChatIdAfterId(1, 1, 10);
     expect(secondPass.map((m) => m.id)).toEqual([2, 3]);
