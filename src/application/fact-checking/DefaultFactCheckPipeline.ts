@@ -51,7 +51,10 @@ import {
   getSourcePolicyForCategory,
 } from './FactCheckSourcePolicy';
 import { buildTelegramMessageUrl } from './FactCheckMessageLinks';
-import type { ExtractedClaim } from '@/domain/fact-checking/FactCheckTypes';
+import type {
+  ExtractedClaim,
+  VerificationFinding,
+} from '@/domain/fact-checking/FactCheckTypes';
 import type { FactCheckVerificationPromptContext } from './FactCheckPromptContext';
 
 @injectable()
@@ -161,12 +164,20 @@ export class DefaultFactCheckPipeline implements FactCheckPipeline {
         const message = batchById.get(finding.messageId);
         if (message == null) continue;
 
-        const category =
-          claims.find((c) => c.messageId === finding.messageId)?.category ??
-          'external_fact';
-        const severity =
-          claims.find((c) => c.messageId === finding.messageId)?.riskLevel ??
-          'low';
+        const claim = this.findClaimForFinding(finding, claims);
+        if (claim == null) {
+          this.logger.warn(
+            {
+              messageId: finding.messageId,
+              claimText: finding.claimText,
+            },
+            'Skipping fact-check finding without exact extracted claim match'
+          );
+          continue;
+        }
+
+        const category = claim.category;
+        const severity = claim.riskLevel;
 
         const sourcePolicy = getSourcePolicyForCategory(category);
         const findingSources = finding.sourceIndexes
@@ -348,6 +359,22 @@ export class DefaultFactCheckPipeline implements FactCheckPipeline {
       default:
         return true;
     }
+  }
+
+  private findClaimForFinding(
+    finding: VerificationFinding,
+    claims: ExtractedClaim[]
+  ): ExtractedClaim | null {
+    const sameMessage = claims.filter((c) => c.messageId === finding.messageId);
+    if (sameMessage.length === 0) return null;
+
+    const findingKey = normalizeClaimKey(finding.claimText);
+    const exact = sameMessage.find(
+      (c) => normalizeClaimKey(c.claimText) === findingKey
+    );
+    if (exact != null) return exact;
+
+    return sameMessage.length === 1 ? sameMessage[0] : null;
   }
 
   private buildDisplayName(message: ChatMessage): string {
