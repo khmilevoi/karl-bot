@@ -174,25 +174,30 @@ describe('PromptBuilder', () => {
   it('adds fact check verification system message', async () => {
     const builder = new PromptBuilder(templates);
     const result = await builder.addFactCheckVerificationSystem().build();
-    expect(result).toEqual([{ role: 'system', content: 'verification-system' }]);
+    expect(result).toEqual([
+      { role: 'system', content: 'verification-system' },
+    ]);
   });
 
   it('adds fact check messages with context and batch sections', async () => {
     const builder = new PromptBuilder(templates);
     const batchMsg: ChatMessage = {
+      id: 10,
       role: 'user',
       content: 'batch content',
-      messageId: 10,
       username: 'alice',
     };
     const contextMsg: ChatMessage = {
+      id: 5,
       role: 'user',
       content: 'context content',
-      messageId: 5,
       username: 'bob',
     };
     const result = await builder
-      .addFactCheckMessages({ batchMessages: [batchMsg], contextMessages: [contextMsg] })
+      .addFactCheckMessages({
+        batchMessages: [batchMsg],
+        contextMessages: [contextMsg],
+      })
       .build();
     expect(result).toHaveLength(1);
     expect(result[0].role).toBe('user');
@@ -237,9 +242,7 @@ describe('PromptBuilder', () => {
 
   it('skips fact check sources when empty', async () => {
     const builder = new PromptBuilder(templates);
-    const result = await builder
-      .addFactCheckSources({ sources: [] })
-      .build();
+    const result = await builder.addFactCheckSources({ sources: [] }).build();
     expect(result).toHaveLength(0);
   });
 

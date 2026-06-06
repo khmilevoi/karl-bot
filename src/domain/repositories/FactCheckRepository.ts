@@ -1,8 +1,6 @@
 import type { ServiceIdentifier } from 'inversify';
 
-import type {
-  FactCheckFindingWithSources,
-} from '@/domain/entities/FactCheckFindingEntity';
+import type { FactCheckFindingWithSources } from '@/domain/entities/FactCheckFindingEntity';
 import type {
   FactCheckCategory,
   FactCheckSeverity,

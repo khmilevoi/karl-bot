@@ -23,7 +23,15 @@ import { TestEnvService } from '../src/infrastructure/config/TestEnvService';
 import type { Database } from 'sqlite';
 
 function makeLoggerFactory(): LoggerFactory {
-  const logger = { debug() {}, info() {}, warn() {}, error() {}, child() { return this; } };
+  const logger = {
+    debug() {},
+    info() {},
+    warn() {},
+    error() {},
+    child() {
+      return this;
+    },
+  };
   return { create: () => logger } as unknown as LoggerFactory;
 }
 
@@ -48,7 +56,13 @@ function makeConfig(): FactCheckConfig {
 
 async function insertMessage(
   db: Database,
-  opts: { chatId: number; content: string; role?: string; messageId?: number; userId?: number }
+  opts: {
+    chatId: number;
+    content: string;
+    role?: string;
+    messageId?: number;
+    userId?: number;
+  }
 ): Promise<number> {
   const result = await db.run(
     `INSERT INTO messages (chat_id, user_id, role, content, is_active, processing_status, message_id)
@@ -104,13 +118,19 @@ describe('FactCheck pipeline e2e', () => {
         result: {
           claims: [],
         },
-        metadata: { usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 }, escalated: false },
+        metadata: {
+          usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+          escalated: false,
+        },
         requestJson: {},
         responseJson: {},
       }),
       verifyClaims: vi.fn().mockResolvedValue({
         result: { findings: [] },
-        metadata: { usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 }, escalated: false },
+        metadata: {
+          usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+          escalated: false,
+        },
         requestJson: {},
         responseJson: {},
       }),
@@ -142,7 +162,11 @@ describe('FactCheck pipeline e2e', () => {
   it('completes run and creates a run record when messages exist', async () => {
     const chatId = 1;
     await insertMessage(db, { chatId, content: 'Hello world', messageId: 101 });
-    await insertMessage(db, { chatId, content: 'Another message', messageId: 102 });
+    await insertMessage(db, {
+      chatId,
+      content: 'Another message',
+      messageId: 102,
+    });
 
     const result = await pipeline.runHourly(chatId);
 
@@ -154,7 +178,11 @@ describe('FactCheck pipeline e2e', () => {
 
   it('advances the cursor after a successful run', async () => {
     const chatId = 2;
-    const msgId = await insertMessage(db, { chatId, content: 'Test message', messageId: 201 });
+    const msgId = await insertMessage(db, {
+      chatId,
+      content: 'Test message',
+      messageId: 201,
+    });
 
     const first = await pipeline.runHourly(chatId);
     expect(first.outcome).toBe('completed');
@@ -168,40 +196,54 @@ describe('FactCheck pipeline e2e', () => {
 
   it('persists a confirmed finding from AI output', async () => {
     const chatId = 3;
-    const msgId = await insertMessage(db, { chatId, content: 'The sky is green', messageId: 301 });
+    const msgId = await insertMessage(db, {
+      chatId,
+      content: 'The sky is green',
+      messageId: 301,
+    });
 
     const extractClaims = vi.fn().mockResolvedValue({
       result: {
-        claims: [{
-          messageId: msgId,
-          claimText: 'The sky is green',
-          category: 'external_fact',
-          needsExternalSources: false,
-          riskLevel: 'low',
-          whyCheckable: 'color of sky',
-          contextMessageIds: [],
-        }],
+        claims: [
+          {
+            messageId: msgId,
+            claimText: 'The sky is green',
+            category: 'external_fact',
+            needsExternalSources: false,
+            riskLevel: 'low',
+            whyCheckable: 'color of sky',
+            contextMessageIds: [],
+          },
+        ],
       },
-      metadata: { usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 }, escalated: false },
+      metadata: {
+        usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+        escalated: false,
+      },
       requestJson: {},
       responseJson: {},
     });
 
     const verifyClaims = vi.fn().mockResolvedValue({
       result: {
-        findings: [{
-          messageId: msgId,
-          claimText: 'The sky is green',
-          status: 'confirmed',
-          confidence: 0.95,
-          correctedFact: 'The sky is blue',
-          explanation: 'Basic atmospheric optics',
-          sourceRequirementsMet: true,
-          sourceIndexes: [],
-          shouldNotifyImmediately: false,
-        }],
+        findings: [
+          {
+            messageId: msgId,
+            claimText: 'The sky is green',
+            status: 'confirmed',
+            confidence: 0.95,
+            correctedFact: 'The sky is blue',
+            explanation: 'Basic atmospheric optics',
+            sourceRequirementsMet: true,
+            sourceIndexes: [],
+            shouldNotifyImmediately: false,
+          },
+        ],
       },
-      metadata: { usage: { promptTokens: 20, completionTokens: 10, totalTokens: 30 }, escalated: false },
+      metadata: {
+        usage: { promptTokens: 20, completionTokens: 10, totalTokens: 30 },
+        escalated: false,
+      },
       requestJson: {},
       responseJson: {},
     });
@@ -213,12 +255,20 @@ describe('FactCheck pipeline e2e', () => {
       makeConfig(),
       windowRepo,
       cursorRepo,
-      { findById: vi.fn().mockResolvedValue(undefined) } as unknown as ChatRepository,
+      {
+        findById: vi.fn().mockResolvedValue(undefined),
+      } as unknown as ChatRepository,
       { extractClaims, verifyClaims } as unknown as FactCheckReasoningService,
-      { search: vi.fn().mockResolvedValue([]) } as unknown as SourceSearchService,
+      {
+        search: vi.fn().mockResolvedValue([]),
+      } as unknown as SourceSearchService,
       factCheckRepo,
       factCheckRepo,
-      { sendImmediate: vi.fn().mockResolvedValue(undefined), sendHourlyDigest: vi.fn().mockResolvedValue(undefined), sendStats: vi.fn() } as unknown as FactCheckNotifier,
+      {
+        sendImmediate: vi.fn().mockResolvedValue(undefined),
+        sendHourlyDigest: vi.fn().mockResolvedValue(undefined),
+        sendStats: vi.fn(),
+      } as unknown as FactCheckNotifier,
       makeLoggerFactory()
     );
 
@@ -238,7 +288,11 @@ describe('FactCheck pipeline e2e', () => {
 
   it('does not re-process messages below the watermark', async () => {
     const chatId = 4;
-    await insertMessage(db, { chatId, content: 'First message', messageId: 401 });
+    await insertMessage(db, {
+      chatId,
+      content: 'First message',
+      messageId: 401,
+    });
 
     const first = await pipeline.runHourly(chatId);
     expect(first.outcome).toBe('completed');

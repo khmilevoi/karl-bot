@@ -27,7 +27,9 @@ export class MessageFactory {
     const chatTitle =
       ctx.chat && 'title' in ctx.chat ? ctx.chat.title : undefined;
     const chatUsername =
-      ctx.chat && 'username' in ctx.chat && typeof ctx.chat.username === 'string'
+      ctx.chat &&
+      'username' in ctx.chat &&
+      typeof ctx.chat.username === 'string'
         ? ctx.chat.username
         : undefined;
 
@@ -72,7 +74,9 @@ export class MessageFactory {
     const chatTitle =
       ctx.chat && 'title' in ctx.chat ? ctx.chat.title : undefined;
     const chatUsername =
-      ctx.chat && 'username' in ctx.chat && typeof ctx.chat.username === 'string'
+      ctx.chat &&
+      'username' in ctx.chat &&
+      typeof ctx.chat.username === 'string'
         ? ctx.chat.username
         : undefined;
 

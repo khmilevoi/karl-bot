@@ -70,4 +70,6 @@ export const factVerificationResultJsonSchema = toOpenAiJsonSchema(
 );
 
 export type ClaimExtractionResult = z.infer<typeof claimExtractionResultSchema>;
-export type FactVerificationResult = z.infer<typeof factVerificationResultSchema>;
+export type FactVerificationResult = z.infer<
+  typeof factVerificationResultSchema
+>;

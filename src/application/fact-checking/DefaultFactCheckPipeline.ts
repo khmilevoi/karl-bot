@@ -26,10 +26,7 @@ import {
   LOGGER_FACTORY_ID,
   type LoggerFactory,
 } from '@/application/interfaces/logging/LoggerFactory';
-import {
-  FACT_CHECK_CONFIG_ID,
-  type FactCheckConfig,
-} from './FactCheckConfig';
+import { FACT_CHECK_CONFIG_ID, type FactCheckConfig } from './FactCheckConfig';
 import {
   FACT_CHECK_REASONING_SERVICE_ID,
   type FactCheckReasoningService,
@@ -264,11 +261,13 @@ export class DefaultFactCheckPipeline implements FactCheckPipeline {
       };
     } catch (err) {
       this.logger.error({ err }, 'FactCheck pipeline failed for chat');
-      await this.runRepo.failRun({
-        runId,
-        finishedAt: new Date().toISOString(),
-        errorMessage: err instanceof Error ? err.message : String(err),
-      }).catch(() => undefined);
+      await this.runRepo
+        .failRun({
+          runId,
+          finishedAt: new Date().toISOString(),
+          errorMessage: err instanceof Error ? err.message : String(err),
+        })
+        .catch(() => undefined);
       return {
         chatId,
         outcome: 'failed',
@@ -283,19 +282,26 @@ export class DefaultFactCheckPipeline implements FactCheckPipeline {
     chatId: number,
     _period: 'daily' | 'weekly' | 'monthly'
   ): Promise<FactCheckRunResult> {
-    void this.notifier
-      .sendStats(chatId, _period)
-      .catch((err: unknown) => {
-        this.logger.warn({ err }, 'Stats notification failed');
-      });
-    return { chatId, outcome: 'completed', runId: null, processedMessages: 0, persistedFindings: 0 };
+    void this.notifier.sendStats(chatId, _period).catch((err: unknown) => {
+      this.logger.warn({ err }, 'Stats notification failed');
+    });
+    return {
+      chatId,
+      outcome: 'completed',
+      runId: null,
+      processedMessages: 0,
+      persistedFindings: 0,
+    };
   }
 
   private async fetchSources(
     claims: ExtractedClaim[]
   ): Promise<SourceSearchResult[]> {
     const needingSearch = claims.filter((c) => c.needsExternalSources);
-    const capped = needingSearch.slice(0, this.config.maxSourceSearchesPerBatch);
+    const capped = needingSearch.slice(
+      0,
+      this.config.maxSourceSearchesPerBatch
+    );
     const allSources: SourceSearchResult[] = [];
 
     for (const claim of capped) {
@@ -321,7 +327,8 @@ export class DefaultFactCheckPipeline implements FactCheckPipeline {
     switch (sourcePolicy) {
       case 'primary_required':
         return sources.some(
-          (s) => s.reliability === 'primary' || s.reliability === 'authoritative'
+          (s) =>
+            s.reliability === 'primary' || s.reliability === 'authoritative'
         );
       case 'reliable_or_media_allowed':
         return sources.length > 0;
@@ -344,6 +351,12 @@ export class DefaultFactCheckPipeline implements FactCheckPipeline {
     chatId: number,
     outcome: FactCheckRunOutcome
   ): FactCheckRunResult {
-    return { chatId, outcome, runId: null, processedMessages: 0, persistedFindings: 0 };
+    return {
+      chatId,
+      outcome,
+      runId: null,
+      processedMessages: 0,
+      persistedFindings: 0,
+    };
   }
 }

@@ -99,7 +99,9 @@ function classifyReliability(url: string): FactCheckSourceReliability {
       'wikipedia.org',
       'britannica.com',
     ];
-    if (authoritative.some((d) => hostname === d || hostname.endsWith(`.${d}`))) {
+    if (
+      authoritative.some((d) => hostname === d || hostname.endsWith(`.${d}`))
+    ) {
       return 'authoritative';
     }
     const media = [
@@ -160,9 +162,12 @@ export class DefaultFactCheckSourceSearchService implements SourceSearchService 
     const now = new Date().toISOString();
 
     return citations.slice(0, request.maxSources).map((citation) => {
-      const snippet = citation.endIndex > citation.startIndex
-        ? result.outputText.slice(citation.startIndex, citation.endIndex).trim()
-        : '';
+      const snippet =
+        citation.endIndex > citation.startIndex
+          ? result.outputText
+              .slice(citation.startIndex, citation.endIndex)
+              .trim()
+          : '';
       return {
         url: citation.url,
         title: citation.title || citation.url,

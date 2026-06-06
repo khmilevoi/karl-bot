@@ -57,7 +57,8 @@ function formatSingleFinding(
   finding: FactCheckFindingWithSources,
   maxDisplayed: number
 ): string {
-  const label = finding.status === 'confirmed' ? '🔴 Подтверждено' : '🟡 Вероятно';
+  const label =
+    finding.status === 'confirmed' ? '🔴 Подтверждено' : '🟡 Вероятно';
   const lines = [
     `${label}`,
     `<blockquote>${escapeTelegramHtml(finding.originalQuote)}</blockquote>`,
@@ -99,14 +100,18 @@ export function formatHourlyDigest(
   if (confirmed.length > 0) {
     allParts.push('<b>Фактические ошибки</b>');
     for (const f of confirmed) {
-      allParts.push(formatSingleFinding(f, config.maxDisplayedSourcesPerFinding));
+      allParts.push(
+        formatSingleFinding(f, config.maxDisplayedSourcesPerFinding)
+      );
     }
   }
 
   if (uncertain.length > 0) {
     allParts.push('<b>Возможные неточности</b>');
     for (const f of uncertain) {
-      allParts.push(formatSingleFinding(f, config.maxDisplayedSourcesPerFinding));
+      allParts.push(
+        formatSingleFinding(f, config.maxDisplayedSourcesPerFinding)
+      );
     }
   }
 

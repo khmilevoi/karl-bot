@@ -28,10 +28,9 @@ export class SQLiteChatRepository implements ChatRepository {
       chat_id: number;
       title: string | null;
       username: string | null;
-    }>(
-      'SELECT chat_id, title, username FROM chats WHERE chat_id = ?',
-      chatId
-    );
-    return row ? new ChatEntity(row.chat_id, row.title, row.username) : undefined;
+    }>('SELECT chat_id, title, username FROM chats WHERE chat_id = ?', chatId);
+    return row
+      ? new ChatEntity(row.chat_id, row.title, row.username)
+      : undefined;
   }
 }

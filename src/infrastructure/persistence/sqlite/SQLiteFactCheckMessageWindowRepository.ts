@@ -13,9 +13,7 @@ import {
 } from '@/infrastructure/persistence/sqlite/SQLiteMessageRepository';
 
 @injectable()
-export class SQLiteFactCheckMessageWindowRepository
-  implements FactCheckMessageWindowRepository
-{
+export class SQLiteFactCheckMessageWindowRepository implements FactCheckMessageWindowRepository {
   constructor(
     @inject(DB_PROVIDER_ID) private readonly dbProvider: DbProvider
   ) {}

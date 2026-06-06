@@ -33,7 +33,8 @@ describe('fact-check structured output schemas', () => {
           claimText: 'The euro was introduced in 2000.',
           status: 'confirmed',
           confidence: 0.91,
-          correctedFact: 'Euro banknotes and coins entered circulation in 2002.',
+          correctedFact:
+            'Euro banknotes and coins entered circulation in 2002.',
           explanation:
             'The claim confuses accounting introduction with cash circulation.',
           sourceRequirementsMet: true,
@@ -48,7 +49,9 @@ describe('fact-check structured output schemas', () => {
   it('emits strict OpenAI-compatible JSON schemas', () => {
     expect(claimExtractionResultJsonSchema.strict).toBe(true);
     expect(factVerificationResultJsonSchema.strict).toBe(true);
-    expect(JSON.stringify(claimExtractionResultJsonSchema)).not.toContain('"maximum"');
+    expect(JSON.stringify(claimExtractionResultJsonSchema)).not.toContain(
+      '"maximum"'
+    );
 
     const assertStrictObjects = (node: unknown): void => {
       if (Array.isArray(node)) {

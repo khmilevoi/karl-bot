@@ -157,7 +157,9 @@ export class MainService {
     await Promise.all([
       this.messenger.launch().catch((error) => this.logger.error(error)),
       this.scheduler.start().catch((error) => this.logger.error(error)),
-      this.factCheckScheduler.start().catch((error) => this.logger.error(error)),
+      this.factCheckScheduler
+        .start()
+        .catch((error) => this.logger.error(error)),
     ]);
   }
 

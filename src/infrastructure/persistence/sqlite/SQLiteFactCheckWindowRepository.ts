@@ -15,9 +15,7 @@ interface WindowRow {
 }
 
 @injectable()
-export class SQLiteFactCheckWindowRepository
-  implements FactCheckWindowRepository
-{
+export class SQLiteFactCheckWindowRepository implements FactCheckWindowRepository {
   constructor(
     @inject(DB_PROVIDER_ID) private readonly dbProvider: DbProvider
   ) {}

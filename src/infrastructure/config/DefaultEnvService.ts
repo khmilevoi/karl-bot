@@ -114,8 +114,10 @@ export class DefaultEnvService implements EnvService {
       timezone: this.env.FACT_CHECK_TIMEZONE,
       maxMessagesPerBatch: this.env.FACT_CHECK_MAX_MESSAGES_PER_BATCH,
       maxClaimsPerBatch: this.env.FACT_CHECK_MAX_CLAIMS_PER_BATCH,
-      maxHistoryContextMessages: this.env.FACT_CHECK_MAX_HISTORY_CONTEXT_MESSAGES,
-      maxSourceSearchesPerBatch: this.env.FACT_CHECK_MAX_SOURCE_SEARCHES_PER_BATCH,
+      maxHistoryContextMessages:
+        this.env.FACT_CHECK_MAX_HISTORY_CONTEXT_MESSAGES,
+      maxSourceSearchesPerBatch:
+        this.env.FACT_CHECK_MAX_SOURCE_SEARCHES_PER_BATCH,
       maxSourcesPerFinding: this.env.FACT_CHECK_MAX_SOURCES_PER_FINDING,
       maxDisplayedSourcesPerFinding:
         this.env.FACT_CHECK_MAX_DISPLAYED_SOURCES_PER_FINDING,

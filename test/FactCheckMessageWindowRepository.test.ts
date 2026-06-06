@@ -76,9 +76,9 @@ describe('SQLiteFactCheckMessageWindowRepository', () => {
   });
 
   it('stops before a pending hole (leapfrog fix)', async () => {
-    await insertMessage(1, 'ready');   // id=1
+    await insertMessage(1, 'ready'); // id=1
     await insertMessage(1, 'pending'); // id=2 - hole
-    await insertMessage(1, 'ready');   // id=3
+    await insertMessage(1, 'ready'); // id=3
 
     // Only contiguous ready prefix before the pending hole
     const firstPass = await repo.findReadyByChatIdAfterId(1, 0, 10);
@@ -86,9 +86,9 @@ describe('SQLiteFactCheckMessageWindowRepository', () => {
   });
 
   it('continues after pending becomes ready', async () => {
-    await insertMessage(1, 'ready');   // id=1
+    await insertMessage(1, 'ready'); // id=1
     await insertMessage(1, 'pending'); // id=2
-    await insertMessage(1, 'ready');   // id=3
+    await insertMessage(1, 'ready'); // id=3
 
     // Simulate id=2 transcribed to ready
     await db.run(
@@ -101,9 +101,9 @@ describe('SQLiteFactCheckMessageWindowRepository', () => {
   });
 
   it('treats failed messages as passable (not a hole)', async () => {
-    await insertMessage(1, 'ready');  // id=1
+    await insertMessage(1, 'ready'); // id=1
     await insertMessage(1, 'failed'); // id=2 - not a hole
-    await insertMessage(1, 'ready');  // id=3
+    await insertMessage(1, 'ready'); // id=3
 
     const batch = await repo.findReadyByChatIdAfterId(1, 0, 10);
     expect(batch.map((m) => m.id)).toEqual([1, 3]);

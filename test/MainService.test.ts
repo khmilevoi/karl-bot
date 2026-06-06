@@ -202,7 +202,9 @@ describe('MainService (Minimal)', () => {
       {
         transcribe: vi.fn().mockResolvedValue('hello'),
       } as unknown as QueuedAudioTranscriptionService,
-      { start: vi.fn().mockResolvedValue(undefined) } as unknown as FactCheckScheduler
+      {
+        start: vi.fn().mockResolvedValue(undefined),
+      } as unknown as FactCheckScheduler
     );
 
     await service.launch();
@@ -276,7 +278,9 @@ describe('MainService (Minimal)', () => {
       {
         transcribe: vi.fn().mockResolvedValue('hello'),
       } as unknown as QueuedAudioTranscriptionService,
-      { start: vi.fn().mockResolvedValue(undefined) } as unknown as FactCheckScheduler
+      {
+        start: vi.fn().mockResolvedValue(undefined),
+      } as unknown as FactCheckScheduler
     );
 
     const chatData = await (service as any).getChatData(1);
@@ -356,7 +360,9 @@ describe('MainService (Minimal)', () => {
       {
         transcribe: vi.fn().mockResolvedValue('hello'),
       } as unknown as QueuedAudioTranscriptionService,
-      { start: vi.fn().mockResolvedValue(undefined) } as unknown as FactCheckScheduler
+      {
+        start: vi.fn().mockResolvedValue(undefined),
+      } as unknown as FactCheckScheduler
     );
 
     const adminCtx = { chat: { id: 1 } } as unknown as Context;

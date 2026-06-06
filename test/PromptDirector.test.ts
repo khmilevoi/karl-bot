@@ -270,7 +270,11 @@ describe('PromptDirector', () => {
     const builder = createBuilder();
     const factory: PromptBuilderFactory = () => builder;
     const director = new PromptDirector(factory);
-    const batchMsg: ChatMessage = { role: 'user', content: 'msg', messageId: 1 };
+    const batchMsg: ChatMessage = {
+      role: 'user',
+      content: 'msg',
+      messageId: 1,
+    };
     await director.createFactCheckExtractionPrompt({
       batchMessages: [batchMsg],
       contextMessages: [],
@@ -291,7 +295,11 @@ describe('PromptDirector', () => {
     const builder = createBuilder();
     const factory: PromptBuilderFactory = () => builder;
     const director = new PromptDirector(factory);
-    const batchMsg: ChatMessage = { role: 'user', content: 'msg', messageId: 1 };
+    const batchMsg: ChatMessage = {
+      role: 'user',
+      content: 'msg',
+      messageId: 1,
+    };
     const candidate = {
       messageId: 1,
       claimText: 'claim',

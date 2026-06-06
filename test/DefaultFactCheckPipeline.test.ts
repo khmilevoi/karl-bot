@@ -49,12 +49,22 @@ function makeLoggerFactory(): LoggerFactory {
 }
 
 function makeBatchMessage(id: number): ChatMessage {
-  return { id, role: 'user', content: `Message ${id}`, username: 'alice', userId: 1, messageId: id + 1000 };
+  return {
+    id,
+    role: 'user',
+    content: `Message ${id}`,
+    username: 'alice',
+    userId: 1,
+    messageId: id + 1000,
+  };
 }
 
 describe('DefaultFactCheckPipeline', () => {
   it('returns skipped_disabled when config.enabled=false', async () => {
-    const windowRepo = { findReadyByChatIdAfterId: vi.fn(), findReadyContextBeforeId: vi.fn() } as unknown as FactCheckMessageWindowRepository;
+    const windowRepo = {
+      findReadyByChatIdAfterId: vi.fn(),
+      findReadyContextBeforeId: vi.fn(),
+    } as unknown as FactCheckMessageWindowRepository;
     const pipeline = new DefaultFactCheckPipeline(
       makeConfig({ enabled: false }),
       windowRepo,
@@ -62,9 +72,17 @@ describe('DefaultFactCheckPipeline', () => {
       { findById: vi.fn() } as unknown as ChatRepository,
       {} as unknown as FactCheckReasoningService,
       {} as unknown as SourceSearchService,
-      { createRun: vi.fn(), completeRun: vi.fn(), failRun: vi.fn() } as unknown as FactCheckRunRepository,
+      {
+        createRun: vi.fn(),
+        completeRun: vi.fn(),
+        failRun: vi.fn(),
+      } as unknown as FactCheckRunRepository,
       { insertFinding: vi.fn() } as unknown as FactCheckFindingRepository,
-      { sendImmediate: vi.fn(), sendHourlyDigest: vi.fn(), sendStats: vi.fn() } as unknown as FactCheckNotifier,
+      {
+        sendImmediate: vi.fn(),
+        sendHourlyDigest: vi.fn(),
+        sendStats: vi.fn(),
+      } as unknown as FactCheckNotifier,
       makeLoggerFactory()
     );
 
@@ -91,9 +109,17 @@ describe('DefaultFactCheckPipeline', () => {
       { findById: vi.fn() } as unknown as ChatRepository,
       {} as unknown as FactCheckReasoningService,
       {} as unknown as SourceSearchService,
-      { createRun: vi.fn(), completeRun: vi.fn(), failRun: vi.fn() } as unknown as FactCheckRunRepository,
+      {
+        createRun: vi.fn(),
+        completeRun: vi.fn(),
+        failRun: vi.fn(),
+      } as unknown as FactCheckRunRepository,
       { insertFinding: vi.fn() } as unknown as FactCheckFindingRepository,
-      { sendImmediate: vi.fn(), sendHourlyDigest: vi.fn(), sendStats: vi.fn() } as unknown as FactCheckNotifier,
+      {
+        sendImmediate: vi.fn(),
+        sendHourlyDigest: vi.fn(),
+        sendStats: vi.fn(),
+      } as unknown as FactCheckNotifier,
       makeLoggerFactory()
     );
 
@@ -135,7 +161,10 @@ describe('DefaultFactCheckPipeline', () => {
             },
           ],
         },
-        metadata: { usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 }, escalated: false },
+        metadata: {
+          usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+          escalated: false,
+        },
         requestJson: {},
         responseJson: {},
       }),
@@ -155,7 +184,10 @@ describe('DefaultFactCheckPipeline', () => {
             },
           ],
         },
-        metadata: { usage: { promptTokens: 20, completionTokens: 10, totalTokens: 30 }, escalated: false },
+        metadata: {
+          usage: { promptTokens: 20, completionTokens: 10, totalTokens: 30 },
+          escalated: false,
+        },
         requestJson: {},
         responseJson: {},
       }),
@@ -202,7 +234,12 @@ describe('DefaultFactCheckPipeline', () => {
     expect(result.persistedFindings).toBe(1);
 
     expect(runRepo.createRun).toHaveBeenCalledWith(
-      expect.objectContaining({ chatId, runType: 'hourly', messageFromId: 10, messageToId: 10 })
+      expect.objectContaining({
+        chatId,
+        runType: 'hourly',
+        messageFromId: 10,
+        messageToId: 10,
+      })
     );
     expect(runRepo.completeRun).toHaveBeenCalledWith(
       expect.objectContaining({ runId: 42 })
@@ -217,7 +254,12 @@ describe('DefaultFactCheckPipeline', () => {
     const batchMsg = makeBatchMessage(20);
 
     const cursorRepo = {
-      get: vi.fn().mockResolvedValue({ chatId: 1, lastCheckedMessageId: 5, lastCheckedAt: null, updatedAt: '' }),
+      get: vi.fn().mockResolvedValue({
+        chatId: 1,
+        lastCheckedMessageId: 5,
+        lastCheckedAt: null,
+        updatedAt: '',
+      }),
       upsert: vi.fn().mockResolvedValue(undefined),
     } as unknown as FactCheckWindowRepository;
 
@@ -228,22 +270,54 @@ describe('DefaultFactCheckPipeline', () => {
 
     const reasoning = {
       extractClaims: vi.fn().mockResolvedValue({
-        result: { claims: [{ messageId: 20, claimText: 'claim', category: 'external_fact', needsExternalSources: false, riskLevel: 'low', whyCheckable: '', contextMessageIds: [] }] },
-        metadata: { usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 }, escalated: false },
-        requestJson: {}, responseJson: {},
+        result: {
+          claims: [
+            {
+              messageId: 20,
+              claimText: 'claim',
+              category: 'external_fact',
+              needsExternalSources: false,
+              riskLevel: 'low',
+              whyCheckable: '',
+              contextMessageIds: [],
+            },
+          ],
+        },
+        metadata: {
+          usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+          escalated: false,
+        },
+        requestJson: {},
+        responseJson: {},
       }),
       verifyClaims: vi.fn().mockResolvedValue({
         result: {
           findings: [
-            { messageId: 20, claimText: 'claim', status: 'no_error', confidence: 1.0, correctedFact: '', explanation: '', sourceRequirementsMet: true, sourceIndexes: [], shouldNotifyImmediately: false },
+            {
+              messageId: 20,
+              claimText: 'claim',
+              status: 'no_error',
+              confidence: 1.0,
+              correctedFact: '',
+              explanation: '',
+              sourceRequirementsMet: true,
+              sourceIndexes: [],
+              shouldNotifyImmediately: false,
+            },
           ],
         },
-        metadata: { usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 }, escalated: false },
-        requestJson: {}, responseJson: {},
+        metadata: {
+          usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+          escalated: false,
+        },
+        requestJson: {},
+        responseJson: {},
       }),
     } as unknown as FactCheckReasoningService;
 
-    const findingRepo = { insertFinding: vi.fn() } as unknown as FactCheckFindingRepository;
+    const findingRepo = {
+      insertFinding: vi.fn(),
+    } as unknown as FactCheckFindingRepository;
     const runRepo = {
       createRun: vi.fn().mockResolvedValue(99),
       completeRun: vi.fn().mockResolvedValue(undefined),
@@ -254,12 +328,20 @@ describe('DefaultFactCheckPipeline', () => {
       makeConfig(),
       windowRepo,
       cursorRepo,
-      { findById: vi.fn().mockResolvedValue(undefined) } as unknown as ChatRepository,
+      {
+        findById: vi.fn().mockResolvedValue(undefined),
+      } as unknown as ChatRepository,
       reasoning,
-      { search: vi.fn().mockResolvedValue([]) } as unknown as SourceSearchService,
+      {
+        search: vi.fn().mockResolvedValue([]),
+      } as unknown as SourceSearchService,
       runRepo,
       findingRepo,
-      { sendImmediate: vi.fn().mockResolvedValue(undefined), sendHourlyDigest: vi.fn().mockResolvedValue(undefined), sendStats: vi.fn() } as unknown as FactCheckNotifier,
+      {
+        sendImmediate: vi.fn().mockResolvedValue(undefined),
+        sendHourlyDigest: vi.fn().mockResolvedValue(undefined),
+        sendStats: vi.fn(),
+      } as unknown as FactCheckNotifier,
       makeLoggerFactory()
     );
 
@@ -294,19 +376,27 @@ describe('DefaultFactCheckPipeline', () => {
       makeConfig(),
       windowRepo,
       cursorRepo,
-      { findById: vi.fn().mockResolvedValue(undefined) } as unknown as ChatRepository,
+      {
+        findById: vi.fn().mockResolvedValue(undefined),
+      } as unknown as ChatRepository,
       reasoning,
       { search: vi.fn() } as unknown as SourceSearchService,
       runRepo,
       { insertFinding: vi.fn() } as unknown as FactCheckFindingRepository,
-      { sendImmediate: vi.fn(), sendHourlyDigest: vi.fn(), sendStats: vi.fn() } as unknown as FactCheckNotifier,
+      {
+        sendImmediate: vi.fn(),
+        sendHourlyDigest: vi.fn(),
+        sendStats: vi.fn(),
+      } as unknown as FactCheckNotifier,
       makeLoggerFactory()
     );
 
     const result = await pipeline.runHourly(1);
     expect(result.outcome).toBe('failed');
     expect(result.runId).toBe(7);
-    expect(runRepo.failRun).toHaveBeenCalledWith(expect.objectContaining({ runId: 7 }));
+    expect(runRepo.failRun).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: 7 })
+    );
     expect(cursorRepo.upsert).not.toHaveBeenCalled();
   });
 

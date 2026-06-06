@@ -13,10 +13,7 @@ import {
   FACT_CHECK_FINDING_REPOSITORY_ID,
   type FactCheckFindingRepository,
 } from '@/domain/repositories/FactCheckRepository';
-import {
-  FACT_CHECK_CONFIG_ID,
-  type FactCheckConfig,
-} from './FactCheckConfig';
+import { FACT_CHECK_CONFIG_ID, type FactCheckConfig } from './FactCheckConfig';
 import {
   formatImmediateFactCheck,
   formatHourlyDigest,
@@ -56,7 +53,10 @@ export class DefaultFactCheckNotifier implements FactCheckNotifier {
         });
         await this.findingRepo.markImmediateNotified(finding.id, now);
       } catch (err) {
-        this.logger.warn({ err, findingId: finding.id }, 'Immediate send failed');
+        this.logger.warn(
+          { err, findingId: finding.id },
+          'Immediate send failed'
+        );
         await this.findingRepo
           .recordNotificationError(
             finding.id,
@@ -90,9 +90,11 @@ export class DefaultFactCheckNotifier implements FactCheckNotifier {
     }
 
     const ids = findings.map((f) => f.id);
-    await this.findingRepo.markDigestNotified(ids, now).catch((err: unknown) => {
-      this.logger.warn({ err }, 'markDigestNotified failed');
-    });
+    await this.findingRepo
+      .markDigestNotified(ids, now)
+      .catch((err: unknown) => {
+        this.logger.warn({ err }, 'markDigestNotified failed');
+      });
   }
 
   async sendStats(

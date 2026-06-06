@@ -143,7 +143,10 @@ describe('FactCheckFormatter', () => {
         correctedFact: 'y'.repeat(1000),
         explanation: 'z'.repeat(1000),
       });
-      const chunks = formatHourlyDigest([longFinding, longFinding2], longConfig);
+      const chunks = formatHourlyDigest(
+        [longFinding, longFinding2],
+        longConfig
+      );
       // Each chunk must be under 4000 chars
       for (const chunk of chunks) {
         expect(chunk.length).toBeLessThanOrEqual(4000);

@@ -487,7 +487,7 @@ export class PromptBuilder {
     messages: ChatMessage[]
   ): Array<Record<string, unknown>> {
     return messages.map((m) => ({
-      id: m.messageId,
+      id: m.id,
       role: m.role,
       username: m.username ?? null,
       content: m.content,

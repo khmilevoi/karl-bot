@@ -31,10 +31,7 @@ import {
   type ClaimExtractionResult,
   type FactVerificationResult,
 } from '@/domain/fact-checking/FactCheckSchemas';
-import {
-  FACT_CHECK_CONFIG_ID,
-  type FactCheckConfig,
-} from './FactCheckConfig';
+import { FACT_CHECK_CONFIG_ID, type FactCheckConfig } from './FactCheckConfig';
 import type {
   FactCheckExtractionPromptContext,
   FactCheckVerificationPromptContext,
@@ -46,9 +43,7 @@ import type {
 } from './FactCheckReasoningService';
 
 @injectable()
-export class DefaultFactCheckReasoningService
-  implements FactCheckReasoningService
-{
+export class DefaultFactCheckReasoningService implements FactCheckReasoningService {
   private readonly extractionModel: AiModelId;
   private readonly verificationModel: AiModelId;
   private readonly verificationEscalationModel: AiModelId;
@@ -75,15 +70,14 @@ export class DefaultFactCheckReasoningService
     const messages = this.toAiMessages(prompt);
     const start = Date.now();
 
-    const result = await this.gateway.parseChatCompletion<ClaimExtractionResult>(
-      {
+    const result =
+      await this.gateway.parseChatCompletion<ClaimExtractionResult>({
         model: this.extractionModel,
         messages,
         responseFormat: claimExtractionResultJsonSchema,
         parse: (content) =>
           claimExtractionResultSchema.parse(JSON.parse(content) as unknown),
-      }
-    );
+      });
 
     const latencyMs = Date.now() - start;
     void this.logPrompt('factCheckExtraction', messages, result.raw);
@@ -148,7 +142,11 @@ export class DefaultFactCheckReasoningService
         (f) => f.status !== 'no_error' && f.confidence < threshold
       );
       if (lowConfidence && canEscalate) {
-        return attempt(this.verificationEscalationModel, true, 'low_confidence');
+        return attempt(
+          this.verificationEscalationModel,
+          true,
+          'low_confidence'
+        );
       }
 
       return {
@@ -177,7 +175,14 @@ export class DefaultFactCheckReasoningService
     latencyMs: number,
     usage: AiUsage
   ): FactCheckAiMetadata {
-    return { modelSlot, selectedModel, escalated, escalationReason, latencyMs, usage };
+    return {
+      modelSlot,
+      selectedModel,
+      escalated,
+      escalationReason,
+      latencyMs,
+      usage,
+    };
   }
 
   private async logPrompt(

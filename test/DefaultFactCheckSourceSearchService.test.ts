@@ -4,7 +4,10 @@ import {
   DefaultFactCheckSourceSearchService,
   extractUrlCitations,
 } from '../src/application/fact-checking/DefaultFactCheckSourceSearchService';
-import type { AiGateway, AiResponseResult } from '../src/application/interfaces/ai/AiGateway';
+import type {
+  AiGateway,
+  AiResponseResult,
+} from '../src/application/interfaces/ai/AiGateway';
 import type { EnvService } from '../src/application/interfaces/env/EnvService';
 import type { LoggerFactory } from '../src/application/interfaces/logging/LoggerFactory';
 
@@ -49,7 +52,12 @@ function makeGateway(result: AiResponseResult): AiGateway {
 }
 
 function makeCitationRaw(
-  citations: Array<{ url: string; title: string; start_index?: number; end_index?: number }>
+  citations: Array<{
+    url: string;
+    title: string;
+    start_index?: number;
+    end_index?: number;
+  }>
 ): unknown {
   return {
     output: [
@@ -128,10 +136,15 @@ describe('DefaultFactCheckSourceSearchService', () => {
       gateway,
       makeLoggerFactory()
     );
-    await svc.search({ claimText: 'claim', category: 'external_fact', maxSources: 5 });
+    await svc.search({
+      claimText: 'claim',
+      category: 'external_fact',
+      maxSources: 5,
+    });
 
     expect(gateway.createResponse).toHaveBeenCalledOnce();
-    const call = (gateway.createResponse as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    const call = (gateway.createResponse as ReturnType<typeof vi.fn>).mock
+      .calls[0][0];
     expect(call.model).toBe('gpt-5.4-mini');
     expect(call.tools).toEqual([{ type: 'web_search_preview' }]);
   });
@@ -147,7 +160,11 @@ describe('DefaultFactCheckSourceSearchService', () => {
       gateway,
       makeLoggerFactory()
     );
-    const results = await svc.search({ claimText: 'claim', category: 'external_fact', maxSources: 5 });
+    const results = await svc.search({
+      claimText: 'claim',
+      category: 'external_fact',
+      maxSources: 5,
+    });
     expect(results).toEqual([]);
   });
 
@@ -178,7 +195,11 @@ describe('DefaultFactCheckSourceSearchService', () => {
       gateway,
       makeLoggerFactory()
     );
-    const results = await svc.search({ claimText: 'claim', category: 'medical', maxSources: 5 });
+    const results = await svc.search({
+      claimText: 'claim',
+      category: 'medical',
+      maxSources: 5,
+    });
 
     expect(results).toHaveLength(2);
     expect(results[0].url).toBe('https://who.int/article');
@@ -204,12 +225,18 @@ describe('DefaultFactCheckSourceSearchService', () => {
       gateway,
       makeLoggerFactory()
     );
-    const results = await svc.search({ claimText: 'claim', category: 'external_fact', maxSources: 2 });
+    const results = await svc.search({
+      claimText: 'claim',
+      category: 'external_fact',
+      maxSources: 2,
+    });
     expect(results).toHaveLength(2);
   });
 
   it('classifies .gov domains as primary', async () => {
-    const raw = makeCitationRaw([{ url: 'https://cdc.gov/page', title: 'CDC' }]);
+    const raw = makeCitationRaw([
+      { url: 'https://cdc.gov/page', title: 'CDC' },
+    ]);
     const gateway = makeGateway({
       outputText: '',
       usage: { promptTokens: null, completionTokens: null, totalTokens: null },
@@ -220,12 +247,18 @@ describe('DefaultFactCheckSourceSearchService', () => {
       gateway,
       makeLoggerFactory()
     );
-    const results = await svc.search({ claimText: 'claim', category: 'medical', maxSources: 5 });
+    const results = await svc.search({
+      claimText: 'claim',
+      category: 'medical',
+      maxSources: 5,
+    });
     expect(results[0].reliability).toBe('primary');
   });
 
   it('classifies unknown domains as weak', async () => {
-    const raw = makeCitationRaw([{ url: 'https://randomsite.xyz/page', title: 'Random' }]);
+    const raw = makeCitationRaw([
+      { url: 'https://randomsite.xyz/page', title: 'Random' },
+    ]);
     const gateway = makeGateway({
       outputText: '',
       usage: { promptTokens: null, completionTokens: null, totalTokens: null },
@@ -236,13 +269,19 @@ describe('DefaultFactCheckSourceSearchService', () => {
       gateway,
       makeLoggerFactory()
     );
-    const results = await svc.search({ claimText: 'claim', category: 'external_fact', maxSources: 5 });
+    const results = await svc.search({
+      claimText: 'claim',
+      category: 'external_fact',
+      maxSources: 5,
+    });
     expect(results[0].reliability).toBe('weak');
   });
 
   it('rethrows gateway errors', async () => {
     const gateway = {
-      createResponse: vi.fn(async () => { throw new Error('API error'); }),
+      createResponse: vi.fn(async () => {
+        throw new Error('API error');
+      }),
       parseChatCompletion: vi.fn(),
     } as unknown as AiGateway;
     const svc = new DefaultFactCheckSourceSearchService(
@@ -251,7 +290,11 @@ describe('DefaultFactCheckSourceSearchService', () => {
       makeLoggerFactory()
     );
     await expect(
-      svc.search({ claimText: 'claim', category: 'external_fact', maxSources: 5 })
+      svc.search({
+        claimText: 'claim',
+        category: 'external_fact',
+        maxSources: 5,
+      })
     ).rejects.toThrow('API error');
   });
 });

@@ -28,7 +28,15 @@ function makeConfig(): FactCheckConfig {
 }
 
 function makeLoggerFactory(): LoggerFactory {
-  const logger = { debug() {}, info() {}, warn() {}, error() {}, child() { return this; } };
+  const logger = {
+    debug() {},
+    info() {},
+    warn() {},
+    error() {},
+    child() {
+      return this;
+    },
+  };
   return { create: () => logger } as unknown as LoggerFactory;
 }
 
@@ -85,8 +93,15 @@ describe('DefaultFactCheckNotifier', () => {
     await notifier.sendImmediate(42);
 
     expect(messenger.sendMessage).toHaveBeenCalledOnce();
-    expect(messenger.sendMessage).toHaveBeenCalledWith(42, expect.stringContaining('Фактчек'), expect.anything());
-    expect(findingRepo.markImmediateNotified).toHaveBeenCalledWith(1, expect.any(String));
+    expect(messenger.sendMessage).toHaveBeenCalledWith(
+      42,
+      expect.stringContaining('Фактчек'),
+      expect.anything()
+    );
+    expect(findingRepo.markImmediateNotified).toHaveBeenCalledWith(
+      1,
+      expect.any(String)
+    );
   });
 
   it('sendImmediate records error when send fails', async () => {
@@ -111,7 +126,10 @@ describe('DefaultFactCheckNotifier', () => {
     await notifier.sendImmediate(42);
 
     expect(findingRepo.markImmediateNotified).not.toHaveBeenCalled();
-    expect(findingRepo.recordNotificationError).toHaveBeenCalledWith(2, 'network error');
+    expect(findingRepo.recordNotificationError).toHaveBeenCalledWith(
+      2,
+      'network error'
+    );
   });
 
   it('sendHourlyDigest does nothing when no unsent findings', async () => {
@@ -121,7 +139,11 @@ describe('DefaultFactCheckNotifier', () => {
     const messenger = { sendMessage: vi.fn() } as unknown as ChatMessenger;
 
     const notifier = new DefaultFactCheckNotifier(
-      findingRepo, makeConfig(), messenger, {} as unknown as FactCheckStatsService, makeLoggerFactory()
+      findingRepo,
+      makeConfig(),
+      messenger,
+      {} as unknown as FactCheckStatsService,
+      makeLoggerFactory()
     );
 
     await notifier.sendHourlyDigest(1);
@@ -139,12 +161,19 @@ describe('DefaultFactCheckNotifier', () => {
     } as unknown as ChatMessenger;
 
     const notifier = new DefaultFactCheckNotifier(
-      findingRepo, makeConfig(), messenger, {} as unknown as FactCheckStatsService, makeLoggerFactory()
+      findingRepo,
+      makeConfig(),
+      messenger,
+      {} as unknown as FactCheckStatsService,
+      makeLoggerFactory()
     );
 
     await notifier.sendHourlyDigest(1);
     expect(messenger.sendMessage).toHaveBeenCalled();
-    expect(findingRepo.markDigestNotified).toHaveBeenCalledWith([10, 11], expect.any(String));
+    expect(findingRepo.markDigestNotified).toHaveBeenCalledWith(
+      [10, 11],
+      expect.any(String)
+    );
   });
 
   it('sendStats sends formatted stats message', async () => {
@@ -157,12 +186,20 @@ describe('DefaultFactCheckNotifier', () => {
     const findingRepo = {} as unknown as FactCheckFindingRepository;
 
     const notifier = new DefaultFactCheckNotifier(
-      findingRepo, makeConfig(), messenger, statsService, makeLoggerFactory()
+      findingRepo,
+      makeConfig(),
+      messenger,
+      statsService,
+      makeLoggerFactory()
     );
 
     await notifier.sendStats(5, 'weekly');
 
     expect(statsService.getStatsSummary).toHaveBeenCalledWith(5, 'weekly');
-    expect(messenger.sendMessage).toHaveBeenCalledWith(5, '<b>Статистика</b>', expect.anything());
+    expect(messenger.sendMessage).toHaveBeenCalledWith(
+      5,
+      '<b>Статистика</b>',
+      expect.anything()
+    );
   });
 });

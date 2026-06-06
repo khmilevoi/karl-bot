@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { DefaultFactCheckReasoningService } from '../src/application/fact-checking/DefaultFactCheckReasoningService';
 import type { FactCheckConfig } from '../src/application/fact-checking/FactCheckConfig';
-import type { AiGateway, AiParsedResult } from '../src/application/interfaces/ai/AiGateway';
+import type {
+  AiGateway,
+  AiParsedResult,
+} from '../src/application/interfaces/ai/AiGateway';
 import type { EnvService } from '../src/application/interfaces/env/EnvService';
 import type { LoggerFactory } from '../src/application/interfaces/logging/LoggerFactory';
 import type { PromptDirector } from '../src/application/prompts/PromptDirector';
@@ -24,9 +27,18 @@ function makeEnvService(): EnvService {
     env: { LOG_PROMPTS: false } as EnvService['env'],
     getModels: () => ({
       triggerGate: { default: EXTRACTION_MODEL },
-      behaviorDecision: { default: EXTRACTION_MODEL, escalation: ESCALATION_MODEL },
-      summarization: { default: EXTRACTION_MODEL, escalation: ESCALATION_MODEL },
-      stateEvolution: { default: EXTRACTION_MODEL, escalation: ESCALATION_MODEL },
+      behaviorDecision: {
+        default: EXTRACTION_MODEL,
+        escalation: ESCALATION_MODEL,
+      },
+      summarization: {
+        default: EXTRACTION_MODEL,
+        escalation: ESCALATION_MODEL,
+      },
+      stateEvolution: {
+        default: EXTRACTION_MODEL,
+        escalation: ESCALATION_MODEL,
+      },
       errorRepair: { default: EXTRACTION_MODEL, escalation: ESCALATION_MODEL },
       factCheckExtraction: { default: EXTRACTION_MODEL },
       factCheckVerification: {
@@ -91,7 +103,10 @@ const dummyUsage = {
 const extractionResult: ClaimExtractionResult = { claims: [] };
 const verificationResult: FactVerificationResult = { findings: [] };
 
-function makeResultFor<T>(parsed: T | null, raw: unknown = { ok: true }): AiParsedResult<T> {
+function makeResultFor<T>(
+  parsed: T | null,
+  raw: unknown = { ok: true }
+): AiParsedResult<T> {
   return { parsed, model: EXTRACTION_MODEL, usage: dummyUsage, raw };
 }
 
@@ -123,7 +138,10 @@ describe('DefaultFactCheckReasoningService', () => {
       const parseChatCompletion = vi.fn(async () =>
         makeResultFor(extractionResult)
       );
-      const gateway = { parseChatCompletion, createResponse: vi.fn() } as unknown as AiGateway;
+      const gateway = {
+        parseChatCompletion,
+        createResponse: vi.fn(),
+      } as unknown as AiGateway;
       await makeService(gateway).extractClaims(emptyExtractionInput);
 
       expect(parseChatCompletion).toHaveBeenCalledOnce();
@@ -134,7 +152,10 @@ describe('DefaultFactCheckReasoningService', () => {
       const parseChatCompletion = vi.fn(async () =>
         makeResultFor(extractionResult)
       );
-      const gateway = { parseChatCompletion, createResponse: vi.fn() } as unknown as AiGateway;
+      const gateway = {
+        parseChatCompletion,
+        createResponse: vi.fn(),
+      } as unknown as AiGateway;
       await makeService(gateway).extractClaims(emptyExtractionInput);
 
       expect(parseChatCompletion.mock.calls[0][0].responseFormat).toBe(
@@ -147,8 +168,12 @@ describe('DefaultFactCheckReasoningService', () => {
       const parseChatCompletion = vi.fn(async () =>
         makeResultFor(extractionResult, raw)
       );
-      const gateway = { parseChatCompletion, createResponse: vi.fn() } as unknown as AiGateway;
-      const out = await makeService(gateway).extractClaims(emptyExtractionInput);
+      const gateway = {
+        parseChatCompletion,
+        createResponse: vi.fn(),
+      } as unknown as AiGateway;
+      const out =
+        await makeService(gateway).extractClaims(emptyExtractionInput);
 
       expect(out.result).toEqual(extractionResult);
       expect(out.metadata.modelSlot).toBe('factCheckExtraction');
@@ -164,7 +189,10 @@ describe('DefaultFactCheckReasoningService', () => {
       const parseChatCompletion = vi.fn(async () =>
         makeResultFor<ClaimExtractionResult>(null)
       );
-      const gateway = { parseChatCompletion, createResponse: vi.fn() } as unknown as AiGateway;
+      const gateway = {
+        parseChatCompletion,
+        createResponse: vi.fn(),
+      } as unknown as AiGateway;
       await expect(
         makeService(gateway).extractClaims(emptyExtractionInput)
       ).rejects.toThrow('Failed to parse fact-check extraction response');
@@ -176,7 +204,10 @@ describe('DefaultFactCheckReasoningService', () => {
       const parseChatCompletion = vi.fn(async () =>
         makeResultFor(verificationResult)
       );
-      const gateway = { parseChatCompletion, createResponse: vi.fn() } as unknown as AiGateway;
+      const gateway = {
+        parseChatCompletion,
+        createResponse: vi.fn(),
+      } as unknown as AiGateway;
       await makeService(gateway).verifyClaims(emptyVerifyInput);
 
       expect(parseChatCompletion).toHaveBeenCalledOnce();
@@ -187,7 +218,10 @@ describe('DefaultFactCheckReasoningService', () => {
       const parseChatCompletion = vi.fn(async () =>
         makeResultFor(verificationResult)
       );
-      const gateway = { parseChatCompletion, createResponse: vi.fn() } as unknown as AiGateway;
+      const gateway = {
+        parseChatCompletion,
+        createResponse: vi.fn(),
+      } as unknown as AiGateway;
       await makeService(gateway).verifyClaims(emptyVerifyInput);
 
       expect(parseChatCompletion.mock.calls[0][0].responseFormat).toBe(
@@ -212,8 +246,13 @@ describe('DefaultFactCheckReasoningService', () => {
         ],
       };
       const parseChatCompletion = vi.fn(async () => makeResultFor(highConf));
-      const gateway = { parseChatCompletion, createResponse: vi.fn() } as unknown as AiGateway;
-      await makeService(gateway, makeConfig(0.75)).verifyClaims(emptyVerifyInput);
+      const gateway = {
+        parseChatCompletion,
+        createResponse: vi.fn(),
+      } as unknown as AiGateway;
+      await makeService(gateway, makeConfig(0.75)).verifyClaims(
+        emptyVerifyInput
+      );
 
       expect(parseChatCompletion).toHaveBeenCalledOnce();
     });
@@ -235,8 +274,13 @@ describe('DefaultFactCheckReasoningService', () => {
         ],
       };
       const parseChatCompletion = vi.fn(async () => makeResultFor(noError));
-      const gateway = { parseChatCompletion, createResponse: vi.fn() } as unknown as AiGateway;
-      await makeService(gateway, makeConfig(0.75)).verifyClaims(emptyVerifyInput);
+      const gateway = {
+        parseChatCompletion,
+        createResponse: vi.fn(),
+      } as unknown as AiGateway;
+      await makeService(gateway, makeConfig(0.75)).verifyClaims(
+        emptyVerifyInput
+      );
 
       expect(parseChatCompletion).toHaveBeenCalledOnce();
     });
@@ -262,8 +306,13 @@ describe('DefaultFactCheckReasoningService', () => {
         .mockResolvedValueOnce(makeResultFor(lowConf))
         .mockResolvedValueOnce(makeResultFor(verificationResult));
 
-      const gateway = { parseChatCompletion, createResponse: vi.fn() } as unknown as AiGateway;
-      await makeService(gateway, makeConfig(0.75)).verifyClaims(emptyVerifyInput);
+      const gateway = {
+        parseChatCompletion,
+        createResponse: vi.fn(),
+      } as unknown as AiGateway;
+      await makeService(gateway, makeConfig(0.75)).verifyClaims(
+        emptyVerifyInput
+      );
 
       expect(parseChatCompletion).toHaveBeenCalledTimes(2);
       expect(parseChatCompletion.mock.calls[1][0].model).toBe(ESCALATION_MODEL);
@@ -275,7 +324,10 @@ describe('DefaultFactCheckReasoningService', () => {
         .mockResolvedValueOnce(makeResultFor<FactVerificationResult>(null))
         .mockResolvedValueOnce(makeResultFor(verificationResult));
 
-      const gateway = { parseChatCompletion, createResponse: vi.fn() } as unknown as AiGateway;
+      const gateway = {
+        parseChatCompletion,
+        createResponse: vi.fn(),
+      } as unknown as AiGateway;
       await makeService(gateway).verifyClaims(emptyVerifyInput);
 
       expect(parseChatCompletion).toHaveBeenCalledTimes(2);
@@ -287,7 +339,10 @@ describe('DefaultFactCheckReasoningService', () => {
         .fn()
         .mockResolvedValue(makeResultFor<FactVerificationResult>(null));
 
-      const gateway = { parseChatCompletion, createResponse: vi.fn() } as unknown as AiGateway;
+      const gateway = {
+        parseChatCompletion,
+        createResponse: vi.fn(),
+      } as unknown as AiGateway;
       await expect(
         makeService(gateway).verifyClaims(emptyVerifyInput)
       ).rejects.toThrow('Failed to parse fact-check verification response');
@@ -312,10 +367,17 @@ describe('DefaultFactCheckReasoningService', () => {
       const parseChatCompletion = vi
         .fn()
         .mockResolvedValueOnce(makeResultFor(lowConf))
-        .mockResolvedValueOnce(makeResultFor(verificationResult, { esc: true }));
+        .mockResolvedValueOnce(
+          makeResultFor(verificationResult, { esc: true })
+        );
 
-      const gateway = { parseChatCompletion, createResponse: vi.fn() } as unknown as AiGateway;
-      const out = await makeService(gateway, makeConfig(0.75)).verifyClaims(emptyVerifyInput);
+      const gateway = {
+        parseChatCompletion,
+        createResponse: vi.fn(),
+      } as unknown as AiGateway;
+      const out = await makeService(gateway, makeConfig(0.75)).verifyClaims(
+        emptyVerifyInput
+      );
 
       expect(out.metadata.escalated).toBe(true);
       expect(out.metadata.escalationReason).toBe('low_confidence');

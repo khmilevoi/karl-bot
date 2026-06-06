@@ -19,9 +19,27 @@ describe('DefaultFactCheckStatsService', () => {
 
   it('aggregates confirmed and uncertain counts correctly', async () => {
     const rows = [
-      { authorUserId: 1, authorDisplayName: 'Alice', category: 'medical', status: 'confirmed', count: 3 },
-      { authorUserId: 1, authorDisplayName: 'Alice', category: 'external_fact', status: 'uncertain', count: 2 },
-      { authorUserId: 2, authorDisplayName: 'Bob', category: 'medical', status: 'confirmed', count: 1 },
+      {
+        authorUserId: 1,
+        authorDisplayName: 'Alice',
+        category: 'medical',
+        status: 'confirmed',
+        count: 3,
+      },
+      {
+        authorUserId: 1,
+        authorDisplayName: 'Alice',
+        category: 'external_fact',
+        status: 'uncertain',
+        count: 2,
+      },
+      {
+        authorUserId: 2,
+        authorDisplayName: 'Bob',
+        category: 'medical',
+        status: 'confirmed',
+        count: 1,
+      },
     ];
     const svc = new DefaultFactCheckStatsService(makeStatsRepo(rows as any));
     const result = await svc.getStatsSummary(1, 'weekly');
@@ -36,7 +54,9 @@ describe('DefaultFactCheckStatsService', () => {
     const repo = makeStatsRepo();
     const svc = new DefaultFactCheckStatsService(repo);
     await svc.getStatsSummary(999, 'monthly');
-    expect(repo.getStats).toHaveBeenCalledWith(expect.objectContaining({ chatId: 999 }));
+    expect(repo.getStats).toHaveBeenCalledWith(
+      expect.objectContaining({ chatId: 999 })
+    );
   });
 
   it('includes period label for monthly', async () => {

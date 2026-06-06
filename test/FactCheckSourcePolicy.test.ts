@@ -14,14 +14,18 @@ describe('FactCheckSourcePolicy', () => {
   });
 
   it('returns chat_history_only for chat_history', () => {
-    expect(getSourcePolicyForCategory('chat_history')).toBe('chat_history_only');
+    expect(getSourcePolicyForCategory('chat_history')).toBe(
+      'chat_history_only'
+    );
   });
 
   it('returns reliable_or_media_allowed for external_fact and mixed', () => {
     expect(getSourcePolicyForCategory('external_fact')).toBe(
       'reliable_or_media_allowed'
     );
-    expect(getSourcePolicyForCategory('mixed')).toBe('reliable_or_media_allowed');
+    expect(getSourcePolicyForCategory('mixed')).toBe(
+      'reliable_or_media_allowed'
+    );
   });
 
   it('rejects when sourceRequirementsMet is false', () => {
