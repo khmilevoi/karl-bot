@@ -351,6 +351,112 @@ describe('DefaultFactCheckPipeline', () => {
     expect(findingRepo.insertFinding).not.toHaveBeenCalled();
   });
 
+  it('downgrades confirmed findings when verifier source requirements are not met', async () => {
+    const chatId = 456;
+    const batchMsg = makeBatchMessage(11);
+
+    const cursorRepo = {
+      get: vi.fn().mockResolvedValue(null),
+      upsert: vi.fn().mockResolvedValue(undefined),
+    } as unknown as FactCheckWindowRepository;
+    const windowRepo = {
+      findReadyByChatIdAfterId: vi.fn().mockResolvedValue([batchMsg]),
+      findReadyContextBeforeId: vi.fn().mockResolvedValue([]),
+    } as unknown as FactCheckMessageWindowRepository;
+    const reasoning = {
+      extractClaims: vi.fn().mockResolvedValue({
+        result: {
+          claims: [
+            {
+              messageId: 11,
+              claimText: 'A city changed its name yesterday',
+              category: 'external_fact',
+              needsExternalSources: true,
+              riskLevel: 'low',
+              whyCheckable: 'external factual claim',
+              contextMessageIds: [],
+            },
+          ],
+        },
+        metadata: {
+          usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+          escalated: false,
+        },
+        requestJson: {},
+        responseJson: {},
+      }),
+      verifyClaims: vi.fn().mockResolvedValue({
+        result: {
+          findings: [
+            {
+              messageId: 11,
+              claimText: 'A city changed its name yesterday',
+              status: 'confirmed',
+              confidence: 0.9,
+              correctedFact: 'The city did not change its name.',
+              explanation: 'Verifier could not satisfy source policy.',
+              sourceRequirementsMet: false,
+              sourceIndexes: [0],
+              shouldNotifyImmediately: false,
+            },
+          ],
+        },
+        metadata: {
+          usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+          escalated: false,
+        },
+        requestJson: {},
+        responseJson: {},
+      }),
+    } as unknown as FactCheckReasoningService;
+    const findingRepo = {
+      insertFinding: vi.fn().mockResolvedValue(1),
+    } as unknown as FactCheckFindingRepository;
+
+    const pipeline = new DefaultFactCheckPipeline(
+      makeConfig(),
+      windowRepo,
+      cursorRepo,
+      {
+        findById: vi.fn().mockResolvedValue(undefined),
+      } as unknown as ChatRepository,
+      reasoning,
+      {
+        search: vi.fn().mockResolvedValue([
+          {
+            url: 'https://example.com/story',
+            title: 'Story',
+            publisher: 'Example',
+            snippet: 'Snippet',
+            reliability: 'media',
+            retrievedAt: '2026-06-06T00:00:00.000Z',
+          },
+        ]),
+      } as unknown as SourceSearchService,
+      {
+        createRun: vi.fn().mockResolvedValue(42),
+        completeRun: vi.fn().mockResolvedValue(undefined),
+        failRun: vi.fn(),
+      } as unknown as FactCheckRunRepository,
+      findingRepo,
+      {
+        sendImmediate: vi.fn().mockResolvedValue(undefined),
+        sendHourlyDigest: vi.fn().mockResolvedValue(undefined),
+        sendStats: vi.fn(),
+      } as unknown as FactCheckNotifier,
+      makeLoggerFactory()
+    );
+
+    await pipeline.runHourly(chatId);
+
+    expect(findingRepo.insertFinding).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'uncertain',
+        sourceRequirementsMet: false,
+      })
+    );
+  });
+
   it('returns failed outcome when reasoning throws', async () => {
     const batchMsg = makeBatchMessage(30);
 

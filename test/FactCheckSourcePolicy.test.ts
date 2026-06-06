@@ -39,6 +39,28 @@ describe('FactCheckSourcePolicy', () => {
     ).toBe(false);
   });
 
+  it('rejects external_fact with only weak sources', () => {
+    expect(
+      canConfirmFinding({
+        category: 'external_fact',
+        sourcePolicy: 'reliable_or_media_allowed',
+        sourceRequirementsMet: true,
+        sources: [{ reliability: 'weak' }],
+      })
+    ).toBe(false);
+  });
+
+  it('rejects external_fact when verifier says source requirements are not met', () => {
+    expect(
+      canConfirmFinding({
+        category: 'external_fact',
+        sourcePolicy: 'reliable_or_media_allowed',
+        sourceRequirementsMet: false,
+        sources: [{ reliability: 'media' }],
+      })
+    ).toBe(false);
+  });
+
   it('confirms external_fact with media source', () => {
     expect(
       canConfirmFinding({
@@ -79,6 +101,17 @@ describe('FactCheckSourcePolicy', () => {
         sourcePolicy: 'primary_required',
         sourceRequirementsMet: true,
         sources: [{ reliability: 'primary' }],
+      })
+    ).toBe(true);
+  });
+
+  it('confirms high-stakes claims with authoritative professional sources', () => {
+    expect(
+      canConfirmFinding({
+        category: 'medical',
+        sourcePolicy: 'primary_required',
+        sourceRequirementsMet: true,
+        sources: [{ reliability: 'authoritative' }],
       })
     ).toBe(true);
   });

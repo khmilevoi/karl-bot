@@ -34,7 +34,9 @@ export function canConfirmFinding(input: SourcePolicyInput): boolean {
     case 'chat_history_only':
       return input.category === 'chat_history';
     case 'primary_required':
-      return input.sources.some((s) => s.reliability === 'primary');
+      return input.sources.some((s) =>
+        ['primary', 'authoritative'].includes(s.reliability)
+      );
     case 'reliable_or_media_allowed':
       return input.sources.some((s) =>
         ['primary', 'authoritative', 'media'].includes(s.reliability)

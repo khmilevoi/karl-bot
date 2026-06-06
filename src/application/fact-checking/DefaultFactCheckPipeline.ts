@@ -46,7 +46,10 @@ import type {
   FactCheckRunResult,
 } from './FactCheckPipeline';
 import { normalizeClaimKey } from './FactCheckDeduplication';
-import { getSourcePolicyForCategory } from './FactCheckSourcePolicy';
+import {
+  canConfirmFinding,
+  getSourcePolicyForCategory,
+} from './FactCheckSourcePolicy';
 import { buildTelegramMessageUrl } from './FactCheckMessageLinks';
 import type { ExtractedClaim } from '@/domain/fact-checking/FactCheckTypes';
 import type { FactCheckVerificationPromptContext } from './FactCheckPromptContext';
@@ -170,15 +173,21 @@ export class DefaultFactCheckPipeline implements FactCheckPipeline {
           .filter((i) => i >= 0 && i < sources.length)
           .map((i) => sources[i]);
 
-        const sourceRequirementsMet = this.checkSourceRequirements(
+        const localSourceRequirementsMet = this.checkSourceRequirements(
           sourcePolicy,
           findingSources
         );
+        const sourceRequirementsMet =
+          finding.sourceRequirementsMet && localSourceRequirementsMet;
         let status = finding.status;
         if (
-          sourcePolicy === 'primary_required' &&
-          !sourceRequirementsMet &&
-          status === 'confirmed'
+          status === 'confirmed' &&
+          !canConfirmFinding({
+            category,
+            sourcePolicy,
+            sourceRequirementsMet,
+            sources: findingSources,
+          })
         ) {
           status = 'uncertain';
         }
@@ -331,7 +340,9 @@ export class DefaultFactCheckPipeline implements FactCheckPipeline {
             s.reliability === 'primary' || s.reliability === 'authoritative'
         );
       case 'reliable_or_media_allowed':
-        return sources.length > 0;
+        return sources.some((s) =>
+          ['primary', 'authoritative', 'media'].includes(s.reliability)
+        );
       case 'chat_history_only':
         return true;
       default:
