@@ -240,6 +240,16 @@ import {
   FACT_CHECK_PIPELINE_ID,
   type FactCheckPipeline,
 } from '../application/fact-checking/FactCheckPipeline';
+import { DefaultFactCheckNotifier } from '../application/fact-checking/DefaultFactCheckNotifier';
+import {
+  FACT_CHECK_NOTIFIER_ID,
+  type FactCheckNotifier,
+} from '../application/fact-checking/FactCheckNotifier';
+import { DefaultFactCheckStatsService } from '../application/fact-checking/DefaultFactCheckStatsService';
+import {
+  FACT_CHECK_STATS_SERVICE_ID,
+  type FactCheckStatsService,
+} from '../application/fact-checking/FactCheckStatsService';
 import { DefaultEnvService } from '../infrastructure/config/DefaultEnvService';
 import { TestEnvService } from '../infrastructure/config/TestEnvService';
 import { OpenAiSdkGateway } from '../infrastructure/external/OpenAiSdkGateway';
@@ -361,6 +371,16 @@ export const register = (container: Container): void => {
   container
     .bind<SourceSearchService>(SOURCE_SEARCH_SERVICE_ID)
     .to(DefaultFactCheckSourceSearchService)
+    .inSingletonScope();
+
+  container
+    .bind<FactCheckStatsService>(FACT_CHECK_STATS_SERVICE_ID)
+    .to(DefaultFactCheckStatsService)
+    .inSingletonScope();
+
+  container
+    .bind<FactCheckNotifier>(FACT_CHECK_NOTIFIER_ID)
+    .to(DefaultFactCheckNotifier)
     .inSingletonScope();
 
   container
