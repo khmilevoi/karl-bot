@@ -1,6 +1,7 @@
 import { injectable } from 'inversify';
 
 import type { AiModelId } from '@/application/interfaces/ai/AiModelId';
+import type { FactCheckConfig } from '@/application/fact-checking/FactCheckConfig';
 import type {
   AiModelSlots,
   Env,
@@ -47,6 +48,12 @@ export class TestEnvService implements EnvService {
         default: 'gpt-5.4-mini' as AiModelId,
         escalation: 'gpt-5.5' as AiModelId,
       },
+      factCheckExtraction: { default: 'gpt-5.4-mini' as AiModelId },
+      factCheckVerification: {
+        default: 'gpt-5.4-mini' as AiModelId,
+        escalation: 'gpt-5.5' as AiModelId,
+      },
+      sourceSearch: { default: 'gpt-5.4-mini' as AiModelId },
     };
   }
 
@@ -97,6 +104,28 @@ export class TestEnvService implements EnvService {
       transcriptionWaitTimeoutMs: this.env.VOICE_TRANSCRIPTION_WAIT_TIMEOUT_MS,
       transcriptionResultPollIntervalMs:
         this.env.VOICE_TRANSCRIPTION_RESULT_POLL_INTERVAL_MS,
+    };
+  }
+
+  getFactCheckConfig(): FactCheckConfig {
+    return {
+      enabled: this.env.FACT_CHECK_ENABLED,
+      hourlyCron: this.env.FACT_CHECK_HOURLY_CRON,
+      dailyStatsCron: this.env.FACT_CHECK_DAILY_STATS_CRON,
+      weeklyStatsCron: this.env.FACT_CHECK_WEEKLY_STATS_CRON,
+      monthlyStatsCron: this.env.FACT_CHECK_MONTHLY_STATS_CRON,
+      timezone: this.env.FACT_CHECK_TIMEZONE,
+      maxMessagesPerBatch: this.env.FACT_CHECK_MAX_MESSAGES_PER_BATCH,
+      maxClaimsPerBatch: this.env.FACT_CHECK_MAX_CLAIMS_PER_BATCH,
+      maxHistoryContextMessages: this.env.FACT_CHECK_MAX_HISTORY_CONTEXT_MESSAGES,
+      maxSourceSearchesPerBatch: this.env.FACT_CHECK_MAX_SOURCE_SEARCHES_PER_BATCH,
+      maxSourcesPerFinding: this.env.FACT_CHECK_MAX_SOURCES_PER_FINDING,
+      maxDisplayedSourcesPerFinding:
+        this.env.FACT_CHECK_MAX_DISPLAYED_SOURCES_PER_FINDING,
+      maxFindingsPerDigestMessage:
+        this.env.FACT_CHECK_MAX_FINDINGS_PER_DIGEST_MESSAGE,
+      verificationConfidenceThreshold:
+        this.env.FACT_CHECK_VERIFICATION_CONFIDENCE_THRESHOLD,
     };
   }
 }

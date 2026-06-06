@@ -1,6 +1,7 @@
 import type { ServiceIdentifier } from 'inversify';
 
 import type { AiModelId } from '@/application/interfaces/ai/AiModelId';
+import type { FactCheckConfig } from '@/application/fact-checking/FactCheckConfig';
 import type { VoiceConfig } from '@/application/voice/VoiceConfig';
 
 export interface Env {
@@ -20,6 +21,20 @@ export interface Env {
   VOICE_MAX_DURATION_SECONDS: number;
   VOICE_TRANSCRIPTION_WAIT_TIMEOUT_MS: number;
   VOICE_TRANSCRIPTION_RESULT_POLL_INTERVAL_MS: number;
+  FACT_CHECK_ENABLED: boolean;
+  FACT_CHECK_HOURLY_CRON: string;
+  FACT_CHECK_DAILY_STATS_CRON: string;
+  FACT_CHECK_WEEKLY_STATS_CRON: string;
+  FACT_CHECK_MONTHLY_STATS_CRON: string;
+  FACT_CHECK_TIMEZONE: string;
+  FACT_CHECK_MAX_MESSAGES_PER_BATCH: number;
+  FACT_CHECK_MAX_CLAIMS_PER_BATCH: number;
+  FACT_CHECK_MAX_HISTORY_CONTEXT_MESSAGES: number;
+  FACT_CHECK_MAX_SOURCE_SEARCHES_PER_BATCH: number;
+  FACT_CHECK_MAX_SOURCES_PER_FINDING: number;
+  FACT_CHECK_MAX_DISPLAYED_SOURCES_PER_FINDING: number;
+  FACT_CHECK_MAX_FINDINGS_PER_DIGEST_MESSAGE: number;
+  FACT_CHECK_VERIFICATION_CONFIDENCE_THRESHOLD: number;
 }
 
 export interface PromptFiles {
@@ -59,6 +74,9 @@ export interface AiModelSlots {
   summarization: EscalatingModelSlot;
   stateEvolution: EscalatingModelSlot;
   errorRepair: EscalatingModelSlot;
+  factCheckExtraction: SingleModelSlot;
+  factCheckVerification: EscalatingModelSlot;
+  sourceSearch: SingleModelSlot;
 }
 
 export interface EnvService {
@@ -69,6 +87,7 @@ export interface EnvService {
   getDialogueTimeoutMs(): number;
   getMigrationsDir(): string;
   getVoiceConfig(): VoiceConfig;
+  getFactCheckConfig(): FactCheckConfig;
 }
 
 export const ENV_SERVICE_ID = Symbol.for(
