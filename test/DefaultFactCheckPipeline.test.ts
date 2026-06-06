@@ -163,10 +163,11 @@ describe('DefaultFactCheckPipeline', () => {
         },
         metadata: {
           usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+          selectedModel: 'extract-model',
           escalated: false,
         },
-        requestJson: {},
-        responseJson: {},
+        requestJson: { prompt: 'extract' },
+        responseJson: { claims: 'extracted' },
       }),
       verifyClaims: vi.fn().mockResolvedValue({
         result: {
@@ -186,10 +187,11 @@ describe('DefaultFactCheckPipeline', () => {
         },
         metadata: {
           usage: { promptTokens: 20, completionTokens: 10, totalTokens: 30 },
+          selectedModel: 'verify-model',
           escalated: false,
         },
-        requestJson: {},
-        responseJson: {},
+        requestJson: { prompt: 'verify' },
+        responseJson: { findings: 'verified' },
       }),
     } as unknown as FactCheckReasoningService;
 
@@ -242,7 +244,22 @@ describe('DefaultFactCheckPipeline', () => {
       })
     );
     expect(runRepo.completeRun).toHaveBeenCalledWith(
-      expect.objectContaining({ runId: 42 })
+      expect.objectContaining({
+        runId: 42,
+        extractorModel: 'extract-model',
+        verifierModel: 'verify-model',
+        promptTokens: 30,
+        completionTokens: 15,
+        totalTokens: 45,
+        requestJson: {
+          extraction: { prompt: 'extract' },
+          verification: { prompt: 'verify' },
+        },
+        responseJson: {
+          extraction: { claims: 'extracted' },
+          verification: { findings: 'verified' },
+        },
+      })
     );
     expect(findingRepo.insertFinding).toHaveBeenCalledOnce();
     expect(findingRepo.insertFinding).toHaveBeenCalledWith(

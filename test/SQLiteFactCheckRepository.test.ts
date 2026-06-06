@@ -8,6 +8,7 @@ import { SQLiteFactCheckRepository } from '../src/infrastructure/persistence/sql
 import { TestEnvService } from '../src/infrastructure/config/TestEnvService';
 import type { LoggerFactory } from '../src/application/interfaces/logging/LoggerFactory';
 import type { InsertFactCheckFindingInput } from '../src/domain/repositories/FactCheckRepository';
+import type { DbProvider } from '../src/domain/repositories/DbProvider';
 
 const createLoggerFactory = (): LoggerFactory =>
   ({
@@ -24,6 +25,7 @@ const createLoggerFactory = (): LoggerFactory =>
 
 describe('SQLiteFactCheckRepository', () => {
   let repo: SQLiteFactCheckRepository;
+  let provider: DbProvider;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -35,7 +37,7 @@ describe('SQLiteFactCheckRepository', () => {
     await migrateUp();
 
     const env = new TestEnvService();
-    const provider = new SQLiteDbProviderImpl(env, createLoggerFactory());
+    provider = new SQLiteDbProviderImpl(env, createLoggerFactory());
     repo = new SQLiteFactCheckRepository(provider);
   });
 
@@ -76,10 +78,25 @@ describe('SQLiteFactCheckRepository', () => {
         completionTokens: 50,
         totalTokens: 150,
         latencyMs: 1000,
+        extractorModel: 'extract-model',
+        verifierModel: 'verify-model',
         requestJson: {},
         responseJson: {},
       })
     ).resolves.toBeUndefined();
+
+    const db = await provider.get();
+    const row = await db.get<{
+      extractor_model: string | null;
+      verifier_model: string | null;
+    }>(
+      'SELECT extractor_model, verifier_model FROM fact_check_runs WHERE id = ?',
+      id
+    );
+    expect(row).toMatchObject({
+      extractor_model: 'extract-model',
+      verifier_model: 'verify-model',
+    });
   });
 
   it('fails a run', async () => {

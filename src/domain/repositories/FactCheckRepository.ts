@@ -22,6 +22,8 @@ export interface CreateFactCheckRunInput {
 export interface CompleteFactCheckRunInput {
   runId: number;
   finishedAt: string;
+  extractorModel: string | null;
+  verifierModel: string | null;
   promptTokens: number | null;
   completionTokens: number | null;
   totalTokens: number | null;

@@ -56,6 +56,7 @@ import type {
   VerificationFinding,
 } from '@/domain/fact-checking/FactCheckTypes';
 import type { FactCheckVerificationPromptContext } from './FactCheckPromptContext';
+import type { AiUsage } from '@/application/interfaces/ai/AiGateway';
 
 @injectable()
 export class DefaultFactCheckPipeline implements FactCheckPipeline {
@@ -155,7 +156,10 @@ export class DefaultFactCheckPipeline implements FactCheckPipeline {
       const verificationResult = await this.reasoning.verifyClaims(verifyInput);
       const latencyMs = Date.now() - start;
 
-      const usageMeta = verificationResult.metadata.usage;
+      const usageMeta = this.sumUsage(
+        extractionResult.metadata.usage,
+        verificationResult.metadata.usage
+      );
 
       let persistedFindings = 0;
       for (const finding of verificationResult.result.findings) {
@@ -251,12 +255,20 @@ export class DefaultFactCheckPipeline implements FactCheckPipeline {
       await this.runRepo.completeRun({
         runId,
         finishedAt: new Date().toISOString(),
+        extractorModel: extractionResult.metadata.selectedModel,
+        verifierModel: verificationResult.metadata.selectedModel,
         promptTokens: usageMeta.promptTokens,
         completionTokens: usageMeta.completionTokens,
         totalTokens: usageMeta.totalTokens,
         latencyMs,
-        requestJson: verificationResult.requestJson,
-        responseJson: verificationResult.responseJson,
+        requestJson: {
+          extraction: extractionResult.requestJson,
+          verification: verificationResult.requestJson,
+        },
+        responseJson: {
+          extraction: extractionResult.responseJson,
+          verification: verificationResult.responseJson,
+        },
       });
 
       await this.cursorRepo.upsert({
@@ -376,6 +388,25 @@ export class DefaultFactCheckPipeline implements FactCheckPipeline {
     if (exact != null) return exact;
 
     return sameMessage.length === 1 ? sameMessage[0] : null;
+  }
+
+  private sumUsage(left: AiUsage, right: AiUsage): AiUsage {
+    return {
+      promptTokens: this.sumNullable(left.promptTokens, right.promptTokens),
+      completionTokens: this.sumNullable(
+        left.completionTokens,
+        right.completionTokens
+      ),
+      totalTokens: this.sumNullable(left.totalTokens, right.totalTokens),
+    };
+  }
+
+  private sumNullable(
+    left: number | null,
+    right: number | null
+  ): number | null {
+    if (left == null && right == null) return null;
+    return (left ?? 0) + (right ?? 0);
   }
 
   private buildDisplayName(message: ChatMessage): string {

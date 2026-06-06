@@ -172,9 +172,11 @@ export class SQLiteFactCheckRepository
   async completeRun(input: CompleteFactCheckRunInput): Promise<void> {
     const db = await this.dbProvider.get();
     await db.run(
-      'UPDATE fact_check_runs SET status=?, finished_at=?, prompt_tokens=?, completion_tokens=?, total_tokens=?, latency_ms=?, request_json=?, response_json=? WHERE id=?',
+      'UPDATE fact_check_runs SET status=?, finished_at=?, extractor_model=?, verifier_model=?, prompt_tokens=?, completion_tokens=?, total_tokens=?, latency_ms=?, request_json=?, response_json=? WHERE id=?',
       'completed',
       input.finishedAt,
+      input.extractorModel,
+      input.verifierModel,
       input.promptTokens,
       input.completionTokens,
       input.totalTokens,
