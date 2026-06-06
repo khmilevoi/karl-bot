@@ -5,6 +5,10 @@ import {
   type StateEvolutionPass,
 } from '@/application/behavior/StateEvolutionPass';
 import {
+  FACT_CHECK_PIPELINE_ID,
+  type FactCheckPipeline,
+} from '@/application/fact-checking/FactCheckPipeline';
+import {
   type ManualJobRunner,
   type ManualJobRunInput,
   type ManualJobRunResult,
@@ -20,7 +24,9 @@ export class DefaultManualJobRunner implements ManualJobRunner {
     @inject(TOPIC_OF_DAY_SCHEDULER_ID)
     private readonly topicOfDay: TopicOfDayScheduler,
     @inject(STATE_EVOLUTION_PASS_ID)
-    private readonly stateEvolution: StateEvolutionPass
+    private readonly stateEvolution: StateEvolutionPass,
+    @inject(FACT_CHECK_PIPELINE_ID)
+    private readonly factCheckPipeline: FactCheckPipeline
   ) {}
 
   async run(input: ManualJobRunInput): Promise<ManualJobRunResult> {
@@ -39,6 +45,15 @@ export class DefaultManualJobRunner implements ManualJobRunner {
           chatId: input.chatId,
           outcome: result.kind,
           stateEvolution: result,
+        };
+      }
+      case 'fact-check': {
+        const result = await this.factCheckPipeline.runHourly(input.chatId);
+        return {
+          job: input.job,
+          chatId: input.chatId,
+          outcome: result.outcome,
+          factCheck: result,
         };
       }
     }

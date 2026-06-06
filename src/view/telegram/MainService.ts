@@ -49,6 +49,10 @@ import {
   type TopicOfDayScheduler,
 } from '@/application/interfaces/scheduler/TopicOfDayScheduler';
 import {
+  FACT_CHECK_SCHEDULER_ID,
+  type FactCheckScheduler,
+} from '@/application/fact-checking/FactCheckScheduler';
+import {
   QUEUED_AUDIO_TRANSCRIPTION_SERVICE_ID,
   type QueuedAudioTranscriptionService,
 } from '@/application/interfaces/voice/QueuedAudioTranscriptionService';
@@ -67,6 +71,7 @@ export class MainService {
   private readonly messenger: ChatMessenger;
   private readonly scheduler: TopicOfDayScheduler;
   private readonly stateEvolutionScheduler: StateEvolutionScheduler;
+  private readonly factCheckScheduler: FactCheckScheduler;
 
   constructor(
     @inject(ENV_SERVICE_ID) envService: EnvService,
@@ -90,13 +95,16 @@ export class MainService {
     @inject(CHAT_MESSENGER_ID)
     messenger: ChatMessenger,
     @inject(QUEUED_AUDIO_TRANSCRIPTION_SERVICE_ID)
-    private queuedAudioTranscriptionService: QueuedAudioTranscriptionService
+    private queuedAudioTranscriptionService: QueuedAudioTranscriptionService,
+    @inject(new LazyServiceIdentifier(() => FACT_CHECK_SCHEDULER_ID))
+    factCheckScheduler: FactCheckScheduler
   ) {
     this.env = envService.env;
     this.messenger = messenger;
     this.bot = messenger.bot as unknown as Bot<BotContext>;
     this.scheduler = scheduler;
     this.stateEvolutionScheduler = stateEvolutionScheduler;
+    this.factCheckScheduler = factCheckScheduler;
     this.logger = loggerFactory.create('MainService');
     this.logger.info(
       { ADMIN_CHAT_ID: this.env.ADMIN_CHAT_ID },
@@ -149,6 +157,7 @@ export class MainService {
     await Promise.all([
       this.messenger.launch().catch((error) => this.logger.error(error)),
       this.scheduler.start().catch((error) => this.logger.error(error)),
+      this.factCheckScheduler.start().catch((error) => this.logger.error(error)),
     ]);
   }
 
