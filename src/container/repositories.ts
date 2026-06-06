@@ -90,6 +90,25 @@ import { SQLiteStateEvolutionCursorRepository } from '../infrastructure/persiste
 import { SQLiteTruthRepository } from '../infrastructure/persistence/sqlite/SQLiteTruthRepository';
 import { SQLiteUserPoliticalProfileRepository } from '../infrastructure/persistence/sqlite/SQLiteUserPoliticalProfileRepository';
 import { SQLiteUserSocialProfileRepository } from '../infrastructure/persistence/sqlite/SQLiteUserSocialProfileRepository';
+import {
+  FACT_CHECK_RUN_REPOSITORY_ID,
+  type FactCheckRunRepository,
+  FACT_CHECK_FINDING_REPOSITORY_ID,
+  type FactCheckFindingRepository,
+  FACT_CHECK_STATS_REPOSITORY_ID,
+  type FactCheckStatsRepository,
+} from '../domain/repositories/FactCheckRepository';
+import {
+  FACT_CHECK_WINDOW_REPOSITORY_ID,
+  type FactCheckWindowRepository,
+} from '../domain/repositories/FactCheckWindowRepository';
+import {
+  FACT_CHECK_MESSAGE_WINDOW_REPOSITORY_ID,
+  type FactCheckMessageWindowRepository,
+} from '../domain/repositories/FactCheckMessageWindowRepository';
+import { SQLiteFactCheckRepository } from '../infrastructure/persistence/sqlite/SQLiteFactCheckRepository';
+import { SQLiteFactCheckWindowRepository } from '../infrastructure/persistence/sqlite/SQLiteFactCheckWindowRepository';
+import { SQLiteFactCheckMessageWindowRepository } from '../infrastructure/persistence/sqlite/SQLiteFactCheckMessageWindowRepository';
 
 export const register = (container: Container): void => {
   container
@@ -163,5 +182,28 @@ export const register = (container: Container): void => {
   container
     .bind<UserPoliticalProfileRepository>(USER_POLITICAL_PROFILE_REPOSITORY_ID)
     .to(SQLiteUserPoliticalProfileRepository)
+    .inSingletonScope();
+  container.bind(SQLiteFactCheckRepository).toSelf().inSingletonScope();
+  container
+    .bind<FactCheckRunRepository>(FACT_CHECK_RUN_REPOSITORY_ID)
+    .toDynamicValue(() => container.get(SQLiteFactCheckRepository))
+    .inSingletonScope();
+  container
+    .bind<FactCheckFindingRepository>(FACT_CHECK_FINDING_REPOSITORY_ID)
+    .toDynamicValue(() => container.get(SQLiteFactCheckRepository))
+    .inSingletonScope();
+  container
+    .bind<FactCheckStatsRepository>(FACT_CHECK_STATS_REPOSITORY_ID)
+    .toDynamicValue(() => container.get(SQLiteFactCheckRepository))
+    .inSingletonScope();
+  container
+    .bind<FactCheckWindowRepository>(FACT_CHECK_WINDOW_REPOSITORY_ID)
+    .to(SQLiteFactCheckWindowRepository)
+    .inSingletonScope();
+  container
+    .bind<FactCheckMessageWindowRepository>(
+      FACT_CHECK_MESSAGE_WINDOW_REPOSITORY_ID
+    )
+    .to(SQLiteFactCheckMessageWindowRepository)
     .inSingletonScope();
 };

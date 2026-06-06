@@ -40,6 +40,16 @@ describe('MessageFactory', () => {
     });
   });
 
+  it('fromUser captures chat username', () => {
+    const ctx = {
+      message: { text: 'hello', message_id: 5 },
+      from: { id: 1, first_name: 'A' },
+      chat: { id: 10, username: 'publicchat' },
+    } as unknown as Context;
+    const result = MessageFactory.fromUser(ctx, meta);
+    expect(result.chatUsername).toBe('publicchat');
+  });
+
   it('fromUser throws without text', () => {
     const ctx = {
       message: { message_id: 10 },

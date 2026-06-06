@@ -49,7 +49,11 @@ export class RepositoryMessageService implements MessageService {
       'Inserting message into database'
     );
     const storedUserId = message.userId ?? 0;
-    const chat = new ChatEntity(message.chatId, message.chatTitle ?? null);
+    const chat = new ChatEntity(
+      message.chatId,
+      message.chatTitle ?? null,
+      message.chatUsername ?? null
+    );
     await this.chatRepo.upsert(chat);
     const user = new UserEntity(
       storedUserId,

@@ -12,7 +12,7 @@ import {
 } from '@/domain/repositories/DbProvider';
 import type { MessageRepository } from '@/domain/repositories/MessageRepository';
 
-interface MessageRow {
+export interface MessageRow {
   id: number;
   role: 'user' | 'assistant';
   content: string;
@@ -31,10 +31,10 @@ interface MessageRow {
   processing_status: MessageProcessingStatus;
 }
 
-const SELECT_MESSAGE_COLUMNS =
+export const SELECT_MESSAGE_COLUMNS =
   'SELECT m.id, m.role, m.content, u.username, u.first_name, u.last_name, m.reply_text, m.reply_username, m.quote_text, m.reply_to_message_id, m.reply_to_user_id, m.user_id, c.chat_id, m.message_id, m.source_type, m.processing_status FROM messages m LEFT JOIN users u ON m.user_id = u.id LEFT JOIN chats c ON m.chat_id = c.chat_id';
 
-function rowToMessage(r: MessageRow): StoredMessage {
+export function rowToMessage(r: MessageRow): StoredMessage {
   const entry: StoredMessage = {
     id: r.id,
     role: r.role,

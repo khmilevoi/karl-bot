@@ -58,7 +58,8 @@ beforeEach(async () => {
       );
       CREATE TABLE chats (
         chat_id INTEGER PRIMARY KEY,
-        title TEXT
+        title TEXT,
+        username TEXT
       );
       CREATE TABLE messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
