@@ -230,6 +230,11 @@ import {
   FACT_CHECK_REASONING_SERVICE_ID,
   type FactCheckReasoningService,
 } from '../application/fact-checking/FactCheckReasoningService';
+import { DefaultFactCheckSourceSearchService } from '../application/fact-checking/DefaultFactCheckSourceSearchService';
+import {
+  SOURCE_SEARCH_SERVICE_ID,
+  type SourceSearchService,
+} from '../application/fact-checking/SourceSearchService';
 import { DefaultEnvService } from '../infrastructure/config/DefaultEnvService';
 import { TestEnvService } from '../infrastructure/config/TestEnvService';
 import { OpenAiSdkGateway } from '../infrastructure/external/OpenAiSdkGateway';
@@ -346,6 +351,11 @@ export const register = (container: Container): void => {
   container
     .bind<FactCheckReasoningService>(FACT_CHECK_REASONING_SERVICE_ID)
     .to(DefaultFactCheckReasoningService)
+    .inSingletonScope();
+
+  container
+    .bind<SourceSearchService>(SOURCE_SEARCH_SERVICE_ID)
+    .to(DefaultFactCheckSourceSearchService)
     .inSingletonScope();
 
   container
