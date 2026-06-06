@@ -100,7 +100,8 @@ describe('SQLiteFactCheckRepository', () => {
   const makeFinding = (
     runId: number,
     messageId: number,
-    claimKey: string
+    claimKey: string,
+    shouldNotifyImmediately = false
   ): InsertFactCheckFindingInput => ({
     runId,
     chatId: 1,
@@ -119,6 +120,7 @@ describe('SQLiteFactCheckRepository', () => {
     confidence: 0.9,
     sourcePolicy: 'reliable_or_media_allowed',
     sourceRequirementsMet: true,
+    shouldNotifyImmediately,
     messageUrl: null,
     createdAt: now(),
     checkedAt: now(),
@@ -180,6 +182,42 @@ describe('SQLiteFactCheckRepository', () => {
     if (id1) await repo.markDigestNotified([id1], now());
     const unsent = await repo.findUnsentDigest(1, 10);
     expect(unsent.map((f) => f.normalizedClaimKey)).toEqual(['key2']);
+  });
+
+  it('findUnsentImmediate returns only immediate findings', async () => {
+    const runId = await repo.createRun({
+      chatId: 1,
+      runType: 'hourly',
+      startedAt: now(),
+      messageFromId: null,
+      messageToId: null,
+      extractorModel: null,
+      verifierModel: null,
+    });
+    await repo.insertFinding(makeFinding(runId, 1, 'immediate', true));
+    await repo.insertFinding(makeFinding(runId, 2, 'digest', false));
+
+    const unsent = await repo.findUnsentImmediate(1, 10);
+
+    expect(unsent.map((f) => f.normalizedClaimKey)).toEqual(['immediate']);
+  });
+
+  it('findUnsentDigest returns only non-immediate findings', async () => {
+    const runId = await repo.createRun({
+      chatId: 1,
+      runType: 'hourly',
+      startedAt: now(),
+      messageFromId: null,
+      messageToId: null,
+      extractorModel: null,
+      verifierModel: null,
+    });
+    await repo.insertFinding(makeFinding(runId, 1, 'immediate', true));
+    await repo.insertFinding(makeFinding(runId, 2, 'digest', false));
+
+    const unsent = await repo.findUnsentDigest(1, 10);
+
+    expect(unsent.map((f) => f.normalizedClaimKey)).toEqual(['digest']);
   });
 
   it('getStats counts confirmed and uncertain separately', async () => {

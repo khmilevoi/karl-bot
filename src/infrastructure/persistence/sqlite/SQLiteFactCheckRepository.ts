@@ -47,6 +47,7 @@ interface FindingRow {
   confidence: number;
   source_policy: FactCheckSourcePolicy;
   source_requirements_met: number;
+  should_notify_immediately: number;
   message_url: string | null;
   immediate_notified_at: string | null;
   digest_notified_at: string | null;
@@ -94,6 +95,7 @@ function rowToFinding(row: FindingRow): FactCheckFindingEntity {
     confidence: row.confidence,
     sourcePolicy: row.source_policy,
     sourceRequirementsMet: row.source_requirements_met === 1,
+    shouldNotifyImmediately: row.should_notify_immediately === 1,
     messageUrl: row.message_url,
     immediateNotifiedAt: row.immediate_notified_at,
     digestNotifiedAt: row.digest_notified_at,
@@ -199,7 +201,7 @@ export class SQLiteFactCheckRepository
   ): Promise<number | null> {
     const db = await this.dbProvider.get();
     const result = (await db.run(
-      'INSERT OR IGNORE INTO fact_check_findings (run_id, chat_id, message_id, telegram_message_id, author_user_id, author_display_name, normalized_claim_key, claim_text, original_quote, corrected_fact, explanation, category, severity, status, confidence, source_policy, source_requirements_met, message_url, created_at, checked_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT OR IGNORE INTO fact_check_findings (run_id, chat_id, message_id, telegram_message_id, author_user_id, author_display_name, normalized_claim_key, claim_text, original_quote, corrected_fact, explanation, category, severity, status, confidence, source_policy, source_requirements_met, should_notify_immediately, message_url, created_at, checked_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       input.runId,
       input.chatId,
       input.messageId,
@@ -217,6 +219,7 @@ export class SQLiteFactCheckRepository
       input.confidence,
       input.sourcePolicy,
       input.sourceRequirementsMet ? 1 : 0,
+      input.shouldNotifyImmediately ? 1 : 0,
       input.messageUrl,
       input.createdAt,
       input.checkedAt
@@ -247,7 +250,7 @@ export class SQLiteFactCheckRepository
   ): Promise<FactCheckFindingWithSources[]> {
     const db = await this.dbProvider.get();
     const rows = await db.all<FindingRow>(
-      'SELECT * FROM fact_check_findings WHERE chat_id = ? AND immediate_notified_at IS NULL ORDER BY checked_at ASC LIMIT ?',
+      'SELECT * FROM fact_check_findings WHERE chat_id = ? AND should_notify_immediately = 1 AND immediate_notified_at IS NULL ORDER BY checked_at ASC LIMIT ?',
       chatId,
       limit
     );
@@ -261,7 +264,7 @@ export class SQLiteFactCheckRepository
   ): Promise<FactCheckFindingWithSources[]> {
     const db = await this.dbProvider.get();
     const rows = await db.all<FindingRow>(
-      'SELECT * FROM fact_check_findings WHERE chat_id = ? AND digest_notified_at IS NULL ORDER BY checked_at ASC LIMIT ?',
+      'SELECT * FROM fact_check_findings WHERE chat_id = ? AND should_notify_immediately = 0 AND digest_notified_at IS NULL ORDER BY checked_at ASC LIMIT ?',
       chatId,
       limit
     );

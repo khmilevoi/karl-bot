@@ -245,6 +245,9 @@ describe('DefaultFactCheckPipeline', () => {
       expect.objectContaining({ runId: 42 })
     );
     expect(findingRepo.insertFinding).toHaveBeenCalledOnce();
+    expect(findingRepo.insertFinding).toHaveBeenCalledWith(
+      expect.objectContaining({ shouldNotifyImmediately: true })
+    );
     expect(cursorRepo.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ chatId, lastCheckedMessageId: 10 })
     );

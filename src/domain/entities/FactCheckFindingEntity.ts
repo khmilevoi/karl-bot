@@ -26,6 +26,7 @@ export interface FactCheckFindingEntity {
   confidence: number;
   sourcePolicy: FactCheckSourcePolicy;
   sourceRequirementsMet: boolean;
+  shouldNotifyImmediately: boolean;
   messageUrl: string | null;
   immediateNotifiedAt: string | null;
   digestNotifiedAt: string | null;

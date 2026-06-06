@@ -228,6 +228,7 @@ export class DefaultFactCheckPipeline implements FactCheckPipeline {
           confidence: finding.confidence,
           sourcePolicy,
           sourceRequirementsMet,
+          shouldNotifyImmediately: finding.shouldNotifyImmediately,
           messageUrl,
           createdAt: now,
           checkedAt: now,

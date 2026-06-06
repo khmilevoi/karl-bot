@@ -63,6 +63,7 @@ export interface InsertFactCheckFindingInput {
   confidence: number;
   sourcePolicy: FactCheckSourcePolicy;
   sourceRequirementsMet: boolean;
+  shouldNotifyImmediately: boolean;
   messageUrl: string | null;
   createdAt: string;
   checkedAt: string;
