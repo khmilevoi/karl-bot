@@ -235,6 +235,11 @@ import {
   SOURCE_SEARCH_SERVICE_ID,
   type SourceSearchService,
 } from '../application/fact-checking/SourceSearchService';
+import { DefaultFactCheckPipeline } from '../application/fact-checking/DefaultFactCheckPipeline';
+import {
+  FACT_CHECK_PIPELINE_ID,
+  type FactCheckPipeline,
+} from '../application/fact-checking/FactCheckPipeline';
 import { DefaultEnvService } from '../infrastructure/config/DefaultEnvService';
 import { TestEnvService } from '../infrastructure/config/TestEnvService';
 import { OpenAiSdkGateway } from '../infrastructure/external/OpenAiSdkGateway';
@@ -356,6 +361,11 @@ export const register = (container: Container): void => {
   container
     .bind<SourceSearchService>(SOURCE_SEARCH_SERVICE_ID)
     .to(DefaultFactCheckSourceSearchService)
+    .inSingletonScope();
+
+  container
+    .bind<FactCheckPipeline>(FACT_CHECK_PIPELINE_ID)
+    .to(DefaultFactCheckPipeline)
     .inSingletonScope();
 
   container
