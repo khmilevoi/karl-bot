@@ -34,6 +34,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `pnpm migration:down` - Rollback database migrations
 - `pnpm migration:check` - Check migration status
 
+**Jobs (HTTP-triggered):**
+
+The running server exposes cron jobs over HTTP (no auth — localhost/internal only).
+These pnpm scripts POST to the running bot (it must be up):
+
+- `pnpm job:topic-of-day --chat-id <id>` / `pnpm job:topic-of-day:all`
+- `pnpm job:state-evolution --chat-id <id>` (force) / `pnpm job:state-evolution:all` (sweep)
+- `pnpm job:fact-check --chat-id <id>` / `pnpm job:fact-check:all`
+- `pnpm job:fact-check-stats --period <daily|weekly|monthly> --chat-id <id>` / `... :all`
+
+Endpoints: `POST /jobs/<job>` (per-chat, JSON `{ chatId, period? }`) and
+`POST /jobs/<job>/all` (all approved chats). Health: `GET /health`.
+Base URL via `JOBS_BASE_URL` (default `http://localhost:$PORT`).
+
 ## Architecture
 
 This is a TypeScript Telegram bot using:
