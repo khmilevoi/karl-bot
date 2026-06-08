@@ -6,7 +6,7 @@ export default defineConfig({
     entry: {
       index: './src/index.ts',
       migrate: './src/migrate.ts',
-      'voice-worker': './src/voice-worker.ts',
+      'audio-worker': './src/audio-worker.ts',
     },
     decorators: { version: 'legacy' },
   },
