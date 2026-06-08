@@ -11,7 +11,7 @@
     "build": "rsbuild build",
     "start": "node dist/index.js",
     "dev": "nodemon -L --watch src --ext ts --exec \"rsbuild build && node dist/index.js\"",
-    "dev:worker": "nodemon -L --watch src --ext ts --exec \"rsbuild build && node dist/voice-worker.js\"",
+    "dev:audio-worker": "nodemon -L --watch src --ext ts --exec \"rsbuild build && node dist/audio-worker.js\"",
     "docker:build:dev": "docker compose -f docker-compose.yml -f docker-compose.dev.yml build",
     "docker:build:prod": "docker compose -f docker-compose.yml build",
     "docker:dev": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build",
@@ -31,7 +31,7 @@
     "migration:up": "node scripts/pre-migrate.js && node dist/migrate.js up",
     "migration:down": "node scripts/pre-migrate.js && node dist/migrate.js down",
     "migration:check": "node scripts/pre-migrate.js && node dist/migrate.js check",
-    "voice-worker": "node dist/voice-worker.js"
+    "audio-worker": "node dist/audio-worker.js"
   },
   "dependencies": {
     "@grammyjs/conversations": "^2.1.1",

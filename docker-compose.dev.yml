@@ -18,10 +18,9 @@ x-dev: &dev
     - ./migrations:/app/migrations
     - ./rsbuild.config.ts:/app/rsbuild.config.ts
     - ./tsconfig.json:/app/tsconfig.json
-    # DB on the named volume (see docker-compose.yml) — NOT a host bind mount,
-    # so WAL works and restarts no longer hit SQLITE_IOERR. Source still bind-
-    # mounts above for live reload; only /data moved off the host filesystem.
-    - db-data:/data
+    # Same local DB files as the base compose file: ./data on the host, /data
+    # in the container.
+    - ./data:/data
 
 services:
   # The deps image has no pre-built dist, so build before migrating.
@@ -40,6 +39,6 @@ services:
     healthcheck:
       disable: true
 
-  worker:
+  audio-worker:
     <<: *dev
-    command: pnpm dev:worker
+    command: pnpm dev:audio-worker

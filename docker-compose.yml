@@ -11,15 +11,13 @@ x-app: &app
   environment: &app-env
     DATABASE_URL: file:///data/memory.db
     NODE_ENV: production
-  # SQLite lives on a Docker-managed named volume (ext4 inside the VM), NOT a
-  # host bind mount. WAL needs mmap'd shared memory (-shm) + fcntl locks, which
-  # the Windows/macOS bind-mount translation layer doesn't support — opening a
-  # non-empty WAL there fails with SQLITE_IOERR on restart. A named volume is
-  # native ext4, so WAL works correctly. Inspect the DB via `docker cp` / exec.
+  # SQLite lives in the local ./data directory and is mounted to /data inside
+  # every container, so memory.db, memory.db-wal, and memory.db-shm are the same
+  # files on the host and in Docker.
   volumes:
-    - db-data:/data
+    - ./data:/data
     # Prompt logs stay on the host so they can be read without entering the
-    # container. Keep the DB on the named volume above for SQLite WAL safety.
+    # container.
     - ./prompts.log:/app/prompts.log
 
 services:
@@ -55,9 +53,9 @@ services:
       start_period: 15s
     restart: unless-stopped
 
-  worker:
+  audio-worker:
     <<: *app
-    command: ['node', 'dist/voice-worker.js']
+    command: ['node', 'dist/audio-worker.js']
     # init: true so the tiny docker-init reaps zombie ffmpeg children and
     # forwards SIGTERM for a clean shutdown.
     init: true
@@ -65,6 +63,3 @@ services:
       migrate:
         condition: service_completed_successfully
     restart: unless-stopped
-
-volumes:
-  db-data:
