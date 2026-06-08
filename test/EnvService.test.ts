@@ -92,6 +92,9 @@ describe('EnvService', () => {
       summarization: { default: 'gpt-5.4-mini', escalation: 'gpt-5.5' },
       stateEvolution: { default: 'gpt-5.4-mini', escalation: 'gpt-5.5' },
       errorRepair: { default: 'gpt-5.4-mini', escalation: 'gpt-5.5' },
+      factCheckExtraction: { default: 'gpt-5.4-mini' },
+      factCheckVerification: { default: 'gpt-5.4-mini', escalation: 'gpt-5.5' },
+      sourceSearch: { default: 'gpt-5.4-mini' },
     });
   });
 
@@ -118,7 +121,33 @@ describe('EnvService', () => {
       stateEvolutionSystem: 'prompts/state_evolution_system_prompt.md',
       personalitySignals: 'prompts/personality_signals_prompt.md',
       userPoliticalProfiles: 'prompts/user_political_profiles_prompt.md',
+      factCheckClaimExtractionSystem:
+        'prompts/fact_check_claim_extraction_system_prompt.md',
+      factCheckVerificationSystem:
+        'prompts/fact_check_verification_system_prompt.md',
     });
+  });
+
+  it('getFactCheckConfig returns defaults', () => {
+    setRequiredEnv();
+    const env = new TestEnvService();
+    expect(env.getFactCheckConfig()).toEqual(
+      expect.objectContaining({
+        enabled: false,
+        hourlyCron: '0 0 * * * *',
+        timezone: 'Europe/Warsaw',
+        maxMessagesPerBatch: 200,
+        maxClaimsPerBatch: 40,
+        maxHistoryContextMessages: 100,
+        maxSourceSearchesPerBatch: 20,
+        maxSourcesPerFinding: 5,
+        maxDisplayedSourcesPerFinding: 3,
+        maxFindingsPerDigestMessage: 10,
+        verificationConfidenceThreshold: 0.75,
+      })
+    );
+    expect(env.getModels().factCheckExtraction.default).toBe('gpt-5.4-mini');
+    expect(env.getModels().factCheckVerification.escalation).toBe('gpt-5.5');
   });
 
   it('getBotName returns the bot name', () => {

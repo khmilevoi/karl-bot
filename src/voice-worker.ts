@@ -18,7 +18,7 @@ registerRepositories(workerContainer);
 registerApplication(workerContainer);
 
 const loggerFactory = workerContainer.get<LoggerFactory>(LOGGER_FACTORY_ID);
-const logger = loggerFactory.create('voice-worker');
+const logger = loggerFactory.create('audio-worker');
 const worker = workerContainer.get<AudioTranscriptionWorker>(
   AUDIO_TRANSCRIPTION_WORKER_ID
 );

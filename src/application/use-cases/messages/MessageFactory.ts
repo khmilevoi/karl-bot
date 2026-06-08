@@ -26,6 +26,12 @@ export class MessageFactory {
     assert(chatId, 'No chat id');
     const chatTitle =
       ctx.chat && 'title' in ctx.chat ? ctx.chat.title : undefined;
+    const chatUsername =
+      ctx.chat &&
+      'username' in ctx.chat &&
+      typeof ctx.chat.username === 'string'
+        ? ctx.chat.username
+        : undefined;
 
     return {
       role: 'user',
@@ -43,6 +49,7 @@ export class MessageFactory {
       lastName: ctx.from?.last_name,
       chatId,
       chatTitle,
+      chatUsername,
     };
   }
 
@@ -66,6 +73,12 @@ export class MessageFactory {
     assert(chatId, 'No chat id');
     const chatTitle =
       ctx.chat && 'title' in ctx.chat ? ctx.chat.title : undefined;
+    const chatUsername =
+      ctx.chat &&
+      'username' in ctx.chat &&
+      typeof ctx.chat.username === 'string'
+        ? ctx.chat.username
+        : undefined;
 
     return {
       role: 'user',
@@ -83,6 +96,7 @@ export class MessageFactory {
       lastName: ctx.from?.last_name,
       chatId,
       chatTitle,
+      chatUsername,
       sourceType,
       processingStatus: 'ready',
     };

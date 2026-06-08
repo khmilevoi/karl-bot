@@ -5,6 +5,11 @@ import {
   type PromptTemplateService,
 } from '@/application/interfaces/prompts/PromptTemplateService';
 import type { ChatMessage } from '@/domain/messages/ChatMessage';
+import type {
+  FactCheckExtractionPromptContext,
+  FactCheckPromptSource,
+} from '@/application/fact-checking/FactCheckPromptContext';
+import type { ExtractedClaim } from '@/domain/fact-checking/FactCheckTypes';
 
 import type { MessageReferenceMap } from './MessageReferenceMap';
 import type { PromptMessage } from './PromptMessage';
@@ -408,6 +413,85 @@ export class PromptBuilder {
       ];
     });
     return this;
+  }
+
+  addFactCheckClaimExtractionSystem(): this {
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate(
+        'factCheckClaimExtractionSystem'
+      );
+      return [{ role: 'system', content: template }];
+    });
+    return this;
+  }
+
+  addFactCheckVerificationSystem(): this {
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate(
+        'factCheckVerificationSystem'
+      );
+      return [{ role: 'system', content: template }];
+    });
+    return this;
+  }
+
+  addFactCheckMessages(
+    params: Pick<
+      FactCheckExtractionPromptContext,
+      'batchMessages' | 'contextMessages'
+    >
+  ): this {
+    this.steps.push(async () => {
+      const lines: string[] = [];
+      if (params.contextMessages.length > 0) {
+        lines.push(
+          'Context messages (not part of the batch, for reference only):'
+        );
+        lines.push(JSON.stringify(this.formatMessages(params.contextMessages)));
+      }
+      lines.push('Batch messages (extract claims from these):');
+      lines.push(JSON.stringify(this.formatMessages(params.batchMessages)));
+      return [{ role: 'user', content: lines.join('\n') }];
+    });
+    return this;
+  }
+
+  addFactCheckCandidates(params: { candidates: ExtractedClaim[] }): this {
+    this.steps.push(async () => {
+      return [
+        {
+          role: 'user',
+          content: `Candidate claims to verify:\n${JSON.stringify(params.candidates)}`,
+        },
+      ];
+    });
+    return this;
+  }
+
+  addFactCheckSources(params: { sources: FactCheckPromptSource[] }): this {
+    if (params.sources.length === 0) {
+      return this;
+    }
+    this.steps.push(async () => {
+      return [
+        {
+          role: 'user',
+          content: `Retrieved sources (indexed from 0):\n${JSON.stringify(params.sources)}`,
+        },
+      ];
+    });
+    return this;
+  }
+
+  private formatMessages(
+    messages: ChatMessage[]
+  ): Array<Record<string, unknown>> {
+    return messages.map((m) => ({
+      id: m.id,
+      role: m.role,
+      username: m.username ?? null,
+      content: m.content,
+    }));
   }
 
   private truncate(text: string, max = 200): string {

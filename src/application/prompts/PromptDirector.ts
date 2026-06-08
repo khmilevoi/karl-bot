@@ -14,6 +14,10 @@ import type {
 } from './PromptTypes';
 import type { MessageReferenceMap } from './MessageReferenceMap';
 import type { StateEvolutionContext } from '../behavior/BehaviorTypes';
+import type {
+  FactCheckExtractionPromptContext,
+  FactCheckVerificationPromptContext,
+} from '@/application/fact-checking/FactCheckPromptContext';
 
 @injectable()
 export class PromptDirector {
@@ -84,6 +88,32 @@ export class PromptDirector {
         },
         context.selfIdentity
       )
+      .build();
+  }
+
+  async createFactCheckExtractionPrompt(
+    context: FactCheckExtractionPromptContext
+  ): Promise<PromptMessage[]> {
+    return this.builderFactory()
+      .addFactCheckClaimExtractionSystem()
+      .addFactCheckMessages({
+        batchMessages: context.batchMessages,
+        contextMessages: context.contextMessages,
+      })
+      .build();
+  }
+
+  async createFactCheckVerificationPrompt(
+    context: FactCheckVerificationPromptContext
+  ): Promise<PromptMessage[]> {
+    return this.builderFactory()
+      .addFactCheckVerificationSystem()
+      .addFactCheckMessages({
+        batchMessages: context.batchMessages,
+        contextMessages: context.contextMessages,
+      })
+      .addFactCheckCandidates({ candidates: context.candidates })
+      .addFactCheckSources({ sources: context.sources })
       .build();
   }
 
