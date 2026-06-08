@@ -5,9 +5,8 @@ export default defineConfig({
   source: {
     entry: {
       index: './src/index.ts',
-      'manual-job': './src/manual-job.ts',
       migrate: './src/migrate.ts',
-      'audio-worker': './src/audio-worker.ts',
+      'voice-worker': './src/voice-worker.ts',
     },
     decorators: { version: 'legacy' },
   },
