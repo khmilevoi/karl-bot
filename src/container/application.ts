@@ -194,6 +194,15 @@ import {
   type TopicOfDayScheduler,
 } from '../application/interfaces/scheduler/TopicOfDayScheduler';
 import {
+  HTTP_SERVER_ID,
+  type HttpServer,
+} from '../view/http/HttpServer';
+import {
+  JOB_CONTROLLER_ID,
+  JobController,
+} from '../view/http/JobController';
+import { NodeHttpServer } from '../view/http/NodeHttpServer';
+import {
   SUMMARY_SERVICE_ID,
   type SummaryService,
 } from '../application/interfaces/summaries/SummaryService';
@@ -546,6 +555,16 @@ export const register = (container: Container): void => {
   container
     .bind<JobRunner>(JOB_RUNNER_ID)
     .to(DefaultJobRunner)
+    .inSingletonScope();
+
+  container
+    .bind<JobController>(JOB_CONTROLLER_ID)
+    .to(JobController)
+    .inSingletonScope();
+
+  container
+    .bind<HttpServer>(HTTP_SERVER_ID)
+    .to(NodeHttpServer)
     .inSingletonScope();
 
   container
