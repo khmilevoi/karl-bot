@@ -48,6 +48,30 @@ export const envSchema = z
     FACT_CHECK_WEEKLY_STATS_CRON: z.string().min(1).default('0 0 9 * * 1'),
     FACT_CHECK_MONTHLY_STATS_CRON: z.string().min(1).default('0 0 9 1 * *'),
     FACT_CHECK_TIMEZONE: z.string().min(1).default('Europe/Warsaw'),
+    JOBS_BASE_URL: z.string().min(1).default('http://localhost:3000'),
+    STATE_EVOLUTION_SWEEP_CRON: z.string().min(1).default('0 */3 * * *'),
+    SCHEDULER_POLL_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(5000),
+    SCHEDULER_RECONCILE_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(60000),
+    SCHEDULER_LOCK_MS: z.coerce.number().int().positive().default(600000),
+    SCHEDULER_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+    SCHEDULER_BACKOFF_BASE_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(30000),
+    SCHEDULER_JOB_REQUEST_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(600000),
     FACT_CHECK_MAX_MESSAGES_PER_BATCH: z.coerce
       .number()
       .int()

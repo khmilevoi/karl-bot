@@ -8,6 +8,7 @@ import type {
   EnvService,
   PromptFiles,
 } from '@/application/interfaces/env/EnvService';
+import type { CronWorkerConfig } from '@/application/scheduler/CronWorkerConfig';
 import type { VoiceConfig } from '@/application/voice/VoiceConfig';
 
 import { envSchema } from './envSchema';
@@ -131,6 +132,24 @@ export class TestEnvService implements EnvService {
         this.env.FACT_CHECK_MAX_FINDINGS_PER_DIGEST_MESSAGE,
       verificationConfidenceThreshold:
         this.env.FACT_CHECK_VERIFICATION_CONFIDENCE_THRESHOLD,
+    };
+  }
+
+  getCronWorkerConfig(): CronWorkerConfig {
+    return {
+      jobsBaseUrl: this.env.JOBS_BASE_URL,
+      hourlyCron: this.env.FACT_CHECK_HOURLY_CRON,
+      dailyStatsCron: this.env.FACT_CHECK_DAILY_STATS_CRON,
+      weeklyStatsCron: this.env.FACT_CHECK_WEEKLY_STATS_CRON,
+      monthlyStatsCron: this.env.FACT_CHECK_MONTHLY_STATS_CRON,
+      sweepCron: this.env.STATE_EVOLUTION_SWEEP_CRON,
+      timezone: this.env.FACT_CHECK_TIMEZONE,
+      pollIntervalMs: this.env.SCHEDULER_POLL_INTERVAL_MS,
+      reconcileIntervalMs: this.env.SCHEDULER_RECONCILE_INTERVAL_MS,
+      lockMs: this.env.SCHEDULER_LOCK_MS,
+      maxAttempts: this.env.SCHEDULER_MAX_ATTEMPTS,
+      backoffBaseMs: this.env.SCHEDULER_BACKOFF_BASE_MS,
+      jobRequestTimeoutMs: this.env.SCHEDULER_JOB_REQUEST_TIMEOUT_MS,
     };
   }
 }
