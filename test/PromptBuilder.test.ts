@@ -15,7 +15,6 @@ describe('PromptBuilder', () => {
       priorityRulesSystem: 'rules',
       previousSummary: 'sum {{prev}}',
       userPrompt: 'U {{userMessage}}',
-      topicOfDaySystem: 'topic',
       neutralCore: 'neutral-core',
       behaviorGateSystem: 'gate-system',
       behaviorDecisionSystem: 'decision-system',
@@ -44,7 +43,6 @@ describe('PromptBuilder', () => {
         { username: 'u2', fullName: 'F2' },
       ])
       .addPriorityRulesSystem()
-      .addTopicOfDaySystem()
       .addPreviousSummary('S')
       .build();
 
@@ -54,7 +52,6 @@ describe('PromptBuilder', () => {
         content: 'Все пользователи чата:\nU u1 F1\n\nU u2 F2',
       },
       { role: 'system', content: 'rules' },
-      { role: 'system', content: 'topic' },
       { role: 'system', content: 'sum S' },
     ]);
   });

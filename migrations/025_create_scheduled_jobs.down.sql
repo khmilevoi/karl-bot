@@ -1,0 +1,6 @@
+BEGIN TRANSACTION;
+
+DROP INDEX IF EXISTS idx_scheduled_jobs_due;
+DROP TABLE IF EXISTS scheduled_jobs;
+
+COMMIT;

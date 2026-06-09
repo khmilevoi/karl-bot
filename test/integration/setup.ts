@@ -21,10 +21,6 @@ class MockAIService implements AIService {
   async summarize(_history: ChatMessage[], _prev?: string): Promise<string> {
     return 'mocked summary';
   }
-
-  async generateTopicOfDay(): Promise<string> {
-    return '';
-  }
 }
 
 // Stable mock for Telegram API

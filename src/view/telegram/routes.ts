@@ -21,8 +21,6 @@ export interface Actions {
     status: string;
     config: {
       historyLimit: number;
-      topicTime: string | null;
-      topicTimezone: string;
     };
   }>;
   requestChatAccess: (ctx: BotContext) => Promise<void>;
@@ -44,20 +42,12 @@ export interface Actions {
 
   getChatConfig: (chatId: number) => Promise<{
     historyLimit: number;
-    topicTime: string | null;
-    topicTimezone: string;
   }>;
   setHistoryLimit: (
     chatId: number,
     limit: number,
     isAdmin: boolean
   ) => Promise<void>;
-  setTopicTime: (
-    chatId: number,
-    time: string,
-    timezone: string
-  ) => Promise<void>;
-
   checkChatStatus: (chatId: number) => Promise<string>;
   processMessage: (ctx: BotContext) => Promise<void>;
   processVoiceMessage: (ctx: BotContext) => Promise<void>;
@@ -180,49 +170,6 @@ export function makeConversations(
     });
   }
 
-  async function adminTopicTime(
-    conversation: BotConversation,
-    ctx: BotContext
-  ): Promise<void> {
-    const adminChatId = ctx.chat?.id;
-    assert(adminChatId, 'No chat id');
-    const chatId = await conversation.external(
-      (ctx) => ctx.session?.selectedChatId
-    );
-    assert(chatId, 'No selected chat');
-
-    const timeResult = await waitForInputOrCancel(
-      conversation,
-      ctx,
-      `Введите время темы дня для чата ${chatId} (формат HH:MM):`,
-      (text) => {
-        const trimmed = text.trim();
-        return /^\d{1,2}:\d{2}$/.test(trimmed) ? trimmed : null;
-      }
-    );
-
-    if (timeResult === null) return;
-
-    const tzResult = await waitForInputOrCancel(
-      conversation,
-      ctx,
-      'Введите часовой пояс (например UTC+03):',
-      (text) => {
-        const trimmed = text.trim();
-        return trimmed.length > 0 ? trimmed : null;
-      }
-    );
-
-    if (tzResult === null) return;
-
-    await actions.setTopicTime(chatId, timeResult, tzResult);
-    await ctx.api.sendMessage(
-      adminChatId,
-      `✅ Время ${timeResult} (${tzResult}) установлено`,
-      { reply_markup: menuRefs.adminChat.menu }
-    );
-  }
-
   async function userHistoryLimit(
     conversation: BotConversation,
     ctx: BotContext
@@ -248,50 +195,9 @@ export function makeConversations(
     });
   }
 
-  async function userTopicTime(
-    conversation: BotConversation,
-    ctx: BotContext
-  ): Promise<void> {
-    const chatId = ctx.chat?.id;
-    assert(chatId, 'No chat id');
-
-    const timeResult = await waitForInputOrCancel(
-      conversation,
-      ctx,
-      'Введите время темы дня (формат HH:MM):',
-      (text) => {
-        const trimmed = text.trim();
-        return /^\d{1,2}:\d{2}$/.test(trimmed) ? trimmed : null;
-      }
-    );
-
-    if (timeResult === null) return;
-
-    const tzResult = await waitForInputOrCancel(
-      conversation,
-      ctx,
-      'Введите часовой пояс (например UTC+03):',
-      (text) => {
-        const trimmed = text.trim();
-        return trimmed.length > 0 ? trimmed : null;
-      }
-    );
-
-    if (tzResult === null) return;
-
-    await actions.setTopicTime(chatId, timeResult, tzResult);
-    await ctx.api.sendMessage(
-      chatId,
-      `✅ Время ${timeResult} (${tzResult}) установлено`,
-      { reply_markup: menuRefs.chatSettings.menu }
-    );
-  }
-
   return {
     adminHistoryLimit,
-    adminTopicTime,
     userHistoryLimit,
-    userTopicTime,
   };
 }
 
@@ -329,10 +235,6 @@ function buildMenus(actions: Actions): {
 
       range.text('📝 Лимит истории', async (ctx) => {
         await ctx.conversation.enter('adminHistoryLimit');
-      });
-      range.row();
-      range.text('📅 Время темы дня', async (ctx) => {
-        await ctx.conversation.enter('adminTopicTime');
       });
       range.row();
 
@@ -397,10 +299,6 @@ function buildMenus(actions: Actions): {
   const chatSettings = new Menu<BotContext>('chat_settings')
     .text('📝 Лимит истории', async (ctx) => {
       await ctx.conversation.enter('userHistoryLimit');
-    })
-    .row()
-    .text('📅 Время темы дня', async (ctx) => {
-      await ctx.conversation.enter('userTopicTime');
     })
     .row()
     .back('← Назад');
@@ -515,9 +413,7 @@ export function setupBotRouting(bot: Bot<BotContext>, actions: Actions): void {
   // Register conversation handlers
   const convs = makeConversations(actions, menuRefs);
   bot.use(createConversation(convs.adminHistoryLimit));
-  bot.use(createConversation(convs.adminTopicTime));
   bot.use(createConversation(convs.userHistoryLimit));
-  bot.use(createConversation(convs.userTopicTime));
 
   // Commands
   bot.command(['start', 'menu'], async (ctx) => {

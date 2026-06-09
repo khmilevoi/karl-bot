@@ -118,40 +118,6 @@ describe('waitForInputOrCancel', () => {
   });
 });
 
-describe('adminTopicTime conversation', () => {
-  it('reads selectedChatId from the replayed conversation context', async () => {
-    const setTopicTime = vi.fn().mockResolvedValue(undefined);
-    const actions = { setTopicTime } as unknown as Actions;
-    const menuRefs = {
-      chatSettings: { menu: {} as any, title: '' },
-      adminChat: { menu: {} as any, title: '' },
-    };
-    const convs = makeConversations(actions, menuRefs);
-
-    const outerCtx = {
-      chat: { id: 100 },
-      session: {},
-      api: {
-        sendMessage: vi.fn().mockResolvedValue({ message_id: 1 }),
-        deleteMessage: vi.fn().mockResolvedValue(undefined),
-      },
-    } as unknown as BotContext;
-
-    const replayedCtx = { session: { selectedChatId: 42 } };
-    const conversation = {
-      external: vi.fn(async (fn: (c: any) => unknown) => fn(replayedCtx)),
-      waitUntil: vi
-        .fn()
-        .mockResolvedValueOnce(textUpdate('09:00'))
-        .mockResolvedValueOnce(textUpdate('UTC+03')),
-    } as any;
-
-    await convs.adminTopicTime(conversation, outerCtx);
-
-    expect(setTopicTime).toHaveBeenCalledWith(42, '09:00', 'UTC+03');
-  });
-});
-
 describe('makeConversations', () => {
   it('does not expose retired interest interval conversations', () => {
     const actions = {} as unknown as Actions;
@@ -185,7 +151,6 @@ describe('setupBotRouting /start routing', () => {
       hasUserAccess: vi.fn(),
       getChatConfig: vi.fn(),
       setHistoryLimit: vi.fn(),
-      setTopicTime: vi.fn(),
       checkChatStatus: vi.fn().mockResolvedValue('approved'),
       processMessage: vi.fn(),
       log: vi.fn(),

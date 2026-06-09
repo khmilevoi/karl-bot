@@ -26,9 +26,6 @@ describe('DefaultContentAiService', () => {
       createSummaryPrompt: vi
         .fn()
         .mockResolvedValue([{ role: 'user', content: 'summary' }]),
-      createTopicOfDayPrompt: vi
-        .fn()
-        .mockResolvedValue([{ role: 'user', content: 'topic' }]),
     };
 
     env = new TestEnvService();
@@ -52,46 +49,6 @@ describe('DefaultContentAiService', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     delete process.env.LOG_PROMPTS;
-  });
-
-  it('generateTopicOfDay sends prompt', async () => {
-    createChatCompletion.mockResolvedValue({
-      content: 'article',
-      model: env.getModels().behaviorDecision.default,
-      usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
-      raw: {},
-    });
-
-    const res = await service.generateTopicOfDay();
-
-    expect(res).toBe('article');
-    expect(createChatCompletion).toHaveBeenCalledWith({
-      model: env.getModels().behaviorDecision.default,
-      messages: [{ role: 'user', content: 'topic' }],
-    });
-    expect(prompts.createTopicOfDayPrompt).toHaveBeenCalled();
-  });
-
-  it('generateTopicOfDay passes context params to director', async () => {
-    createChatCompletion.mockResolvedValue({
-      content: 'article',
-      model: env.getModels().behaviorDecision.default,
-      usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
-      raw: {},
-    });
-
-    const res = await service.generateTopicOfDay({
-      chatTitle: 'Chat',
-      summary: 'S',
-      users: [{ username: 'u', fullName: 'F' }],
-    });
-
-    expect(res).toBe('article');
-    expect(prompts.createTopicOfDayPrompt).toHaveBeenCalledWith({
-      chatTitle: 'Chat',
-      users: [{ username: 'u', fullName: 'F' }],
-      summary: 'S',
-    });
   });
 
   it('summarize builds history and uses previous summary', async () => {

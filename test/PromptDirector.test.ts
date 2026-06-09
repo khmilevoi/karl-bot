@@ -48,10 +48,6 @@ function createBuilder() {
       calls.push('addPreviousSummary');
       return builder;
     }),
-    addTopicOfDaySystem: vi.fn(() => {
-      calls.push('addTopicOfDaySystem');
-      return builder;
-    }),
     addNeutralCore: vi.fn(() => {
       calls.push('addNeutralCore');
       return builder;
@@ -155,19 +151,6 @@ describe('PromptDirector', () => {
     expect(builder.addMessages).toHaveBeenCalledWith(history);
   });
 
-  it('creates topic of day prompt', async () => {
-    const builder = createBuilder();
-    const factory: PromptBuilderFactory = () => builder;
-    const director = new PromptDirector(factory);
-    await director.createTopicOfDayPrompt();
-
-    expect(builder.calls).toEqual([
-      'addNeutralCore',
-      'addTopicOfDaySystem',
-      'build',
-    ]);
-  });
-
   it('creates behavior gate prompt', async () => {
     const builder = createBuilder();
     const factory: PromptBuilderFactory = () => builder;
@@ -245,25 +228,6 @@ describe('PromptDirector', () => {
       },
       context.selfIdentity
     );
-  });
-
-  it('creates topic of day prompt with context', async () => {
-    const builder = createBuilder();
-    const factory: PromptBuilderFactory = () => builder;
-    const director = new PromptDirector(factory);
-    await director.createTopicOfDayPrompt({
-      chatTitle: 'Chat',
-      summary: 'sum',
-      users: [{ username: 'u', fullName: 'F' }],
-    });
-
-    expect(builder.calls).toEqual([
-      'addNeutralCore',
-      'addTopicOfDaySystem',
-      'addAskSummary',
-      'addChatUsers',
-      'build',
-    ]);
   });
 
   it('creates fact check extraction prompt', async () => {

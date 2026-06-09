@@ -27,7 +27,6 @@ import type { ChatMessage } from '@/domain/messages/ChatMessage';
 
 @injectable()
 export class DefaultContentAiService implements AIService {
-  private readonly behaviorDecisionModel: AiModelId;
   private readonly summarizationModel: AiModelId;
   private readonly logger: Logger;
 
@@ -38,55 +37,8 @@ export class DefaultContentAiService implements AIService {
     @inject(LOGGER_FACTORY_ID) private readonly loggerFactory: LoggerFactory
   ) {
     const models = this.envService.getModels();
-    this.behaviorDecisionModel = models.behaviorDecision.default;
     this.summarizationModel = models.summarization.default;
     this.logger = this.loggerFactory.create('DefaultContentAiService');
-  }
-
-  public async generateTopicOfDay(params?: {
-    chatTitle?: string;
-    summary?: string;
-    users?: { username: string; fullName: string }[];
-  }): Promise<string> {
-    const prompt = await this.prompts.createTopicOfDayPrompt({
-      chatTitle: params?.chatTitle,
-      users: params?.users,
-      summary: params?.summary,
-    });
-    const messages = this.toAiMessages(prompt);
-    this.logger.debug('Sending topic of day request');
-    const start = Date.now();
-    try {
-      const result = await this.gateway.createChatCompletion({
-        model: this.behaviorDecisionModel,
-        messages,
-      });
-      const elapsedMs = Date.now() - start;
-      this.logger.debug(
-        {
-          model: result.model,
-          promptTokens: result.usage.promptTokens,
-          completionTokens: result.usage.completionTokens,
-          totalTokens: result.usage.totalTokens,
-          elapsedMs,
-        },
-        'Received topic of day response'
-      );
-      void this.logPrompt('topicOfDay', messages, result.content);
-      return result.content;
-    } catch (err) {
-      const elapsedMs = Date.now() - start;
-      this.logger.error(
-        {
-          err,
-          model: this.behaviorDecisionModel,
-          messages: messages.length,
-          elapsedMs,
-        },
-        'Topic of day request failed'
-      );
-      throw err;
-    }
   }
 
   public async summarize(

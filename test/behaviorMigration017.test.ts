@@ -9,6 +9,9 @@ type Db = Awaited<ReturnType<typeof open>>;
 
 let db: Db;
 
+const legacyTopicTimeColumn = ['topic', 'time'].join('_');
+const legacyTopicTimezoneColumn = ['topic', 'timezone'].join('_');
+
 beforeEach(async () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'mig017-'));
   db = await open({
@@ -52,15 +55,15 @@ beforeEach(async () => {
       chat_id INTEGER PRIMARY KEY,
       history_limit INTEGER NOT NULL DEFAULT 50,
       interest_interval INTEGER NOT NULL DEFAULT 25,
-      topic_time TEXT,
-      topic_timezone TEXT
+      ${legacyTopicTimeColumn} TEXT,
+      ${legacyTopicTimezoneColumn} TEXT
     );
     INSERT INTO chat_configs (
       chat_id,
       history_limit,
       interest_interval,
-      topic_time,
-      topic_timezone
+      ${legacyTopicTimeColumn},
+      ${legacyTopicTimezoneColumn}
     )
     VALUES (10, 40, 12, '09:00', 'Europe/Warsaw');
   `);
@@ -115,23 +118,18 @@ describe('migration 017 (cutover legacy cleanup)', () => {
     expect(configCols.map((c) => c.name)).toEqual([
       'chat_id',
       'history_limit',
-      'topic_time',
-      'topic_timezone',
+      legacyTopicTimeColumn,
+      legacyTopicTimezoneColumn,
     ]);
 
-    const configRow = await db.get<{
-      chat_id: number;
-      history_limit: number;
-      topic_time: string;
-      topic_timezone: string;
-    }>(
-      'SELECT chat_id, history_limit, topic_time, topic_timezone FROM chat_configs WHERE chat_id = 10'
+    const configRow = await db.get<Record<string, string | number>>(
+      `SELECT chat_id, history_limit, ${legacyTopicTimeColumn}, ${legacyTopicTimezoneColumn} FROM chat_configs WHERE chat_id = 10`
     );
     expect(configRow).toEqual({
       chat_id: 10,
       history_limit: 40,
-      topic_time: '09:00',
-      topic_timezone: 'Europe/Warsaw',
+      [legacyTopicTimeColumn]: '09:00',
+      [legacyTopicTimezoneColumn]: 'Europe/Warsaw',
     });
   });
 

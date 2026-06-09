@@ -63,3 +63,14 @@ services:
       migrate:
         condition: service_completed_successfully
     restart: unless-stopped
+
+  cron-worker:
+    <<: *app
+    command: ['node', 'dist/cron-worker.js']
+    init: true
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      app:
+        condition: service_healthy
+    restart: unless-stopped

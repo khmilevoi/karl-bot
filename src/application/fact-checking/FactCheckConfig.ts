@@ -2,11 +2,6 @@ import type { ServiceIdentifier } from 'inversify';
 
 export interface FactCheckConfig {
   enabled: boolean;
-  hourlyCron: string;
-  dailyStatsCron: string;
-  weeklyStatsCron: string;
-  monthlyStatsCron: string;
-  timezone: string;
   maxMessagesPerBatch: number;
   maxClaimsPerBatch: number;
   maxHistoryContextMessages: number;

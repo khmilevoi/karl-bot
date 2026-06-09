@@ -1,8 +1,6 @@
 import type { ServiceIdentifier } from 'inversify';
 
 export interface StateEvolutionScheduler {
-  start(): void;
-  stop(): void;
   sweep(): Promise<void>;
 }
 

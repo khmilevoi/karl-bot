@@ -21,7 +21,6 @@ export interface HttpResult {
 }
 
 const JOB_NAMES: readonly JobName[] = [
-  'topic-of-day',
   'state-evolution',
   'fact-check',
   'fact-check-stats',
@@ -68,12 +67,6 @@ export class JobController {
     body: Record<string, unknown>
   ): Promise<HttpResult> {
     switch (job) {
-      case 'topic-of-day':
-        return scope === 'chat'
-          ? this.perChat(body, (chatId) =>
-              this.runner.runForChat({ job: 'topic-of-day', chatId })
-            )
-          : this.wrap(this.runner.runForAllChats({ job: 'topic-of-day' }));
       case 'state-evolution':
         return scope === 'chat'
           ? this.perChat(body, (chatId) =>
@@ -91,9 +84,15 @@ export class JobController {
         if (period === null) return this.badPeriod();
         return scope === 'chat'
           ? this.perChat(body, (chatId) =>
-              this.runner.runForChat({ job: 'fact-check-stats', chatId, period })
+              this.runner.runForChat({
+                job: 'fact-check-stats',
+                chatId,
+                period,
+              })
             )
-          : this.wrap(this.runner.runForAllChats({ job: 'fact-check-stats', period }));
+          : this.wrap(
+              this.runner.runForAllChats({ job: 'fact-check-stats', period })
+            );
       }
     }
   }
@@ -133,7 +132,8 @@ export class JobController {
 
   private parsePeriod(body: Record<string, unknown>): StatsPeriod | null {
     const value = body.period;
-    return typeof value === 'string' && STATS_PERIODS.includes(value as StatsPeriod)
+    return typeof value === 'string' &&
+      STATS_PERIODS.includes(value as StatsPeriod)
       ? (value as StatsPeriod)
       : null;
   }

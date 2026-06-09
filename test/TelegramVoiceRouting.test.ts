@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { BehaviorPipeline } from '../src/application/behavior/BehaviorPipeline';
-import type { StateEvolutionScheduler } from '../src/application/behavior/StateEvolutionScheduler';
 import type { AdminService } from '../src/application/interfaces/admin/AdminService';
 import type { ChatApprovalService } from '../src/application/interfaces/chat/ChatApprovalService';
 import type { ChatConfigService } from '../src/application/interfaces/chat/ChatConfigService';
@@ -13,7 +12,6 @@ import type { EnvService } from '../src/application/interfaces/env/EnvService';
 import type { LoggerFactory } from '../src/application/interfaces/logging/LoggerFactory';
 import type { MessageContextExtractor } from '../src/application/interfaces/messages/MessageContextExtractor';
 import type { MessageService } from '../src/application/interfaces/messages/MessageService';
-import type { TopicOfDayScheduler } from '../src/application/interfaces/scheduler/TopicOfDayScheduler';
 import type { QueuedAudioTranscriptionService } from '../src/application/interfaces/voice/QueuedAudioTranscriptionService';
 import type { BotContext } from '../src/view/telegram/context';
 import { MainService } from '../src/view/telegram/MainService';
@@ -134,17 +132,10 @@ function buildService(overrides: {
     {
       getConfig: vi.fn().mockResolvedValue({
         historyLimit: 50,
-        topicTime: null,
-        topicTimezone: 'UTC',
       }),
       setHistoryLimit: vi.fn(),
-      setTopicTime: vi.fn(),
     } as unknown as ChatConfigService,
     createLoggerFactory(),
-    {
-      start: vi.fn().mockResolvedValue(undefined),
-    } as unknown as TopicOfDayScheduler,
-    { start: vi.fn() } as unknown as StateEvolutionScheduler,
     messenger,
     queuedTranscription
   );

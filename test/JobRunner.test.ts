@@ -17,13 +17,14 @@ const createLoggerFactory = (): LoggerFactory =>
   }) as unknown as LoggerFactory;
 
 function makeRunner(overrides?: {
-  topicOfDay?: { runNow?: ReturnType<typeof vi.fn> };
   stateEvolution?: { run?: ReturnType<typeof vi.fn> };
-  pipeline?: { runHourly?: ReturnType<typeof vi.fn>; runStats?: ReturnType<typeof vi.fn> };
+  pipeline?: {
+    runHourly?: ReturnType<typeof vi.fn>;
+    runStats?: ReturnType<typeof vi.fn>;
+  };
   approval?: { listAll?: ReturnType<typeof vi.fn> };
   scheduler?: { sweep?: ReturnType<typeof vi.fn> };
 }) {
-  const topicOfDay = { runNow: vi.fn(async () => {}), ...overrides?.topicOfDay };
   const stateEvolution = { run: vi.fn(), ...overrides?.stateEvolution };
   const pipeline = {
     runHourly: vi.fn(),
@@ -33,14 +34,13 @@ function makeRunner(overrides?: {
   const approval = { listAll: vi.fn(async () => []), ...overrides?.approval };
   const scheduler = { sweep: vi.fn(async () => {}), ...overrides?.scheduler };
   const runner = new DefaultJobRunner(
-    topicOfDay as never,
     stateEvolution as never,
     pipeline as never,
     approval as never,
     scheduler as never,
     createLoggerFactory()
   );
-  return { runner, topicOfDay, stateEvolution, pipeline, approval, scheduler };
+  return { runner, stateEvolution, pipeline, approval, scheduler };
 }
 
 const factResult: FactCheckRunResult = {
@@ -52,13 +52,6 @@ const factResult: FactCheckRunResult = {
 };
 
 describe('DefaultJobRunner.runForChat', () => {
-  it('runs topic-of-day for one chat', async () => {
-    const { runner, topicOfDay } = makeRunner();
-    const result = await runner.runForChat({ job: 'topic-of-day', chatId: 7 });
-    expect(topicOfDay.runNow).toHaveBeenCalledWith(7);
-    expect(result).toEqual({ job: 'topic-of-day', chatId: 7, outcome: 'completed' });
-  });
-
   it('runs state-evolution and returns its result', async () => {
     const stateResult: StateEvolutionRunResult = {
       kind: 'evolved',
@@ -68,7 +61,10 @@ describe('DefaultJobRunner.runForChat', () => {
     const { runner, stateEvolution } = makeRunner({
       stateEvolution: { run: vi.fn(async () => stateResult) },
     });
-    const result = await runner.runForChat({ job: 'state-evolution', chatId: -5 });
+    const result = await runner.runForChat({
+      job: 'state-evolution',
+      chatId: -5,
+    });
     expect(stateEvolution.run).toHaveBeenCalledWith(-5);
     expect(result).toEqual({
       job: 'state-evolution',
@@ -134,8 +130,18 @@ describe('DefaultJobRunner.runForAllChats', () => {
       scope: 'all',
       totalChats: 2,
       results: [
-        { job: 'fact-check', chatId: 1, outcome: 'completed', factCheck: factResult },
-        { job: 'fact-check', chatId: 3, outcome: 'completed', factCheck: factResult },
+        {
+          job: 'fact-check',
+          chatId: 1,
+          outcome: 'completed',
+          factCheck: factResult,
+        },
+        {
+          job: 'fact-check',
+          chatId: 3,
+          outcome: 'completed',
+          factCheck: factResult,
+        },
       ],
     });
   });
@@ -143,9 +149,14 @@ describe('DefaultJobRunner.runForAllChats', () => {
   it('passes the period through for fact-check-stats all-chats', async () => {
     const { runner, pipeline } = makeRunner({
       pipeline: { runStats: vi.fn(async () => factResult) },
-      approval: { listAll: vi.fn(async () => [{ chatId: 1, status: 'approved' }]) },
+      approval: {
+        listAll: vi.fn(async () => [{ chatId: 1, status: 'approved' }]),
+      },
     });
-    const result = await runner.runForAllChats({ job: 'fact-check-stats', period: 'daily' });
+    const result = await runner.runForAllChats({
+      job: 'fact-check-stats',
+      period: 'daily',
+    });
     expect(pipeline.runStats).toHaveBeenCalledWith(1, 'daily');
     expect(result).toEqual({
       job: 'fact-check-stats',
@@ -183,7 +194,14 @@ describe('DefaultJobRunner.runForAllChats', () => {
       job: 'fact-check',
       scope: 'all',
       totalChats: 2,
-      results: [{ job: 'fact-check', chatId: 2, outcome: 'completed', factCheck: factResult }],
+      results: [
+        {
+          job: 'fact-check',
+          chatId: 2,
+          outcome: 'completed',
+          factCheck: factResult,
+        },
+      ],
     });
   });
 
@@ -193,6 +211,10 @@ describe('DefaultJobRunner.runForAllChats', () => {
     const result = await runner.runForAllChats({ job: 'state-evolution' });
     expect(sweep).toHaveBeenCalledTimes(1);
     expect(approval.listAll).not.toHaveBeenCalled();
-    expect(result).toEqual({ job: 'state-evolution', scope: 'all', outcome: 'swept' });
+    expect(result).toEqual({
+      job: 'state-evolution',
+      scope: 'all',
+      outcome: 'swept',
+    });
   });
 });

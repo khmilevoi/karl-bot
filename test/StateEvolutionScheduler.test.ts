@@ -97,20 +97,4 @@ describe('DefaultStateEvolutionScheduler.sweep', () => {
     expect(called >= before).toBe(true);
     expect(called <= after).toBe(true);
   });
-
-  it('start() guards on already-started (does not double-register)', async () => {
-    const { scheduler } = makeScheduler({
-      config: { enabled: true, sweepCron: '*/5 * * * *' },
-    });
-    // Just verify start/stop don't throw and return cleanly
-    scheduler.start();
-    scheduler.start(); // second call should be a no-op
-    scheduler.stop();
-  });
-
-  it('start() is a no-op when enabled is false', () => {
-    const { scheduler } = makeScheduler({ config: { enabled: false } });
-    expect(() => scheduler.start()).not.toThrow();
-    scheduler.stop(); // should also not throw
-  });
 });

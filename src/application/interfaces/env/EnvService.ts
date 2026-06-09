@@ -2,6 +2,7 @@ import type { ServiceIdentifier } from 'inversify';
 
 import type { AiModelId } from '@/application/interfaces/ai/AiModelId';
 import type { FactCheckConfig } from '@/application/fact-checking/FactCheckConfig';
+import type { CronWorkerConfig } from '@/application/scheduler/CronWorkerConfig';
 import type { VoiceConfig } from '@/application/voice/VoiceConfig';
 
 export interface Env {
@@ -27,6 +28,14 @@ export interface Env {
   FACT_CHECK_WEEKLY_STATS_CRON: string;
   FACT_CHECK_MONTHLY_STATS_CRON: string;
   FACT_CHECK_TIMEZONE: string;
+  JOBS_BASE_URL: string;
+  STATE_EVOLUTION_SWEEP_CRON: string;
+  SCHEDULER_POLL_INTERVAL_MS: number;
+  SCHEDULER_RECONCILE_INTERVAL_MS: number;
+  SCHEDULER_LOCK_MS: number;
+  SCHEDULER_MAX_ATTEMPTS: number;
+  SCHEDULER_BACKOFF_BASE_MS: number;
+  SCHEDULER_JOB_REQUEST_TIMEOUT_MS: number;
   FACT_CHECK_MAX_MESSAGES_PER_BATCH: number;
   FACT_CHECK_MAX_CLAIMS_PER_BATCH: number;
   FACT_CHECK_MAX_HISTORY_CONTEXT_MESSAGES: number;
@@ -45,7 +54,6 @@ export interface PromptFiles {
   userPromptSystem: string;
   chatUser: string;
   priorityRulesSystem: string;
-  topicOfDaySystem: string;
   neutralCore: string;
   behaviorGateSystem: string;
   behaviorDecisionSystem: string;
@@ -90,6 +98,7 @@ export interface EnvService {
   getMigrationsDir(): string;
   getVoiceConfig(): VoiceConfig;
   getFactCheckConfig(): FactCheckConfig;
+  getCronWorkerConfig(): CronWorkerConfig;
 }
 
 export const ENV_SERVICE_ID = Symbol.for(

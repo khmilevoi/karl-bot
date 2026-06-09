@@ -25,7 +25,6 @@ describe('FilePromptTemplateService', () => {
       userPromptSystem: '',
       chatUser: '',
       priorityRulesSystem: '',
-      topicOfDaySystem: '',
       neutralCore: '/neutral.md',
       behaviorGateSystem: '',
       behaviorDecisionSystem: '',
