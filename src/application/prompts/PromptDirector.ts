@@ -10,7 +10,6 @@ import type { PromptMessage } from './PromptMessage';
 import type {
   BehaviorPromptContext,
   BehaviorPromptMessage,
-  PromptChatUser,
 } from './PromptTypes';
 import type { MessageReferenceMap } from './MessageReferenceMap';
 import type { StateEvolutionContext } from '../behavior/BehaviorTypes';
@@ -35,23 +34,6 @@ export class PromptDirector {
       .addPreviousSummary(previousSummary)
       .addMessages(history)
       .build();
-  }
-
-  async createTopicOfDayPrompt(params?: {
-    chatTitle?: string;
-    users?: PromptChatUser[];
-    summary?: string;
-  }): Promise<PromptMessage[]> {
-    const builder = this.builderFactory()
-      .addNeutralCore()
-      .addTopicOfDaySystem({ chatTitle: params?.chatTitle });
-    if (params?.summary) {
-      builder.addAskSummary(params.summary);
-    }
-    if (params?.users && params.users.length > 0) {
-      builder.addChatUsers(params.users);
-    }
-    return builder.build();
   }
 
   async createBehaviorGatePrompt(

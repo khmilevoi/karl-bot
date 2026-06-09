@@ -134,7 +134,11 @@ export class NodeHttpServer implements HttpServer {
     if (rawBody.trim().length === 0) return {};
     try {
       const parsed: unknown = JSON.parse(rawBody);
-      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      if (
+        typeof parsed !== 'object' ||
+        parsed === null ||
+        Array.isArray(parsed)
+      ) {
         return null;
       }
       return parsed as Record<string, unknown>;

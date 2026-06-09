@@ -28,18 +28,12 @@ import {
   type JobRunner,
   type JobRunResult,
 } from '@/application/interfaces/scheduler/JobRunner';
-import {
-  TOPIC_OF_DAY_SCHEDULER_ID,
-  type TopicOfDayScheduler,
-} from '@/application/interfaces/scheduler/TopicOfDayScheduler';
 
 @injectable()
 export class DefaultJobRunner implements JobRunner {
   private readonly logger: Logger;
 
   constructor(
-    @inject(TOPIC_OF_DAY_SCHEDULER_ID)
-    private readonly topicOfDay: TopicOfDayScheduler,
     @inject(STATE_EVOLUTION_PASS_ID)
     private readonly stateEvolution: StateEvolutionPass,
     @inject(FACT_CHECK_PIPELINE_ID)
@@ -55,9 +49,6 @@ export class DefaultJobRunner implements JobRunner {
 
   async runForChat(input: JobRunInput): Promise<JobRunResult> {
     switch (input.job) {
-      case 'topic-of-day':
-        await this.topicOfDay.runNow(input.chatId);
-        return { job: 'topic-of-day', chatId: input.chatId, outcome: 'completed' };
       case 'state-evolution': {
         const result = await this.stateEvolution.run(input.chatId);
         return {
@@ -97,11 +88,6 @@ export class DefaultJobRunner implements JobRunner {
       case 'state-evolution':
         await this.stateEvolutionScheduler.sweep();
         return { job: 'state-evolution', scope: 'all', outcome: 'swept' };
-      case 'topic-of-day':
-        return this.runEachApproved('topic-of-day', (chatId) => ({
-          job: 'topic-of-day',
-          chatId,
-        }));
       case 'fact-check':
         return this.runEachApproved('fact-check', (chatId) => ({
           job: 'fact-check',
@@ -119,7 +105,7 @@ export class DefaultJobRunner implements JobRunner {
   }
 
   private async runEachApproved(
-    job: 'topic-of-day' | 'fact-check' | 'fact-check-stats',
+    job: 'fact-check' | 'fact-check-stats',
     toInput: (chatId: number) => JobRunInput
   ): Promise<AllChatsJobResult> {
     const chats = await this.chatApproval.listAll();

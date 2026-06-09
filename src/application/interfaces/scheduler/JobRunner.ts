@@ -3,22 +3,16 @@ import type { ServiceIdentifier } from 'inversify';
 import type { StateEvolutionRunResult } from '@/application/behavior/StateEvolutionPass';
 import type { FactCheckRunResult } from '@/application/fact-checking/FactCheckPipeline';
 
-export type JobName =
-  | 'state-evolution'
-  | 'topic-of-day'
-  | 'fact-check'
-  | 'fact-check-stats';
+export type JobName = 'state-evolution' | 'fact-check' | 'fact-check-stats';
 
 export type StatsPeriod = 'daily' | 'weekly' | 'monthly';
 
 export type JobRunInput =
-  | { job: 'topic-of-day'; chatId: number }
   | { job: 'state-evolution'; chatId: number }
   | { job: 'fact-check'; chatId: number }
   | { job: 'fact-check-stats'; chatId: number; period: StatsPeriod };
 
 export type JobRunResult =
-  | { job: 'topic-of-day'; chatId: number; outcome: 'completed' }
   | {
       job: 'state-evolution';
       chatId: number;
@@ -40,14 +34,13 @@ export type JobRunResult =
     };
 
 export type AllChatsJobInput =
-  | { job: 'topic-of-day' }
   | { job: 'state-evolution' }
   | { job: 'fact-check' }
   | { job: 'fact-check-stats'; period: StatsPeriod };
 
 export type AllChatsJobResult =
   | {
-      job: 'topic-of-day' | 'fact-check' | 'fact-check-stats';
+      job: 'fact-check' | 'fact-check-stats';
       scope: 'all';
       totalChats: number;
       results: JobRunResult[];

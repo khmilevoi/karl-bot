@@ -45,7 +45,6 @@ export interface PromptFiles {
   userPromptSystem: string;
   chatUser: string;
   priorityRulesSystem: string;
-  topicOfDaySystem: string;
   neutralCore: string;
   behaviorGateSystem: string;
   behaviorDecisionSystem: string;

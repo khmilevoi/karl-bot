@@ -45,10 +45,6 @@ import {
   type MessageService,
 } from '@/application/interfaces/messages/MessageService';
 import {
-  TOPIC_OF_DAY_SCHEDULER_ID,
-  type TopicOfDayScheduler,
-} from '@/application/interfaces/scheduler/TopicOfDayScheduler';
-import {
   FACT_CHECK_SCHEDULER_ID,
   type FactCheckScheduler,
 } from '@/application/fact-checking/FactCheckScheduler';
@@ -69,7 +65,6 @@ export class MainService {
   private env: Env;
   private readonly logger: Logger;
   private readonly messenger: ChatMessenger;
-  private readonly scheduler: TopicOfDayScheduler;
   private readonly stateEvolutionScheduler: StateEvolutionScheduler;
   private readonly factCheckScheduler: FactCheckScheduler;
 
@@ -88,8 +83,6 @@ export class MainService {
     @inject(CHAT_INFO_SERVICE_ID) private chatInfo: ChatInfoService,
     @inject(CHAT_CONFIG_SERVICE_ID) private chatConfig: ChatConfigService,
     @inject(LOGGER_FACTORY_ID) loggerFactory: LoggerFactory,
-    @inject(new LazyServiceIdentifier(() => TOPIC_OF_DAY_SCHEDULER_ID))
-    scheduler: TopicOfDayScheduler,
     @inject(new LazyServiceIdentifier(() => STATE_EVOLUTION_SCHEDULER_ID))
     stateEvolutionScheduler: StateEvolutionScheduler,
     @inject(CHAT_MESSENGER_ID)
@@ -102,7 +95,6 @@ export class MainService {
     this.env = envService.env;
     this.messenger = messenger;
     this.bot = messenger.bot as unknown as Bot<BotContext>;
-    this.scheduler = scheduler;
     this.stateEvolutionScheduler = stateEvolutionScheduler;
     this.factCheckScheduler = factCheckScheduler;
     this.logger = loggerFactory.create('MainService');
@@ -135,8 +127,6 @@ export class MainService {
       getChatConfig: (chatId: number) => this.chatConfig.getConfig(chatId),
       setHistoryLimit: (chatId: number, limit: number, _isAdmin: boolean) =>
         this.chatConfig.setHistoryLimit(chatId, limit),
-      setTopicTime: (chatId: number, time: string, timezone: string) =>
-        this.chatConfig.setTopicTime(chatId, time, timezone),
       checkChatStatus: (chatId: number) =>
         this.approvalService.getStatus(chatId),
       processMessage: (ctx: BotContext) => this.handleMessage(ctx),
@@ -156,7 +146,6 @@ export class MainService {
 
     await Promise.all([
       this.messenger.launch().catch((error) => this.logger.error(error)),
-      this.scheduler.start().catch((error) => this.logger.error(error)),
       this.factCheckScheduler
         .start()
         .catch((error) => this.logger.error(error)),
@@ -198,8 +187,6 @@ export class MainService {
     status: string;
     config: {
       historyLimit: number;
-      topicTime: string | null;
-      topicTimezone: string;
     };
   }> {
     const status = await this.approvalService.getStatus(chatId);

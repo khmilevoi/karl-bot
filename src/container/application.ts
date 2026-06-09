@@ -189,18 +189,8 @@ import {
   JOB_RUNNER_ID,
   type JobRunner,
 } from '../application/interfaces/scheduler/JobRunner';
-import {
-  TOPIC_OF_DAY_SCHEDULER_ID,
-  type TopicOfDayScheduler,
-} from '../application/interfaces/scheduler/TopicOfDayScheduler';
-import {
-  HTTP_SERVER_ID,
-  type HttpServer,
-} from '../view/http/HttpServer';
-import {
-  JOB_CONTROLLER_ID,
-  JobController,
-} from '../view/http/JobController';
+import { HTTP_SERVER_ID, type HttpServer } from '../view/http/HttpServer';
+import { JOB_CONTROLLER_ID, JobController } from '../view/http/JobController';
 import { NodeHttpServer } from '../view/http/NodeHttpServer';
 import {
   SUMMARY_SERVICE_ID,
@@ -226,7 +216,6 @@ import { RepositoryChatUserService } from '../application/use-cases/chat/Reposit
 import { DefaultMessageContextExtractor } from '../application/use-cases/messages/DefaultMessageContextExtractor';
 import { RepositoryMessageService } from '../application/use-cases/messages/RepositoryMessageService';
 import { DefaultJobRunner } from '../application/use-cases/scheduler/DefaultJobRunner';
-import { TopicOfDaySchedulerImpl } from '../application/use-cases/scheduler/TopicOfDayScheduler';
 import { RepositorySummaryService } from '../application/use-cases/summaries/RepositorySummaryService';
 import { DefaultContentAiService } from '../application/use-cases/ai/DefaultContentAiService';
 import { DefaultBehaviorAiService } from '../application/behavior/DefaultBehaviorAiService';
@@ -545,11 +534,6 @@ export const register = (container: Container): void => {
   container
     .bind<ChatMessenger>(CHAT_MESSENGER_ID)
     .to(TelegramMessenger)
-    .inSingletonScope();
-
-  container
-    .bind<TopicOfDayScheduler>(TOPIC_OF_DAY_SCHEDULER_ID)
-    .to(TopicOfDaySchedulerImpl)
     .inSingletonScope();
 
   container

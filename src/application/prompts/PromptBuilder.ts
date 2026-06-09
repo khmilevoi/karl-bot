@@ -133,18 +133,6 @@ export class PromptBuilder {
     return this;
   }
 
-  addTopicOfDaySystem(params?: { chatTitle?: string }): this {
-    this.steps.push(async () => {
-      const template = await this.templates.loadTemplate('topicOfDaySystem');
-      const content = template.replace(
-        '{{chatTitle}}',
-        params?.chatTitle ?? 'этого чата'
-      );
-      return [{ role: 'system', content }];
-    });
-    return this;
-  }
-
   addMessages(messages: ChatMessage[]): this {
     for (const msg of messages) {
       if (msg.role === 'user') {

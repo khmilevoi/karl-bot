@@ -8,13 +8,16 @@
 // Base URL: $JOBS_BASE_URL, else http://localhost:$PORT (PORT defaults to 3000).
 import { pathToFileURL } from 'node:url';
 
-const JOBS = ['topic-of-day', 'state-evolution', 'fact-check', 'fact-check-stats'];
+const JOBS = ['state-evolution', 'fact-check', 'fact-check-stats'];
 const PERIODS = ['daily', 'weekly', 'monthly'];
 
 export function parseArgs(argv) {
   const [job, ...rest] = argv;
   if (!job || !JOBS.includes(job)) {
-    return { ok: false, error: `Unknown job "${job ?? ''}". Expected one of: ${JOBS.join(', ')}` };
+    return {
+      ok: false,
+      error: `Unknown job "${job ?? ''}". Expected one of: ${JOBS.join(', ')}`,
+    };
   }
 
   let chatId = null;
@@ -41,10 +44,19 @@ export function parseArgs(argv) {
   }
 
   if (all === (chatId !== null)) {
-    return { ok: false, error: 'Specify exactly one of --chat-id <n> or --all' };
+    return {
+      ok: false,
+      error: 'Specify exactly one of --chat-id <n> or --all',
+    };
   }
-  if (job === 'fact-check-stats' && (period === null || !PERIODS.includes(period))) {
-    return { ok: false, error: `fact-check-stats requires --period <${PERIODS.join('|')}>` };
+  if (
+    job === 'fact-check-stats' &&
+    (period === null || !PERIODS.includes(period))
+  ) {
+    return {
+      ok: false,
+      error: `fact-check-stats requires --period <${PERIODS.join('|')}>`,
+    };
   }
 
   return { ok: true, job, all, chatId, period };
@@ -58,7 +70,8 @@ async function main() {
     return;
   }
 
-  const base = process.env.JOBS_BASE_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
+  const base =
+    process.env.JOBS_BASE_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
   const path = parsed.all ? `/jobs/${parsed.job}/all` : `/jobs/${parsed.job}`;
   const body = {};
   if (!parsed.all) body.chatId = Number(parsed.chatId);
@@ -74,7 +87,8 @@ async function main() {
 }
 
 const isMain =
-  Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href;
+  Boolean(process.argv[1]) &&
+  import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
   main().catch((error) => {
     process.stderr.write(`${error?.stack ?? String(error)}\n`);

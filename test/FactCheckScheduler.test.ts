@@ -37,7 +37,12 @@ function makeRunner(): JobRunner {
     runForChat: vi.fn(),
     runForAllChats: vi
       .fn()
-      .mockResolvedValue({ job: 'fact-check', scope: 'all', totalChats: 0, results: [] }),
+      .mockResolvedValue({
+        job: 'fact-check',
+        scope: 'all',
+        totalChats: 0,
+        results: [],
+      }),
   };
 }
 
@@ -70,15 +75,26 @@ describe('DefaultFactCheckScheduler', () => {
     expect(exprs).toEqual(['HOURLY', 'DAILY', 'WEEKLY', 'MONTHLY']);
 
     // Invoke each captured cron callback (second arg of each schedule call).
-    const callbacks = scheduleMock.mock.calls.map((call) => call[1] as () => void);
+    const callbacks = scheduleMock.mock.calls.map(
+      (call) => call[1] as () => void
+    );
     callbacks[0]();
     callbacks[1]();
     callbacks[2]();
     callbacks[3]();
 
     expect(runner.runForAllChats).toHaveBeenCalledWith({ job: 'fact-check' });
-    expect(runner.runForAllChats).toHaveBeenCalledWith({ job: 'fact-check-stats', period: 'daily' });
-    expect(runner.runForAllChats).toHaveBeenCalledWith({ job: 'fact-check-stats', period: 'weekly' });
-    expect(runner.runForAllChats).toHaveBeenCalledWith({ job: 'fact-check-stats', period: 'monthly' });
+    expect(runner.runForAllChats).toHaveBeenCalledWith({
+      job: 'fact-check-stats',
+      period: 'daily',
+    });
+    expect(runner.runForAllChats).toHaveBeenCalledWith({
+      job: 'fact-check-stats',
+      period: 'weekly',
+    });
+    expect(runner.runForAllChats).toHaveBeenCalledWith({
+      job: 'fact-check-stats',
+      period: 'monthly',
+    });
   });
 });

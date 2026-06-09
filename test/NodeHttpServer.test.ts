@@ -14,7 +14,9 @@ const loggerFactory = {
   }),
 } as unknown as LoggerFactory;
 
-function makeController(run: (...args: unknown[]) => Promise<HttpResult>): JobController {
+function makeController(
+  run: (...args: unknown[]) => Promise<HttpResult>
+): JobController {
   return { run } as unknown as JobController;
 }
 
@@ -30,7 +32,12 @@ describe('NodeHttpServer', () => {
 
   it('routes a per-chat POST to the controller with the parsed body', async () => {
     process.env.PORT = '0';
-    const run = vi.fn(async (): Promise<HttpResult> => ({ status: 200, json: { ok: true, echoed: true } }));
+    const run = vi.fn(
+      async (): Promise<HttpResult> => ({
+        status: 200,
+        json: { ok: true, echoed: true },
+      })
+    );
     server = new NodeHttpServer(makeController(run), loggerFactory);
     await server.start();
 
@@ -46,13 +53,18 @@ describe('NodeHttpServer', () => {
 
   it('routes an all-chats POST with an empty body to the controller', async () => {
     process.env.PORT = '0';
-    const run = vi.fn(async (): Promise<HttpResult> => ({ status: 200, json: { ok: true } }));
+    const run = vi.fn(
+      async (): Promise<HttpResult> => ({ status: 200, json: { ok: true } })
+    );
     server = new NodeHttpServer(makeController(run), loggerFactory);
     await server.start();
 
-    const res = await fetch(`http://127.0.0.1:${server.port}/jobs/fact-check/all`, {
-      method: 'POST',
-    });
+    const res = await fetch(
+      `http://127.0.0.1:${server.port}/jobs/fact-check/all`,
+      {
+        method: 'POST',
+      }
+    );
 
     expect(res.status).toBe(200);
     expect(run).toHaveBeenCalledWith('fact-check', 'all', {});
@@ -74,19 +86,29 @@ describe('NodeHttpServer', () => {
 
   it('returns 405 for a known path with the wrong method', async () => {
     process.env.PORT = '0';
-    server = new NodeHttpServer(makeController(vi.fn() as never), loggerFactory);
+    server = new NodeHttpServer(
+      makeController(vi.fn() as never),
+      loggerFactory
+    );
     await server.start();
 
-    const res = await fetch(`http://127.0.0.1:${server.port}/jobs/fact-check`, { method: 'GET' });
+    const res = await fetch(`http://127.0.0.1:${server.port}/jobs/fact-check`, {
+      method: 'GET',
+    });
     expect(res.status).toBe(405);
   });
 
   it('returns 404 for an unknown path', async () => {
     process.env.PORT = '0';
-    server = new NodeHttpServer(makeController(vi.fn() as never), loggerFactory);
+    server = new NodeHttpServer(
+      makeController(vi.fn() as never),
+      loggerFactory
+    );
     await server.start();
 
-    const res = await fetch(`http://127.0.0.1:${server.port}/nope`, { method: 'POST' });
+    const res = await fetch(`http://127.0.0.1:${server.port}/nope`, {
+      method: 'POST',
+    });
     expect(res.status).toBe(404);
   });
 

@@ -42,7 +42,13 @@ describe('JobController', () => {
       job: 'fact-check',
       chatId: 5,
       outcome: 'completed',
-      factCheck: { chatId: 5, outcome: 'completed', runId: 1, processedMessages: 0, persistedFindings: 0 },
+      factCheck: {
+        chatId: 5,
+        outcome: 'completed',
+        runId: 1,
+        processedMessages: 0,
+        persistedFindings: 0,
+      },
     }));
     const controller = makeController({ runForChat: runForChat as never });
     const res = await controller.run('fact-check', 'chat', { chatId: 5 });
@@ -63,11 +69,24 @@ describe('JobController', () => {
       chatId: 5,
       period: 'weekly',
       outcome: 'completed',
-      factCheck: { chatId: 5, outcome: 'completed', runId: 1, processedMessages: 0, persistedFindings: 0 },
+      factCheck: {
+        chatId: 5,
+        outcome: 'completed',
+        runId: 1,
+        processedMessages: 0,
+        persistedFindings: 0,
+      },
     }));
     const controller = makeController({ runForChat: runForChat as never });
-    const res = await controller.run('fact-check-stats', 'chat', { chatId: 5, period: 'weekly' });
-    expect(runForChat).toHaveBeenCalledWith({ job: 'fact-check-stats', chatId: 5, period: 'weekly' });
+    const res = await controller.run('fact-check-stats', 'chat', {
+      chatId: 5,
+      period: 'weekly',
+    });
+    expect(runForChat).toHaveBeenCalledWith({
+      job: 'fact-check-stats',
+      chatId: 5,
+      period: 'weekly',
+    });
     expect(res.status).toBe(200);
   });
 
@@ -78,7 +97,9 @@ describe('JobController', () => {
       totalChats: 0,
       results: [],
     }));
-    const controller = makeController({ runForAllChats: runForAllChats as never });
+    const controller = makeController({
+      runForAllChats: runForAllChats as never,
+    });
     const res = await controller.run('fact-check', 'all', {});
     expect(runForAllChats).toHaveBeenCalledWith({ job: 'fact-check' });
     expect(res.status).toBe(200);

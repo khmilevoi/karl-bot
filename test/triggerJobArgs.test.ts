@@ -24,9 +24,9 @@ describe('trigger-job parseArgs', () => {
   });
 
   it('parses an all-chats job', () => {
-    expect(parseArgs(['topic-of-day', '--all'])).toEqual({
+    expect(parseArgs(['fact-check', '--all'])).toEqual({
       ok: true,
-      job: 'topic-of-day',
+      job: 'fact-check',
       all: true,
       chatId: null,
       period: null,
@@ -35,8 +35,12 @@ describe('trigger-job parseArgs', () => {
 
   it('requires a valid period for fact-check-stats', () => {
     expect(parseArgs(['fact-check-stats', '--all']).ok).toBe(false);
-    expect(parseArgs(['fact-check-stats', '--all', '--period', 'yearly']).ok).toBe(false);
-    expect(parseArgs(['fact-check-stats', '--all', '--period', 'weekly'])).toEqual({
+    expect(
+      parseArgs(['fact-check-stats', '--all', '--period', 'yearly']).ok
+    ).toBe(false);
+    expect(
+      parseArgs(['fact-check-stats', '--all', '--period', 'weekly'])
+    ).toEqual({
       ok: true,
       job: 'fact-check-stats',
       all: true,

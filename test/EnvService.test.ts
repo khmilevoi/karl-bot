@@ -109,7 +109,6 @@ describe('EnvService', () => {
       userPromptSystem: 'prompts/user_prompt_system_prompt.md',
       chatUser: 'prompts/chat_user_prompt.md',
       priorityRulesSystem: 'prompts/priority_rules_system_prompt.md',
-      topicOfDaySystem: 'prompts/topic_of_day_system_prompt.md',
       neutralCore: 'prompts/neutral_core_prompt.md',
       behaviorGateSystem: 'prompts/behavior_gate_system_prompt.md',
       behaviorDecisionSystem: 'prompts/behavior_decision_system_prompt.md',

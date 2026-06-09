@@ -12,7 +12,6 @@ import type { TriggerPipeline } from '../src/application/interfaces/chat/Trigger
 import type { ChatInfoService } from '../src/application/interfaces/chat/ChatInfoService';
 import type { ChatConfigService } from '../src/application/interfaces/chat/ChatConfigService';
 import type { LoggerFactory } from '../src/application/interfaces/logging/LoggerFactory';
-import type { TopicOfDayScheduler } from '../src/application/interfaces/scheduler/TopicOfDayScheduler';
 import type { ChatMessenger } from '../src/application/interfaces/chat/ChatMessenger';
 import type { MessageService } from '../src/application/interfaces/messages/MessageService';
 import type { BehaviorPipeline } from '../src/application/behavior/BehaviorPipeline';
@@ -85,13 +84,9 @@ const makeDeps = (over: Partial<Record<string, unknown>> = {}) => ({
   config: {
     getConfig: vi.fn().mockResolvedValue({
       historyLimit: 50,
-      topicTime: null,
-      topicTimezone: 'UTC',
     }),
     setHistoryLimit: vi.fn(),
-    setTopicTime: vi.fn(),
   },
-  scheduler: { start: vi.fn().mockResolvedValue(undefined) },
   stateEvolutionScheduler: { start: vi.fn() },
   factCheckScheduler: { start: vi.fn().mockResolvedValue(undefined) },
   queuedTranscription: {
@@ -113,7 +108,6 @@ const buildService = (deps: ReturnType<typeof makeDeps>) =>
     deps.chatInfo as unknown as ChatInfoService,
     deps.config as unknown as ChatConfigService,
     createLoggerFactory(),
-    deps.scheduler as unknown as TopicOfDayScheduler,
     deps.stateEvolutionScheduler as unknown as StateEvolutionScheduler,
     createMockMessenger(),
     deps.queuedTranscription as unknown as QueuedAudioTranscriptionService,
@@ -170,15 +164,9 @@ describe('MainService (Minimal)', () => {
     const config = {
       getConfig: vi.fn().mockResolvedValue({
         historyLimit: 50,
-        topicTime: null,
-        topicTimezone: 'UTC',
       }),
       setHistoryLimit: vi.fn(),
-      setTopicTime: vi.fn(),
     } as unknown as ChatConfigService;
-    const scheduler = {
-      start: vi.fn().mockResolvedValue(undefined),
-    } as unknown as TopicOfDayScheduler;
     const stateEvolutionScheduler = {
       start: vi.fn(),
     } as unknown as StateEvolutionScheduler;
@@ -196,7 +184,6 @@ describe('MainService (Minimal)', () => {
       chatInfo,
       config,
       createLoggerFactory(),
-      scheduler,
       stateEvolutionScheduler,
       messenger,
       {
@@ -211,7 +198,6 @@ describe('MainService (Minimal)', () => {
     service.stop('test');
 
     expect(messenger.launch).toHaveBeenCalled();
-    expect(scheduler.start).toHaveBeenCalled();
     expect(stateEvolutionScheduler.start).toHaveBeenCalled();
     expect(messenger.stop).toHaveBeenCalledWith('test');
   });
@@ -246,15 +232,9 @@ describe('MainService (Minimal)', () => {
     const config = {
       getConfig: vi.fn().mockResolvedValue({
         historyLimit: 50,
-        topicTime: '09:00',
-        topicTimezone: 'UTC',
       }),
       setHistoryLimit: vi.fn(),
-      setTopicTime: vi.fn(),
     } as unknown as ChatConfigService;
-    const scheduler = {
-      start: vi.fn().mockResolvedValue(undefined),
-    } as unknown as TopicOfDayScheduler;
     const stateEvolutionScheduler = {
       start: vi.fn(),
     } as unknown as StateEvolutionScheduler;
@@ -272,7 +252,6 @@ describe('MainService (Minimal)', () => {
       chatInfo,
       config,
       createLoggerFactory(),
-      scheduler,
       stateEvolutionScheduler,
       messenger,
       {
@@ -290,8 +269,6 @@ describe('MainService (Minimal)', () => {
       status: 'approved',
       config: {
         historyLimit: 50,
-        topicTime: '09:00',
-        topicTimezone: 'UTC',
       },
     });
     expect(approval.getStatus).toHaveBeenCalledWith(1);
@@ -328,15 +305,9 @@ describe('MainService (Minimal)', () => {
     const config = {
       getConfig: vi.fn().mockResolvedValue({
         historyLimit: 50,
-        topicTime: null,
-        topicTimezone: 'UTC',
       }),
       setHistoryLimit: vi.fn(),
-      setTopicTime: vi.fn(),
     } as unknown as ChatConfigService;
-    const scheduler = {
-      start: vi.fn().mockResolvedValue(undefined),
-    } as unknown as TopicOfDayScheduler;
     const stateEvolutionScheduler = {
       start: vi.fn(),
     } as unknown as StateEvolutionScheduler;
@@ -354,7 +325,6 @@ describe('MainService (Minimal)', () => {
       chatInfo,
       config,
       createLoggerFactory(),
-      scheduler,
       stateEvolutionScheduler,
       messenger,
       {

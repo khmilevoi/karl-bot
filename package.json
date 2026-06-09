@@ -18,8 +18,6 @@
     "docker:prod": "docker compose -f docker-compose.yml up --build -d",
     "docker:down": "docker compose -f docker-compose.yml -f docker-compose.dev.yml down",
     "job": "node scripts/trigger-job.mjs",
-    "job:topic-of-day": "node scripts/trigger-job.mjs topic-of-day",
-    "job:topic-of-day:all": "node scripts/trigger-job.mjs topic-of-day --all",
     "job:state-evolution": "node scripts/trigger-job.mjs state-evolution",
     "job:state-evolution:all": "node scripts/trigger-job.mjs state-evolution --all",
     "job:fact-check": "node scripts/trigger-job.mjs fact-check",
