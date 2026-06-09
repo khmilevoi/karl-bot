@@ -7,6 +7,7 @@ export default defineConfig({
       index: './src/index.ts',
       migrate: './src/migrate.ts',
       'audio-worker': './src/audio-worker.ts',
+      'cron-worker': './src/cron-worker.ts',
     },
     decorators: { version: 'legacy' },
   },

@@ -42,3 +42,7 @@ services:
   audio-worker:
     <<: *dev
     command: pnpm dev:audio-worker
+
+  cron-worker:
+    <<: *dev
+    command: pnpm dev:cron-worker
