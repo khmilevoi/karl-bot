@@ -107,11 +107,6 @@ export class DefaultEnvService implements EnvService {
   getFactCheckConfig(): FactCheckConfig {
     return {
       enabled: this.env.FACT_CHECK_ENABLED,
-      hourlyCron: this.env.FACT_CHECK_HOURLY_CRON,
-      dailyStatsCron: this.env.FACT_CHECK_DAILY_STATS_CRON,
-      weeklyStatsCron: this.env.FACT_CHECK_WEEKLY_STATS_CRON,
-      monthlyStatsCron: this.env.FACT_CHECK_MONTHLY_STATS_CRON,
-      timezone: this.env.FACT_CHECK_TIMEZONE,
       maxMessagesPerBatch: this.env.FACT_CHECK_MAX_MESSAGES_PER_BATCH,
       maxClaimsPerBatch: this.env.FACT_CHECK_MAX_CLAIMS_PER_BATCH,
       maxHistoryContextMessages:

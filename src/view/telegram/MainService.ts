@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 
 import { type Bot, InlineKeyboard, InputFile } from 'grammy';
-import { inject, injectable, LazyServiceIdentifier } from 'inversify';
+import { inject, injectable } from 'inversify';
 
 import {
   BEHAVIOR_PIPELINE_ID,
@@ -11,10 +11,6 @@ import type {
   DirectBehaviorTrigger,
   StoredBehaviorMessage,
 } from '@/application/behavior/BehaviorTypes';
-import {
-  STATE_EVOLUTION_SCHEDULER_ID,
-  type StateEvolutionScheduler,
-} from '@/application/behavior/StateEvolutionScheduler';
 import type { AdminService } from '@/application/interfaces/admin/AdminService';
 import { ADMIN_SERVICE_ID } from '@/application/interfaces/admin/AdminService';
 import type { ChatApprovalService } from '@/application/interfaces/chat/ChatApprovalService';
@@ -45,10 +41,6 @@ import {
   type MessageService,
 } from '@/application/interfaces/messages/MessageService';
 import {
-  FACT_CHECK_SCHEDULER_ID,
-  type FactCheckScheduler,
-} from '@/application/fact-checking/FactCheckScheduler';
-import {
   QUEUED_AUDIO_TRANSCRIPTION_SERVICE_ID,
   type QueuedAudioTranscriptionService,
 } from '@/application/interfaces/voice/QueuedAudioTranscriptionService';
@@ -65,8 +57,6 @@ export class MainService {
   private env: Env;
   private readonly logger: Logger;
   private readonly messenger: ChatMessenger;
-  private readonly stateEvolutionScheduler: StateEvolutionScheduler;
-  private readonly factCheckScheduler: FactCheckScheduler;
 
   constructor(
     @inject(ENV_SERVICE_ID) envService: EnvService,
@@ -83,20 +73,14 @@ export class MainService {
     @inject(CHAT_INFO_SERVICE_ID) private chatInfo: ChatInfoService,
     @inject(CHAT_CONFIG_SERVICE_ID) private chatConfig: ChatConfigService,
     @inject(LOGGER_FACTORY_ID) loggerFactory: LoggerFactory,
-    @inject(new LazyServiceIdentifier(() => STATE_EVOLUTION_SCHEDULER_ID))
-    stateEvolutionScheduler: StateEvolutionScheduler,
     @inject(CHAT_MESSENGER_ID)
     messenger: ChatMessenger,
     @inject(QUEUED_AUDIO_TRANSCRIPTION_SERVICE_ID)
-    private queuedAudioTranscriptionService: QueuedAudioTranscriptionService,
-    @inject(new LazyServiceIdentifier(() => FACT_CHECK_SCHEDULER_ID))
-    factCheckScheduler: FactCheckScheduler
+    private queuedAudioTranscriptionService: QueuedAudioTranscriptionService
   ) {
     this.env = envService.env;
     this.messenger = messenger;
     this.bot = messenger.bot as unknown as Bot<BotContext>;
-    this.stateEvolutionScheduler = stateEvolutionScheduler;
-    this.factCheckScheduler = factCheckScheduler;
     this.logger = loggerFactory.create('MainService');
     this.logger.info(
       { ADMIN_CHAT_ID: this.env.ADMIN_CHAT_ID },
@@ -138,18 +122,7 @@ export class MainService {
   }
 
   public async launch(): Promise<void> {
-    try {
-      this.stateEvolutionScheduler.start();
-    } catch (error) {
-      this.logger.error({ error }, 'Failed to start state evolution scheduler');
-    }
-
-    await Promise.all([
-      this.messenger.launch().catch((error) => this.logger.error(error)),
-      this.factCheckScheduler
-        .start()
-        .catch((error) => this.logger.error(error)),
-    ]);
+    await this.messenger.launch().catch((error) => this.logger.error(error));
   }
 
   public stop(reason: string): void {

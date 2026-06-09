@@ -248,11 +248,6 @@ import {
   FACT_CHECK_STATS_SERVICE_ID,
   type FactCheckStatsService,
 } from '../application/fact-checking/FactCheckStatsService';
-import { DefaultFactCheckScheduler } from '../application/fact-checking/DefaultFactCheckScheduler';
-import {
-  FACT_CHECK_SCHEDULER_ID,
-  type FactCheckScheduler,
-} from '../application/fact-checking/FactCheckScheduler';
 import { DefaultEnvService } from '../infrastructure/config/DefaultEnvService';
 import { TestEnvService } from '../infrastructure/config/TestEnvService';
 import { OpenAiSdkGateway } from '../infrastructure/external/OpenAiSdkGateway';
@@ -389,11 +384,6 @@ export const register = (container: Container): void => {
   container
     .bind<FactCheckPipeline>(FACT_CHECK_PIPELINE_ID)
     .to(DefaultFactCheckPipeline)
-    .inSingletonScope();
-
-  container
-    .bind<FactCheckScheduler>(FACT_CHECK_SCHEDULER_ID)
-    .to(DefaultFactCheckScheduler)
     .inSingletonScope();
 
   container

@@ -1,5 +1,4 @@
 import { inject, injectable } from 'inversify';
-import cron, { type ScheduledTask } from 'node-cron';
 
 import type { Logger } from '@/application/interfaces/logging/Logger';
 import {
@@ -23,7 +22,6 @@ import {
 
 @injectable()
 export class DefaultStateEvolutionScheduler implements StateEvolutionScheduler {
-  private task: ScheduledTask | null = null;
   private readonly logger: Logger;
 
   constructor(
@@ -36,22 +34,6 @@ export class DefaultStateEvolutionScheduler implements StateEvolutionScheduler {
     @inject(LOGGER_FACTORY_ID) loggerFactory: LoggerFactory
   ) {
     this.logger = loggerFactory.create('StateEvolutionScheduler');
-  }
-
-  start(): void {
-    if (!this.config.enabled || this.task !== null) {
-      return;
-    }
-    this.task = cron.schedule(this.config.sweepCron, () => void this.sweep());
-    this.logger.debug(
-      { sweepCron: this.config.sweepCron },
-      'State evolution sweep scheduler started'
-    );
-  }
-
-  stop(): void {
-    this.task?.stop();
-    this.task = null;
   }
 
   async sweep(): Promise<void> {

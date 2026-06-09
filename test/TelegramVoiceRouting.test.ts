@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { BehaviorPipeline } from '../src/application/behavior/BehaviorPipeline';
-import type { StateEvolutionScheduler } from '../src/application/behavior/StateEvolutionScheduler';
 import type { AdminService } from '../src/application/interfaces/admin/AdminService';
 import type { ChatApprovalService } from '../src/application/interfaces/chat/ChatApprovalService';
 import type { ChatConfigService } from '../src/application/interfaces/chat/ChatConfigService';
@@ -14,7 +13,6 @@ import type { LoggerFactory } from '../src/application/interfaces/logging/Logger
 import type { MessageContextExtractor } from '../src/application/interfaces/messages/MessageContextExtractor';
 import type { MessageService } from '../src/application/interfaces/messages/MessageService';
 import type { QueuedAudioTranscriptionService } from '../src/application/interfaces/voice/QueuedAudioTranscriptionService';
-import type { FactCheckScheduler } from '../src/application/fact-checking/FactCheckScheduler';
 import type { BotContext } from '../src/view/telegram/context';
 import { MainService } from '../src/view/telegram/MainService';
 
@@ -138,12 +136,8 @@ function buildService(overrides: {
       setHistoryLimit: vi.fn(),
     } as unknown as ChatConfigService,
     createLoggerFactory(),
-    { start: vi.fn() } as unknown as StateEvolutionScheduler,
     messenger,
-    queuedTranscription,
-    {
-      start: vi.fn().mockResolvedValue(undefined),
-    } as unknown as FactCheckScheduler
+    queuedTranscription
   );
 
   return { service, queuedTranscription, approval, behaviorPipeline, messages };

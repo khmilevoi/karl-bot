@@ -133,8 +133,6 @@ describe('EnvService', () => {
     expect(env.getFactCheckConfig()).toEqual(
       expect.objectContaining({
         enabled: false,
-        hourlyCron: '0 0 * * * *',
-        timezone: 'Europe/Warsaw',
         maxMessagesPerBatch: 200,
         maxClaimsPerBatch: 40,
         maxHistoryContextMessages: 100,

@@ -15,9 +15,7 @@ import type { LoggerFactory } from '../src/application/interfaces/logging/Logger
 import type { ChatMessenger } from '../src/application/interfaces/chat/ChatMessenger';
 import type { MessageService } from '../src/application/interfaces/messages/MessageService';
 import type { BehaviorPipeline } from '../src/application/behavior/BehaviorPipeline';
-import type { StateEvolutionScheduler } from '../src/application/behavior/StateEvolutionScheduler';
 import type { QueuedAudioTranscriptionService } from '../src/application/interfaces/voice/QueuedAudioTranscriptionService';
-import type { FactCheckScheduler } from '../src/application/fact-checking/FactCheckScheduler';
 
 const createLoggerFactory = (): LoggerFactory =>
   ({
@@ -87,8 +85,6 @@ const makeDeps = (over: Partial<Record<string, unknown>> = {}) => ({
     }),
     setHistoryLimit: vi.fn(),
   },
-  stateEvolutionScheduler: { start: vi.fn() },
-  factCheckScheduler: { start: vi.fn().mockResolvedValue(undefined) },
   queuedTranscription: {
     transcribe: vi.fn().mockResolvedValue('hello transcript'),
   },
@@ -108,10 +104,8 @@ const buildService = (deps: ReturnType<typeof makeDeps>) =>
     deps.chatInfo as unknown as ChatInfoService,
     deps.config as unknown as ChatConfigService,
     createLoggerFactory(),
-    deps.stateEvolutionScheduler as unknown as StateEvolutionScheduler,
     createMockMessenger(),
-    deps.queuedTranscription as unknown as QueuedAudioTranscriptionService,
-    deps.factCheckScheduler as unknown as FactCheckScheduler
+    deps.queuedTranscription as unknown as QueuedAudioTranscriptionService
   );
 
 const makeTextCtx = ({
@@ -167,9 +161,6 @@ describe('MainService (Minimal)', () => {
       }),
       setHistoryLimit: vi.fn(),
     } as unknown as ChatConfigService;
-    const stateEvolutionScheduler = {
-      start: vi.fn(),
-    } as unknown as StateEvolutionScheduler;
     const messenger = createMockMessenger();
 
     const service = new MainService(
@@ -184,21 +175,16 @@ describe('MainService (Minimal)', () => {
       chatInfo,
       config,
       createLoggerFactory(),
-      stateEvolutionScheduler,
       messenger,
       {
         transcribe: vi.fn().mockResolvedValue('hello'),
-      } as unknown as QueuedAudioTranscriptionService,
-      {
-        start: vi.fn().mockResolvedValue(undefined),
-      } as unknown as FactCheckScheduler
+      } as unknown as QueuedAudioTranscriptionService
     );
 
     await service.launch();
     service.stop('test');
 
     expect(messenger.launch).toHaveBeenCalled();
-    expect(stateEvolutionScheduler.start).toHaveBeenCalled();
     expect(messenger.stop).toHaveBeenCalledWith('test');
   });
 
@@ -235,9 +221,6 @@ describe('MainService (Minimal)', () => {
       }),
       setHistoryLimit: vi.fn(),
     } as unknown as ChatConfigService;
-    const stateEvolutionScheduler = {
-      start: vi.fn(),
-    } as unknown as StateEvolutionScheduler;
     const messenger = createMockMessenger();
 
     const service = new MainService(
@@ -252,14 +235,10 @@ describe('MainService (Minimal)', () => {
       chatInfo,
       config,
       createLoggerFactory(),
-      stateEvolutionScheduler,
       messenger,
       {
         transcribe: vi.fn().mockResolvedValue('hello'),
-      } as unknown as QueuedAudioTranscriptionService,
-      {
-        start: vi.fn().mockResolvedValue(undefined),
-      } as unknown as FactCheckScheduler
+      } as unknown as QueuedAudioTranscriptionService
     );
 
     const chatData = await (service as any).getChatData(1);
@@ -308,9 +287,6 @@ describe('MainService (Minimal)', () => {
       }),
       setHistoryLimit: vi.fn(),
     } as unknown as ChatConfigService;
-    const stateEvolutionScheduler = {
-      start: vi.fn(),
-    } as unknown as StateEvolutionScheduler;
     const messenger = createMockMessenger();
 
     const service = new MainService(
@@ -325,14 +301,10 @@ describe('MainService (Minimal)', () => {
       chatInfo,
       config,
       createLoggerFactory(),
-      stateEvolutionScheduler,
       messenger,
       {
         transcribe: vi.fn().mockResolvedValue('hello'),
-      } as unknown as QueuedAudioTranscriptionService,
-      {
-        start: vi.fn().mockResolvedValue(undefined),
-      } as unknown as FactCheckScheduler
+      } as unknown as QueuedAudioTranscriptionService
     );
 
     const adminCtx = { chat: { id: 1 } } as unknown as Context;

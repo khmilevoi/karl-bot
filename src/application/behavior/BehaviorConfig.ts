@@ -118,7 +118,6 @@ export interface StateEvolutionConfig {
   cooldownMs: number;
   maxIntervalMs: number;
   recentMessageLimit: number;
-  sweepCron: string;
 }
 
 export const DEFAULT_STATE_EVOLUTION_CONFIG: StateEvolutionConfig = {
@@ -128,7 +127,6 @@ export const DEFAULT_STATE_EVOLUTION_CONFIG: StateEvolutionConfig = {
   cooldownMs: 5 * 60_000,
   maxIntervalMs: 60 * 60_000,
   recentMessageLimit: 60,
-  sweepCron: '0 */3 * * *',
 };
 
 export const STATE_EVOLUTION_CONFIG_ID = Symbol.for(
