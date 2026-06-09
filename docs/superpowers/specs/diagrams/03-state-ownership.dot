@@ -1,0 +1,34 @@
+digraph ownership {
+  rankdir=LR;
+  bgcolor="white";
+  labelloc="t";
+  fontname="Segoe UI";
+  fontsize=16;
+  label="AI Behavior — State ownership (who writes what)";
+  node [fontname="Segoe UI", fontsize=11];
+  edge [fontname="Segoe UI", fontsize=9, color="#555555"];
+
+  subgraph cluster_live {
+    label="Live lane — decideBehavior";
+    style="rounded,filled"; fillcolor="#eafbe7"; fontname="Segoe UI"; fontsize=12;
+    lp [label="LiveStatePatch\nuser.adjust_affinity · user.add_label\nuser.add_pattern · user.add_grudge\nuser.contest_profile_signal\ntruth.add / reinforce / contest / revise", shape=box, style="rounded,filled", fillcolor="#ffffff"];
+  }
+  subgraph cluster_evo {
+    label="Background — state-evolution pass";
+    style="rounded,filled"; fillcolor="#fdf2e3"; fontname="Segoe UI"; fontsize=12;
+    ep [label="EvolutionPatch\npersonality.add_signal\npolitics.add_position / adjust_position / add_uncertainty\n+ snapshot derivation", shape=box, style="rounded,filled", fillcolor="#ffffff"];
+  }
+
+  usp [label="user_social_profiles\naffinity · labels · patterns · grudges", shape=cylinder, style=filled, fillcolor="#d9d9d9"];
+  tr  [label="bot_truths", shape=cylinder, style=filled, fillcolor="#d9d9d9"];
+  per [label="bot_personality_states", shape=cylinder, style=filled, fillcolor="#d9d9d9"];
+  pol [label="bot_political_states", shape=cylinder, style=filled, fillcolor="#d9d9d9"];
+  derived [label="trustLevel / preferredDistance\n(runtime-derived, never patched)", shape=note, style=filled, fillcolor="#fce5cd"];
+
+  lp -> usp [color="#38761d", penwidth=1.6];
+  lp -> tr  [color="#38761d", penwidth=1.6];
+  ep -> per [color="#b45f06", penwidth=1.6];
+  ep -> pol [color="#b45f06", penwidth=1.6];
+  ep -> usp [style=dashed, color="#b45f06", label="derive descriptive fields"];
+  usp -> derived [style=dashed, label="applicator recompute"];
+}

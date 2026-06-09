@@ -4,8 +4,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Workflow Rules
 
-- Never commit files under `docs/superpowers/` — specs, plans, and brainstorm outputs in that directory are local-only working artifacts. They are already in `.gitignore`; do not force-add them.
-
 ## Development Commands
 
 **Build and Run:**
