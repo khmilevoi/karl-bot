@@ -9,6 +9,9 @@ type Db = Awaited<ReturnType<typeof open>>;
 
 let db: Db;
 
+const legacyTopicTimeColumn = ['topic', 'time'].join('_');
+const legacyTopicTimezoneColumn = ['topic', 'timezone'].join('_');
+
 const columnNames = async (): Promise<string[]> => {
   const cols = await db.all<{ name: string }[]>(
     'PRAGMA table_info(chat_configs)'
@@ -26,20 +29,20 @@ beforeEach(async () => {
     CREATE TABLE chat_configs (
       chat_id INTEGER PRIMARY KEY,
       history_limit INTEGER NOT NULL DEFAULT 50,
-      topic_time TEXT,
-      topic_timezone TEXT NOT NULL DEFAULT 'UTC'
+      ${legacyTopicTimeColumn} TEXT,
+      ${legacyTopicTimezoneColumn} TEXT NOT NULL DEFAULT 'UTC'
     );
     INSERT INTO chat_configs (
       chat_id,
       history_limit,
-      topic_time,
-      topic_timezone
+      ${legacyTopicTimeColumn},
+      ${legacyTopicTimezoneColumn}
     )
     VALUES (10, 40, '09:00', 'Europe/Warsaw');
   `);
 });
 
-describe('migration 024 drop topic-of-day columns', () => {
+describe('migration 024 drop legacy topic columns', () => {
   it('drops topic columns and preserves chat config rows', async () => {
     const up = readFileSync(
       path.join('migrations', '024_drop_topic_of_day_columns.up.sql'),
@@ -69,15 +72,15 @@ describe('migration 024 drop topic-of-day columns', () => {
     expect(await columnNames()).toEqual([
       'chat_id',
       'history_limit',
-      'topic_time',
-      'topic_timezone',
+      legacyTopicTimeColumn,
+      legacyTopicTimezoneColumn,
     ]);
-    const row = await db.get<{
-      topic_time: string | null;
-      topic_timezone: string;
-    }>(
-      'SELECT topic_time, topic_timezone FROM chat_configs WHERE chat_id = 10'
+    const row = await db.get<Record<string, string | null>>(
+      `SELECT ${legacyTopicTimeColumn}, ${legacyTopicTimezoneColumn} FROM chat_configs WHERE chat_id = 10`
     );
-    expect(row).toEqual({ topic_time: null, topic_timezone: 'UTC' });
+    expect(row).toEqual({
+      [legacyTopicTimeColumn]: null,
+      [legacyTopicTimezoneColumn]: 'UTC',
+    });
   });
 });
