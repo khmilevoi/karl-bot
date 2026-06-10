@@ -18,18 +18,24 @@ describe('FilePromptTemplateService', () => {
 
   beforeEach(() => {
     const files: PromptFiles = {
-      persona: '/persona.md',
       askSummary: '',
       summarizationSystem: '',
       previousSummary: '',
-      checkInterest: '',
       userPrompt: '',
       userPromptSystem: '',
       chatUser: '',
       priorityRulesSystem: '',
-      assessUsers: '',
-      replyTrigger: '',
-      topicOfDaySystem: '',
+      neutralCore: '/neutral.md',
+      behaviorGateSystem: '',
+      behaviorDecisionSystem: '',
+      personalityState: '',
+      politicalState: '',
+      userProfiles: '',
+      truths: '',
+      behaviorMessages: '',
+      stateEvolutionSystem: '',
+      personalitySignals: '',
+      userPoliticalProfiles: '',
     };
     const env: EnvService = {
       env: {} as any,
@@ -55,10 +61,10 @@ describe('FilePromptTemplateService', () => {
   it('reads template from file and caches result', async () => {
     vi.mocked(readFile).mockResolvedValue('hello');
 
-    await expect(service.loadTemplate('persona')).resolves.toBe('hello');
-    await expect(service.loadTemplate('persona')).resolves.toBe('hello');
+    await expect(service.loadTemplate('neutralCore')).resolves.toBe('hello');
+    await expect(service.loadTemplate('neutralCore')).resolves.toBe('hello');
 
     expect(readFile).toHaveBeenCalledTimes(1);
-    expect(readFile).toHaveBeenCalledWith('/persona.md', 'utf-8');
+    expect(readFile).toHaveBeenCalledWith('/neutral.md', 'utf-8');
   });
 });

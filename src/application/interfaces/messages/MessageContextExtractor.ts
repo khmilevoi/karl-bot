@@ -1,10 +1,12 @@
+import type { Context } from 'grammy';
 import type { ServiceIdentifier } from 'inversify';
-import type { Context } from 'telegraf';
 
 export interface MessageContext {
   replyText?: string;
   replyUsername?: string;
   quoteText?: string;
+  replyToMessageId?: number;
+  replyToUserId?: number;
   username: string;
   fullName: string;
 }

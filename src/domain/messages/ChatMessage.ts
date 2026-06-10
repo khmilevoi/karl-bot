@@ -1,4 +1,10 @@
+import type {
+  MessageProcessingStatus,
+  MessageSourceType,
+} from '@/domain/voice/VoiceTypes';
+
 export interface ChatMessage {
+  id?: number;
   role: 'user' | 'assistant';
   content: string;
   username?: string;
@@ -8,8 +14,12 @@ export interface ChatMessage {
   replyText?: string;
   replyUsername?: string;
   quoteText?: string;
+  replyToMessageId?: number;
+  replyToUserId?: number;
   userId?: number;
+  // Telegram message_id. Do not use this for behavior evidence references.
   messageId?: number;
   chatId?: number;
-  attitude?: string | null;
+  sourceType?: MessageSourceType;
+  processingStatus?: MessageProcessingStatus;
 }

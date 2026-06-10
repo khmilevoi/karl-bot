@@ -16,14 +16,12 @@ describe('RepositoryChatUserService', () => {
               username: 'u1',
               firstName: 'F1',
               lastName: 'L1',
-              attitude: 'a1',
             }
           : {
               id: 2,
               username: 'u2',
               firstName: 'F2',
               lastName: 'L2',
-              attitude: 'a2',
             }
       ),
     };
@@ -45,14 +43,12 @@ describe('RepositoryChatUserService', () => {
         username: 'u1',
         firstName: 'F1',
         lastName: 'L1',
-        attitude: 'a1',
       },
       {
         id: 2,
         username: 'u2',
         firstName: 'F2',
         lastName: 'L2',
-        attitude: 'a2',
       },
     ]);
   });

@@ -1,9 +1,18 @@
+import type { Bot, Context } from 'grammy';
 import type { ServiceIdentifier } from 'inversify';
-import type { Telegraf } from 'telegraf';
 
 export interface ChatMessenger {
-  readonly bot: Telegraf;
-  sendMessage(chatId: number, text: string, extra?: object): Promise<void>;
+  readonly bot: Bot<Context>;
+  sendMessage(
+    chatId: number,
+    text: string,
+    extra?: object
+  ): Promise<number | null>;
+  reactToMessage(
+    chatId: number,
+    messageId: number,
+    emoji: string
+  ): Promise<void>;
   launch(): Promise<void>;
   stop(reason: string): void;
 }

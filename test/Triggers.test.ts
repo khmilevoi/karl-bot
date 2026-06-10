@@ -1,4 +1,4 @@
-import type { Context } from 'telegraf';
+import type { Context } from 'grammy';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DefaultDialogueManager } from '../src/application/use-cases/chat/DefaultDialogueManager';
@@ -36,7 +36,7 @@ describe('MentionTrigger', () => {
     const ctx: TriggerContext = { text: '', replyText: '', chatId: 1 };
     const telegrafCtx = {
       message: { text: 'hello @bot' },
-      me: 'bot',
+      me: { username: 'bot' },
     } as unknown as Context;
     const res = await trigger.apply(telegrafCtx, ctx);
     expect(res).not.toBeNull();
@@ -50,7 +50,7 @@ describe('MentionTrigger', () => {
     const ctx: TriggerContext = { text: '', replyText: '', chatId: 1 };
     const telegrafCtx = {
       message: { text: 'hello there' },
-      me: 'bot',
+      me: { username: 'bot' },
     } as unknown as Context;
     const res = await trigger.apply(telegrafCtx, ctx);
     expect(res).toBeNull();
@@ -82,7 +82,7 @@ describe('MentionTrigger', () => {
     const ctx: TriggerContext = { text: '', replyText: '', chatId: 1 };
     const telegrafCtx = {
       message: { text: 'hello there @bot how are you doing?' },
-      me: 'bot',
+      me: { username: 'bot' },
     } as unknown as Context;
     dialogue.start(1);
     await triggerWithLogger.apply(telegrafCtx, ctx);
@@ -132,7 +132,7 @@ describe('ReplyTrigger', () => {
   it('matches when message replies to bot', async () => {
     const ctx: TriggerContext = { text: '', replyText: '', chatId: 1 };
     const telegrafCtx = {
-      me: 'bot',
+      me: { username: 'bot' },
       message: { reply_to_message: { from: { username: 'bot' } } },
     } as unknown as Context;
     const res = await trigger.apply(telegrafCtx, ctx);
@@ -141,7 +141,10 @@ describe('ReplyTrigger', () => {
 
   it('returns null when not replying to bot', async () => {
     const ctx: TriggerContext = { text: '', replyText: '', chatId: 1 };
-    const telegrafCtx = { me: 'bot', message: {} } as unknown as Context;
+    const telegrafCtx = {
+      me: { username: 'bot' },
+      message: {},
+    } as unknown as Context;
     const res = await trigger.apply(telegrafCtx, ctx);
     expect(res).toBeNull();
   });

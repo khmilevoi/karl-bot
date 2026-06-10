@@ -114,14 +114,13 @@ describe('AdminServiceImpl', () => {
           quoteText: '',
           userId: 1,
           messageId: 1,
-          attitude: null,
           chatId: 123,
         },
       ]),
     };
     const summaryRepo = { findById: vi.fn(async () => 's') };
     const chatUserService = {
-      listUsers: vi.fn(async () => [new UserEntity(1, 'u', 'F', 'L', null)]),
+      listUsers: vi.fn(async () => [new UserEntity(1, 'u', 'F', 'L')]),
     } as unknown as ChatUserService;
     const admin = new AdminServiceImpl(
       { get: vi.fn(), listTables: vi.fn() } as unknown as DbProvider,
@@ -140,7 +139,7 @@ describe('AdminServiceImpl', () => {
     ]);
     const users = files.find((f) => f.filename === 'users.csv');
     expect(users?.buffer.toString()).toContain(
-      'id,username,firstName,lastName,attitude'
+      'id,username,firstName,lastName'
     );
     expect(users?.buffer.toString()).toContain('1');
   });

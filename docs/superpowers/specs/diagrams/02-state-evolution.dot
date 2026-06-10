@@ -1,0 +1,45 @@
+digraph evo {
+  rankdir=TB;
+  bgcolor="white";
+  labelloc="t";
+  fontname="Segoe UI";
+  fontsize=16;
+  label="AI Behavior — Background state-evolution pass";
+  node [fontname="Segoe UI", fontsize=11];
+  edge [fontname="Segoe UI", fontsize=9, color="#555555"];
+
+  events  [label="behavior_events", shape=cylinder, style=filled, fillcolor="#d9d9d9"];
+  thr     [label="New events since high-water mark >= N_evo\nAND cooldown passed?", shape=diamond, style=filled, fillcolor="#fff2cc"];
+  sweep   [label="Periodic cron sweep\nfloor: waited beyond T_max", shape=box, style="rounded,filled", fillcolor="#eef2f5"];
+  idle    [label="wait", shape=box, style="rounded,filled", fillcolor="#f3f3f3"];
+  enq     [label="Enqueue per-chat job\nsingle deduplicated worker", shape=box, style="rounded,filled", fillcolor="#eef2f5"];
+  pass    [label="State-evolution pass\n(stateEvolution slot, stronger model)", shape=box, style="rounded,filled", fillcolor="#b6d7a8", penwidth=2];
+  riskp   [label="batch stateImpactRisk = high\n=> raise priority + review with stronger model", shape=note, style=filled, fillcolor="#fce5cd"];
+  reads   [label="Read delta since high-water mark\n+ current rendered state", shape=box, style="rounded,filled", fillcolor="#eef2f5"];
+  propose [label="Propose EvolutionPatch\npersonality.add_signal · politics.*", shape=box, style="rounded,filled", fillcolor="#d0e0e3"];
+  derive  [label="Derive snapshots\npersonality arrays/enums\nprofile communication/conflict/tone/interests", shape=box, style="rounded,filled", fillcolor="#d0e0e3"];
+  pol     [label="PatchPolicy\npolitical stricter; weak => uncertainty", shape=box, style="rounded,filled", fillcolor="#eef2f5"];
+  applic  [label="StatePatchApplicator", shape=box, style="rounded,filled", fillcolor="#eef2f5"];
+  per     [label="bot_personality_states", shape=cylinder, style=filled, fillcolor="#d9d9d9"];
+  polst   [label="bot_political_states", shape=cylinder, style=filled, fillcolor="#d9d9d9"];
+  usp     [label="user_social_profiles\n(descriptive fields only)", shape=cylinder, style=filled, fillcolor="#d9d9d9"];
+  hw      [label="Advance high-water mark", shape=box, style="rounded,filled", fillcolor="#eef2f5"];
+  ev2     [label="behavior_events\n(modelSlot = stateEvolution)", shape=cylinder, style=filled, fillcolor="#d9d9d9"];
+
+  events -> thr;
+  thr -> idle [label="not yet"];
+  thr -> enq  [label="yes"];
+  sweep -> enq [style=dashed, label="floor"];
+  enq -> pass;
+  riskp -> pass [style=dashed];
+  pass -> reads;
+  reads -> propose;
+  reads -> derive;
+  propose -> pol -> applic;
+  derive -> applic;
+  applic -> per;
+  applic -> polst;
+  applic -> usp [style=dashed, label="re-derive"];
+  pass -> hw;
+  pass -> ev2;
+}

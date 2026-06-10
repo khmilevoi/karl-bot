@@ -1,29 +1,21 @@
-import type { Context } from 'telegraf';
-import { Telegraf } from 'telegraf';
+import type { Context } from 'grammy';
 import { describe, expect, it, vi } from 'vitest';
 
 import { MainService } from '../src/view/telegram/MainService';
-import * as MainServiceModule from '../src/view/telegram/MainService';
-import { createWindows } from '../src/view/telegram/windowConfig';
-import type { ChatInfoService } from '../src/application/interfaces/chat/ChatInfoService';
+import type { BotContext } from '../src/view/telegram/context';
+import type { EnvService } from '../src/application/interfaces/env/EnvService';
+import type { ChatResetService } from '../src/application/interfaces/chat/ChatResetService';
 import type { AdminService } from '../src/application/interfaces/admin/AdminService';
 import type { ChatApprovalService } from '../src/application/interfaces/chat/ChatApprovalService';
-import type { ChatMemoryManager } from '../src/application/interfaces/chat/ChatMemoryManager';
-import type { ChatResponder } from '../src/application/interfaces/chat/ChatResponder';
+import type { MessageContextExtractor } from '../src/application/interfaces/messages/MessageContextExtractor';
 import type { TriggerPipeline } from '../src/application/interfaces/chat/TriggerPipeline';
-import type { EnvService } from '../src/application/interfaces/env/EnvService';
+import type { ChatInfoService } from '../src/application/interfaces/chat/ChatInfoService';
 import type { ChatConfigService } from '../src/application/interfaces/chat/ChatConfigService';
-import {
-  InvalidInterestIntervalError,
-  InvalidHistoryLimitError,
-  InvalidTopicTimeError,
-} from '../src/application/interfaces/chat/ChatConfigService.errors';
-import type { TopicOfDayScheduler } from '../src/application/interfaces/scheduler/TopicOfDayScheduler';
-import type {
-  MessageContext,
-  MessageContextExtractor,
-} from '../src/application/interfaces/messages/MessageContextExtractor';
 import type { LoggerFactory } from '../src/application/interfaces/logging/LoggerFactory';
+import type { ChatMessenger } from '../src/application/interfaces/chat/ChatMessenger';
+import type { MessageService } from '../src/application/interfaces/messages/MessageService';
+import type { BehaviorPipeline } from '../src/application/behavior/BehaviorPipeline';
+import type { QueuedAudioTranscriptionService } from '../src/application/interfaces/voice/QueuedAudioTranscriptionService';
 
 const createLoggerFactory = (): LoggerFactory =>
   ({
@@ -37,2037 +29,454 @@ const createLoggerFactory = (): LoggerFactory =>
   }) as unknown as LoggerFactory;
 
 class MockEnvService {
-  env = { BOT_TOKEN: 'token', ADMIN_CHAT_ID: 1 } as EnvService['env'];
+  env = { BOT_TOKEN: 'token', ADMIN_CHAT_ID: 1 };
 }
 
-class MockChatMemory {
-  addMessage = vi.fn();
-  getHistory = vi.fn(async () => []);
-}
+const createMockBot = () => ({
+  api: {
+    setMyCommands: vi.fn().mockResolvedValue(undefined),
+    deleteMessage: vi.fn().mockResolvedValue(undefined),
+  },
+  on: vi.fn(),
+  command: vi.fn(),
+  use: vi.fn(),
+  callbackQuery: vi.fn(),
+});
 
-class MockChatMemoryManager {
-  memory = new MockChatMemory();
-  get = vi.fn(async () => this.memory);
-  reset = vi.fn();
-}
+const createMockMessenger = () =>
+  ({
+    bot: createMockBot(),
+    launch: vi.fn().mockResolvedValue(undefined),
+    stop: vi.fn(),
+    sendMessage: vi.fn(),
+  }) as unknown as ChatMessenger;
 
-class DummyAdmin {
-  hasAccess = vi.fn(async () => true);
-  exportTables = vi.fn(async () => []);
-  exportChatData = vi.fn(async () => []);
-  createAccessKey = vi.fn(async () => new Date());
-  setHistoryLimit = vi.fn(async () => {});
-  setInterestInterval = vi.fn(async () => {});
-}
+const makeDeps = (over: Partial<Record<string, unknown>> = {}) => ({
+  reset: { reset: vi.fn().mockResolvedValue(undefined) },
+  messages: { addMessage: vi.fn().mockResolvedValue(1) },
+  behaviorPipeline: {
+    handleStoredMessage: vi.fn().mockResolvedValue({ kind: 'queued' }),
+  },
+  admin: {
+    hasAccess: vi.fn().mockResolvedValue(true),
+    exportTables: vi.fn().mockResolvedValue([]),
+    exportChatData: vi.fn().mockResolvedValue([]),
+    createAccessKey: vi.fn(),
+  },
+  approval: {
+    getStatus: vi.fn().mockResolvedValue('approved'),
+    pending: vi.fn(),
+    approve: vi.fn(),
+    ban: vi.fn(),
+    unban: vi.fn(),
+    listAll: vi.fn().mockResolvedValue([]),
+  },
+  extractor: {
+    extract: vi.fn().mockReturnValue({
+      username: 'alice',
+      fullName: 'Alice',
+    }),
+  },
+  pipeline: { shouldRespond: vi.fn() },
+  chatInfo: { getChat: vi.fn() },
+  config: {
+    getConfig: vi.fn().mockResolvedValue({
+      historyLimit: 50,
+    }),
+    setHistoryLimit: vi.fn(),
+  },
+  queuedTranscription: {
+    transcribe: vi.fn().mockResolvedValue('hello transcript'),
+  },
+  ...over,
+});
 
-class DummyExtractor {
-  extract(): MessageContext {
-    return {} as MessageContext;
-  }
-}
-
-class DummyPipeline {
-  shouldRespond = vi.fn(async () => null);
-}
-
-class DummyResponder {
-  generate = vi.fn(async () => '');
-}
-
-class DummyApprovalService {
-  request = vi.fn(async () => {});
-  approve = vi.fn(async () => {});
-  ban = vi.fn(async () => {});
-  unban = vi.fn(async () => {});
-  getStatus = vi.fn(async () => 'approved');
-  listAll = vi.fn(async () => []);
-  pending = vi.fn(async () => {});
-}
-
-class DummyChatInfoService {
-  saveChat = vi.fn(async () => {});
-  getChat = vi.fn(async () => undefined);
-}
-
-class DummyChatConfigService {
-  getConfig = vi.fn();
-  setHistoryLimit = vi.fn(async () => {});
-  setInterestInterval = vi.fn(async () => {});
-  setTopicTime = vi.fn(
-    async (
-      _chatId: number,
-      _topicTime: string | null,
-      _topicTimezone: string
-    ) => {}
+const buildService = (deps: ReturnType<typeof makeDeps>) =>
+  new MainService(
+    new MockEnvService() as unknown as EnvService,
+    deps.reset as unknown as ChatResetService,
+    deps.admin as unknown as AdminService,
+    deps.approval as unknown as ChatApprovalService,
+    deps.extractor as unknown as MessageContextExtractor,
+    deps.pipeline as unknown as TriggerPipeline,
+    deps.messages as unknown as MessageService,
+    deps.behaviorPipeline as unknown as BehaviorPipeline,
+    deps.chatInfo as unknown as ChatInfoService,
+    deps.config as unknown as ChatConfigService,
+    createLoggerFactory(),
+    createMockMessenger(),
+    deps.queuedTranscription as unknown as QueuedAudioTranscriptionService
   );
-}
 
-class DummyScheduler {
-  start = vi.fn(async () => {});
-}
+const makeTextCtx = ({
+  chatId,
+  messageId,
+  text,
+}: {
+  chatId: number;
+  messageId: number;
+  text: string;
+}) =>
+  ({
+    chat: { id: chatId, title: 'Test chat' },
+    from: { id: 10, username: 'alice', first_name: 'Alice' },
+    me: { username: 'AssistantBot' },
+    message: { message_id: messageId, text },
+    reply: vi.fn().mockResolvedValue(undefined),
+    replyWithChatAction: vi.fn().mockResolvedValue(undefined),
+    api: { sendChatAction: vi.fn().mockResolvedValue(undefined) },
+  }) as unknown as BotContext;
 
-class DummyMessenger {
-  bot = new Telegraf('');
-  launch = vi.fn(async () => {});
-  stop = vi.fn();
-  sendMessage = vi.fn(async () => {});
-}
+describe('MainService (Minimal)', () => {
+  it('launches and stops the bot', async () => {
+    const reset = {
+      reset: vi.fn(),
+    } as unknown as ChatResetService;
+    const admin = {
+      hasAccess: vi.fn(),
+      exportTables: vi.fn(),
+      exportChatData: vi.fn(),
+      createAccessKey: vi.fn(),
+    } as unknown as AdminService;
+    const approval = {
+      getStatus: vi.fn().mockResolvedValue('approved'),
+      pending: vi.fn(),
+      approve: vi.fn(),
+      ban: vi.fn(),
+      unban: vi.fn(),
+      listAll: vi.fn().mockResolvedValue([]),
+    } as unknown as ChatApprovalService;
+    const extractor = {
+      extract: vi.fn(),
+    } as unknown as MessageContextExtractor;
+    const pipeline = { shouldRespond: vi.fn() } as unknown as TriggerPipeline;
+    const messages = { addMessage: vi.fn() } as unknown as MessageService;
+    const behaviorPipeline = {
+      handleStoredMessage: vi.fn(),
+    } as unknown as BehaviorPipeline;
+    const chatInfo = { getChat: vi.fn() } as unknown as ChatInfoService;
+    const config = {
+      getConfig: vi.fn().mockResolvedValue({
+        historyLimit: 50,
+      }),
+      setHistoryLimit: vi.fn(),
+    } as unknown as ChatConfigService;
+    const messenger = createMockMessenger();
 
-describe('MainService', () => {
-  it('contains settings menu item', async () => {
-    const windows = createWindows({
-      exportData: vi.fn(),
-      resetMemory: vi.fn(),
-      requestChatAccess: vi.fn(),
-      requestUserAccess: vi.fn(),
-      showAdminChats: vi.fn(),
-      showChatSettings: vi.fn(),
-      configHistoryLimit: vi.fn(),
-      configInterestInterval: vi.fn(),
-      configTopicTime: vi.fn(),
-    });
-    const menu = windows.find((w) => w.id === 'menu');
-    if (!menu) throw new Error('route not found');
-    const { buttons } = await menu.build({ loadData: async () => undefined });
-    expect(buttons.some((b) => b.text === '⚙️ Настройки')).toBe(true);
+    const service = new MainService(
+      new MockEnvService() as unknown as EnvService,
+      reset,
+      admin,
+      approval,
+      extractor,
+      pipeline,
+      messages,
+      behaviorPipeline,
+      chatInfo,
+      config,
+      createLoggerFactory(),
+      messenger,
+      {
+        transcribe: vi.fn().mockResolvedValue('hello'),
+      } as unknown as QueuedAudioTranscriptionService
+    );
+
+    await service.launch();
+    service.stop('test');
+
+    expect(messenger.launch).toHaveBeenCalled();
+    expect(messenger.stop).toHaveBeenCalledWith('test');
   });
 
-  it('shows chat settings with current config', async () => {
-    const memories = new MockChatMemoryManager();
-    const configureSpy = vi
-      .spyOn(
-        MainService.prototype as unknown as Record<string, unknown>,
-        'configure'
-      )
-      .mockImplementation(() => {});
-    const config = new DummyChatConfigService();
-    config.getConfig.mockResolvedValue({
+  it('gets chat config through getChatData', async () => {
+    const reset = {
+      reset: vi.fn(),
+    } as unknown as ChatResetService;
+    const admin = {
+      hasAccess: vi.fn(),
+      exportTables: vi.fn(),
+      exportChatData: vi.fn(),
+      createAccessKey: vi.fn(),
+    } as unknown as AdminService;
+    const approval = {
+      getStatus: vi.fn().mockResolvedValue('approved'),
+      pending: vi.fn(),
+      approve: vi.fn(),
+      ban: vi.fn(),
+      unban: vi.fn(),
+      listAll: vi.fn().mockResolvedValue([]),
+    } as unknown as ChatApprovalService;
+    const extractor = {
+      extract: vi.fn(),
+    } as unknown as MessageContextExtractor;
+    const pipeline = { shouldRespond: vi.fn() } as unknown as TriggerPipeline;
+    const messages = { addMessage: vi.fn() } as unknown as MessageService;
+    const behaviorPipeline = {
+      handleStoredMessage: vi.fn(),
+    } as unknown as BehaviorPipeline;
+    const chatInfo = { getChat: vi.fn() } as unknown as ChatInfoService;
+    const config = {
+      getConfig: vi.fn().mockResolvedValue({
+        historyLimit: 50,
+      }),
+      setHistoryLimit: vi.fn(),
+    } as unknown as ChatConfigService;
+    const messenger = createMockMessenger();
+
+    const service = new MainService(
+      new MockEnvService() as unknown as EnvService,
+      reset,
+      admin,
+      approval,
+      extractor,
+      pipeline,
+      messages,
+      behaviorPipeline,
+      chatInfo,
+      config,
+      createLoggerFactory(),
+      messenger,
+      {
+        transcribe: vi.fn().mockResolvedValue('hello'),
+      } as unknown as QueuedAudioTranscriptionService
+    );
+
+    const chatData = await (service as any).getChatData(1);
+
+    expect(chatData).toEqual({
+      chatId: 1,
+      status: 'approved',
+      config: {
+        historyLimit: 50,
+      },
+    });
+    expect(approval.getStatus).toHaveBeenCalledWith(1);
+    expect(config.getConfig).toHaveBeenCalledWith(1);
+  });
+
+  it('handles message processing with admin chat skip', async () => {
+    const reset = {
+      reset: vi.fn(),
+    } as unknown as ChatResetService;
+    const admin = {
+      hasAccess: vi.fn(),
+      exportTables: vi.fn(),
+      exportChatData: vi.fn(),
+      createAccessKey: vi.fn(),
+    } as unknown as AdminService;
+    const approval = {
+      getStatus: vi.fn().mockResolvedValue('approved'),
+      pending: vi.fn(),
+      approve: vi.fn(),
+      ban: vi.fn(),
+      unban: vi.fn(),
+      listAll: vi.fn().mockResolvedValue([]),
+    } as unknown as ChatApprovalService;
+    const extractor = {
+      extract: vi.fn(),
+    } as unknown as MessageContextExtractor;
+    const pipeline = { shouldRespond: vi.fn() } as unknown as TriggerPipeline;
+    const messages = { addMessage: vi.fn() } as unknown as MessageService;
+    const behaviorPipeline = {
+      handleStoredMessage: vi.fn(),
+    } as unknown as BehaviorPipeline;
+    const chatInfo = { getChat: vi.fn() } as unknown as ChatInfoService;
+    const config = {
+      getConfig: vi.fn().mockResolvedValue({
+        historyLimit: 50,
+      }),
+      setHistoryLimit: vi.fn(),
+    } as unknown as ChatConfigService;
+    const messenger = createMockMessenger();
+
+    const service = new MainService(
+      new MockEnvService() as unknown as EnvService,
+      reset,
+      admin,
+      approval,
+      extractor,
+      pipeline,
+      messages,
+      behaviorPipeline,
+      chatInfo,
+      config,
+      createLoggerFactory(),
+      messenger,
+      {
+        transcribe: vi.fn().mockResolvedValue('hello'),
+      } as unknown as QueuedAudioTranscriptionService
+    );
+
+    const adminCtx = { chat: { id: 1 } } as unknown as Context;
+    await (service as any).handleMessage(adminCtx);
+
+    expect(pipeline.shouldRespond).not.toHaveBeenCalled();
+    expect(extractor.extract).not.toHaveBeenCalled();
+  });
+
+  it('stores approved messages and sends direct triggers to BehaviorPipeline', async () => {
+    const deps = makeDeps();
+    deps.messages = {
+      addMessage: vi.fn().mockResolvedValue(42),
+    };
+    deps.pipeline = {
+      shouldRespond: vi.fn().mockResolvedValue({
+        replyToMessageId: 77,
+        reason: { message: 'mentioned', why: 'bot mention' },
+      }),
+    };
+    deps.behaviorPipeline = {
+      handleStoredMessage: vi.fn().mockResolvedValue({
+        kind: 'decided',
+        behaviorEventId: 9,
+      }),
+    };
+    const service = buildService(deps);
+    const ctx = makeTextCtx({
       chatId: 2,
-      historyLimit: 50,
-      interestInterval: 25,
-      topicTime: '09:00',
-      topicTimezone: 'UTC',
+      messageId: 77,
+      text: '@Assistant hi',
     });
-    const messenger = new DummyMessenger();
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      new DummyAdmin() as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      config as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      messenger as unknown as ChatMessenger
-    );
-    configureSpy.mockRestore();
-    const botWithRouter = bot as unknown as {
-      router: { show: ReturnType<typeof vi.fn> };
-      showChatSettings: (ctx: Context) => Promise<void>;
-    };
-    botWithRouter.router = { show: vi.fn() };
-    const ctx = { chat: { id: 2 } } as unknown as Context;
-    await botWithRouter.showChatSettings(ctx);
-    expect(config.getConfig).toHaveBeenCalledWith(2);
-    expect(botWithRouter.router.show).toHaveBeenCalledWith(
-      ctx,
-      'chat_settings',
-      {
-        loadData: expect.any(Function),
-      }
-    );
-  });
 
-  it('updates history limit on valid input', async () => {
-    const memories = new MockChatMemoryManager();
-    const config = new DummyChatConfigService();
-    const scheduler = { reschedule: vi.fn() };
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      new DummyAdmin() as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      config as unknown as ChatConfigService,
-      createLoggerFactory(),
-      scheduler as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    const showSpy = vi
-      .spyOn((bot as unknown as { router: { show: Function } }).router, 'show')
-      .mockResolvedValue(undefined);
-    await (
-      bot as unknown as {
-        handleConfigHistoryLimit: (ctx: Context) => Promise<void>;
-      }
-    ).handleConfigHistoryLimit({ chat: { id: 10 } } as Context);
-    const ctxText = {
-      chat: { id: 10 },
-      message: { text: '5' },
-      reply: vi.fn(),
-    } as unknown as Context;
-    await (
-      bot as unknown as { handleText: (ctx: Context) => Promise<void> }
-    ).handleText(ctxText);
-    expect(config.setHistoryLimit).toHaveBeenCalledWith(10, 5);
-    expect(ctxText.reply).toHaveBeenCalledWith('✅ Лимит истории обновлён');
-    expect(showSpy).toHaveBeenCalledWith(ctxText, 'menu');
-    expect(scheduler.reschedule).not.toHaveBeenCalled();
-  });
+    await (service as any).handleMessage(ctx);
 
-  it('handles invalid topic time input', async () => {
-    const memories = new MockChatMemoryManager();
-    const config = new DummyChatConfigService();
-    const scheduler = { reschedule: vi.fn() };
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      new DummyAdmin() as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      config as unknown as ChatConfigService,
-      createLoggerFactory(),
-      scheduler as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
+    expect(deps.messages.addMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: 2,
+        content: '@Assistant hi',
+      })
     );
-    const showSpy = vi
-      .spyOn((bot as unknown as { router: { show: Function } }).router, 'show')
-      .mockResolvedValue(undefined);
-    await (
-      bot as unknown as {
-        handleConfigTopicTime: (ctx: Context) => Promise<void>;
-      }
-    ).handleConfigTopicTime({ chat: { id: 14 } } as Context);
-    const ctxTime = {
-      chat: { id: 14 },
-      message: { text: 'bad' },
-      reply: vi.fn(),
-    } as unknown as Context;
-    await (
-      bot as unknown as { handleText: (ctx: Context) => Promise<void> }
-    ).handleText(ctxTime);
-    expect(showSpy).toHaveBeenNthCalledWith(
-      2,
-      ctxTime,
-      'chat_topic_timezone',
-      expect.anything()
-    );
-    const ctxZone = {
-      chat: { id: 14 },
-      message: { text: 'UTC' },
-      reply: vi.fn(),
-    } as unknown as Context;
-    config.setTopicTime.mockImplementationOnce(async () => {
-      throw new InvalidTopicTimeError('Invalid topic time');
-    });
-    await (
-      bot as unknown as { handleText: (ctx: Context) => Promise<void> }
-    ).handleText(ctxZone);
-    expect(config.setTopicTime).toHaveBeenCalledWith(14, 'bad', 'UTC');
-    expect(ctxZone.reply).toHaveBeenCalledWith(
-      '❌ Время статьи должно быть в формате HH:MM'
-    );
-    expect(showSpy).toHaveBeenNthCalledWith(3, ctxZone, 'menu');
-  });
-
-  it('updates interest interval on valid input', async () => {
-    const memories = new MockChatMemoryManager();
-    const config = new DummyChatConfigService();
-    const scheduler = { reschedule: vi.fn() };
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      new DummyAdmin() as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      config as unknown as ChatConfigService,
-      createLoggerFactory(),
-      scheduler as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    const showSpy = vi
-      .spyOn((bot as unknown as { router: { show: Function } }).router, 'show')
-      .mockResolvedValue(undefined);
-    await (
-      bot as unknown as {
-        handleConfigInterestInterval: (ctx: Context) => Promise<void>;
-      }
-    ).handleConfigInterestInterval({ chat: { id: 11 } } as Context);
-    const ctxText = {
-      chat: { id: 11 },
-      message: { text: '15' },
-      reply: vi.fn(),
-    } as unknown as Context;
-    await (
-      bot as unknown as { handleText: (ctx: Context) => Promise<void> }
-    ).handleText(ctxText);
-    expect(config.setInterestInterval).toHaveBeenCalledWith(11, 15);
-    expect(ctxText.reply).toHaveBeenCalledWith('✅ Интервал интереса обновлён');
-    expect(showSpy).toHaveBeenCalledWith(ctxText, 'menu');
-  });
-
-  it('updates topic time on valid input', async () => {
-    const memories = new MockChatMemoryManager();
-    const config = new DummyChatConfigService();
-    const scheduler = { reschedule: vi.fn() };
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      new DummyAdmin() as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      config as unknown as ChatConfigService,
-      createLoggerFactory(),
-      scheduler as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    const showSpy = vi
-      .spyOn((bot as unknown as { router: { show: Function } }).router, 'show')
-      .mockResolvedValue(undefined);
-    await (
-      bot as unknown as {
-        handleConfigTopicTime: (ctx: Context) => Promise<void>;
-      }
-    ).handleConfigTopicTime({ chat: { id: 30 } } as Context);
-    const ctxTime = {
-      chat: { id: 30 },
-      message: { text: '10:30' },
-      reply: vi.fn(),
-    } as unknown as Context;
-    await (
-      bot as unknown as { handleText: (ctx: Context) => Promise<void> }
-    ).handleText(ctxTime);
-    expect(showSpy).toHaveBeenNthCalledWith(
-      2,
-      ctxTime,
-      'chat_topic_timezone',
-      expect.anything()
-    );
-    const ctxZone = {
-      chat: { id: 30 },
-      message: { text: 'UTC' },
-      reply: vi.fn(),
-    } as unknown as Context;
-    await (
-      bot as unknown as { handleText: (ctx: Context) => Promise<void> }
-    ).handleText(ctxZone);
-    expect(config.setTopicTime).toHaveBeenCalledWith(30, '10:30', 'UTC');
-    expect(ctxZone.reply).toHaveBeenCalledWith('✅ Время статьи обновлено');
-    expect(showSpy).toHaveBeenNthCalledWith(3, ctxZone, 'menu');
-    expect(scheduler.reschedule).toHaveBeenCalledWith(30);
-  });
-
-  it('handles invalid history limit input', async () => {
-    const memories = new MockChatMemoryManager();
-    const config = new DummyChatConfigService();
-    const scheduler = { reschedule: vi.fn() };
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      new DummyAdmin() as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      config as unknown as ChatConfigService,
-      createLoggerFactory(),
-      scheduler as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    const showSpy = vi
-      .spyOn((bot as unknown as { router: { show: Function } }).router, 'show')
-      .mockResolvedValue(undefined);
-    await (
-      bot as unknown as {
-        handleConfigHistoryLimit: (ctx: Context) => Promise<void>;
-      }
-    ).handleConfigHistoryLimit({ chat: { id: 12 } } as Context);
-    const ctxText = {
-      chat: { id: 12 },
-      message: { text: '100' },
-      reply: vi.fn(),
-    } as unknown as Context;
-    config.setHistoryLimit.mockImplementationOnce(async () => {
-      throw new InvalidHistoryLimitError('Invalid history limit');
-    });
-    await (
-      bot as unknown as { handleText: (ctx: Context) => Promise<void> }
-    ).handleText(ctxText);
-    expect(config.setHistoryLimit).toHaveBeenCalledWith(12, 100);
-    expect(ctxText.reply).toHaveBeenCalledWith(
-      '❌ Лимит истории должен быть целым числом от 1 до 50'
-    );
-    expect(showSpy).toHaveBeenCalledWith(ctxText, 'menu');
-  });
-
-  it('handles invalid interest interval input', async () => {
-    const memories = new MockChatMemoryManager();
-    const config = new DummyChatConfigService();
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      new DummyAdmin() as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      config as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    const showSpy = vi
-      .spyOn((bot as unknown as { router: { show: Function } }).router, 'show')
-      .mockResolvedValue(undefined);
-    await (
-      bot as unknown as {
-        handleConfigInterestInterval: (ctx: Context) => Promise<void>;
-      }
-    ).handleConfigInterestInterval({ chat: { id: 13 } } as Context);
-    const ctxText = {
-      chat: { id: 13 },
-      message: { text: '100' },
-      reply: vi.fn(),
-    } as unknown as Context;
-    config.setInterestInterval.mockImplementationOnce(async () => {
-      throw new InvalidInterestIntervalError('Invalid interest interval');
-    });
-    await (
-      bot as unknown as { handleText: (ctx: Context) => Promise<void> }
-    ).handleText(ctxText);
-    expect(config.setInterestInterval).toHaveBeenCalledWith(13, 100);
-    expect(ctxText.reply).toHaveBeenCalledWith(
-      '❌ Интервал интереса должен быть целым числом от 1 до 50'
-    );
-    expect(showSpy).toHaveBeenCalledWith(ctxText, 'menu');
-  });
-
-  it('admin updates history limit on valid input', async () => {
-    const memories = new MockChatMemoryManager();
-    const admin = new DummyAdmin();
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      admin as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    const showSpy = vi
-      .spyOn(
-        bot as unknown as {
-          showAdminChat: (ctx: Context, id: number) => Promise<void>;
-        },
-        'showAdminChat'
-      )
-      .mockResolvedValue(undefined);
-    await (
-      bot as unknown as {
-        handleAdminConfigHistoryLimit: (
-          ctx: Context,
-          chatId: number
-        ) => Promise<void>;
-      }
-    ).handleAdminConfigHistoryLimit(
-      {
-        chat: { id: 1 },
-        reply: vi.fn(),
-      } as Context,
-      42
-    );
-    const ctxText = {
-      chat: { id: 1 },
-      message: { text: '5' },
-      reply: vi.fn(),
-    } as unknown as Context;
-    await (
-      bot as unknown as { handleText: (ctx: Context) => Promise<void> }
-    ).handleText(ctxText);
-    expect(admin.setHistoryLimit).toHaveBeenCalledWith(42, 5);
-    expect(ctxText.reply).toHaveBeenCalledWith('✅ Лимит истории обновлён');
-    expect(showSpy).toHaveBeenCalledWith(ctxText, 42);
-  });
-
-  it('admin updates interest interval on valid input', async () => {
-    const memories = new MockChatMemoryManager();
-    const admin = new DummyAdmin();
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      admin as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    const showSpy = vi
-      .spyOn(
-        bot as unknown as {
-          showAdminChat: (ctx: Context, id: number) => Promise<void>;
-        },
-        'showAdminChat'
-      )
-      .mockResolvedValue(undefined);
-    await (
-      bot as unknown as {
-        handleAdminConfigInterestInterval: (
-          ctx: Context,
-          chatId: number
-        ) => Promise<void>;
-      }
-    ).handleAdminConfigInterestInterval(
-      {
-        chat: { id: 1 },
-        reply: vi.fn(),
-      } as Context,
-      43
-    );
-    const ctxText = {
-      chat: { id: 1 },
-      message: { text: '10' },
-      reply: vi.fn(),
-    } as unknown as Context;
-    await (
-      bot as unknown as { handleText: (ctx: Context) => Promise<void> }
-    ).handleText(ctxText);
-    expect(admin.setInterestInterval).toHaveBeenCalledWith(43, 10);
-    expect(ctxText.reply).toHaveBeenCalledWith('✅ Интервал интереса обновлён');
-    expect(showSpy).toHaveBeenCalledWith(ctxText, 43);
-  });
-
-  it('admin updates topic time on valid input', async () => {
-    const memories = new MockChatMemoryManager();
-    const config = new DummyChatConfigService();
-    const scheduler = { reschedule: vi.fn() };
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      new DummyAdmin() as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      config as unknown as ChatConfigService,
-      createLoggerFactory(),
-      scheduler as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    const routeSpy = vi
-      .spyOn((bot as unknown as { router: { show: Function } }).router, 'show')
-      .mockResolvedValue(undefined);
-    const showSpy = vi
-      .spyOn(
-        bot as unknown as {
-          showAdminChat: (ctx: Context, id: number) => Promise<void>;
-        },
-        'showAdminChat'
-      )
-      .mockResolvedValue(undefined);
-    await (
-      bot as unknown as {
-        handleAdminConfigTopicTime: (
-          ctx: Context,
-          chatId: number
-        ) => Promise<void>;
-      }
-    ).handleAdminConfigTopicTime(
-      { chat: { id: 1 }, reply: vi.fn() } as Context,
-      50
-    );
-    const ctxTime = {
-      chat: { id: 1 },
-      message: { text: '08:00' },
-      reply: vi.fn(),
-    } as unknown as Context;
-    await (
-      bot as unknown as { handleText: (ctx: Context) => Promise<void> }
-    ).handleText(ctxTime);
-    expect(routeSpy).toHaveBeenNthCalledWith(
-      2,
-      ctxTime,
-      'admin_chat_topic_timezone',
-      expect.anything()
-    );
-    const ctxZone = {
-      chat: { id: 1 },
-      message: { text: 'UTC' },
-      reply: vi.fn(),
-    } as unknown as Context;
-    await (
-      bot as unknown as { handleText: (ctx: Context) => Promise<void> }
-    ).handleText(ctxZone);
-    expect(config.setTopicTime).toHaveBeenCalledWith(50, '08:00', 'UTC');
-    expect(ctxZone.reply).toHaveBeenCalledWith('✅ Время статьи обновлено');
-    expect(showSpy).toHaveBeenCalledWith(ctxZone, 50);
-    expect(scheduler.reschedule).toHaveBeenCalledWith(50);
-  });
-
-  it('admin handles invalid history limit input', async () => {
-    const memories = new MockChatMemoryManager();
-    const admin = new DummyAdmin();
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      admin as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    const showSpy = vi
-      .spyOn(
-        bot as unknown as {
-          showAdminChat: (ctx: Context, id: number) => Promise<void>;
-        },
-        'showAdminChat'
-      )
-      .mockResolvedValue(undefined);
-    await (
-      bot as unknown as {
-        handleAdminConfigHistoryLimit: (
-          ctx: Context,
-          chatId: number
-        ) => Promise<void>;
-      }
-    ).handleAdminConfigHistoryLimit(
-      {
-        chat: { id: 1 },
-        reply: vi.fn(),
-      } as Context,
-      44
-    );
-    const ctxText = {
-      chat: { id: 1 },
-      message: { text: '100' },
-      reply: vi.fn(),
-    } as unknown as Context;
-    admin.setHistoryLimit.mockImplementationOnce(async () => {
-      throw new InvalidHistoryLimitError('Invalid history limit');
-    });
-    await (
-      bot as unknown as { handleText: (ctx: Context) => Promise<void> }
-    ).handleText(ctxText);
-    expect(admin.setHistoryLimit).toHaveBeenCalledWith(44, 100);
-    expect(ctxText.reply).toHaveBeenCalledWith(
-      '❌ Лимит истории должен быть целым числом от 1 до 50'
-    );
-    expect(showSpy).toHaveBeenCalledWith(ctxText, 44);
-  });
-
-  it('admin handles invalid interest interval input', async () => {
-    const memories = new MockChatMemoryManager();
-    const admin = new DummyAdmin();
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      admin as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    const showSpy = vi
-      .spyOn(
-        bot as unknown as {
-          showAdminChat: (ctx: Context, id: number) => Promise<void>;
-        },
-        'showAdminChat'
-      )
-      .mockResolvedValue(undefined);
-    await (
-      bot as unknown as {
-        handleAdminConfigInterestInterval: (
-          ctx: Context,
-          chatId: number
-        ) => Promise<void>;
-      }
-    ).handleAdminConfigInterestInterval(
-      {
-        chat: { id: 1 },
-        reply: vi.fn(),
-      } as Context,
-      45
-    );
-    const ctxText = {
-      chat: { id: 1 },
-      message: { text: '100' },
-      reply: vi.fn(),
-    } as unknown as Context;
-    admin.setInterestInterval.mockImplementationOnce(async () => {
-      throw new InvalidInterestIntervalError('Invalid interest interval');
-    });
-    await (
-      bot as unknown as { handleText: (ctx: Context) => Promise<void> }
-    ).handleText(ctxText);
-    expect(admin.setInterestInterval).toHaveBeenCalledWith(45, 100);
-    expect(ctxText.reply).toHaveBeenCalledWith(
-      '❌ Интервал интереса должен быть целым числом от 1 до 50'
-    );
-    expect(showSpy).toHaveBeenCalledWith(ctxText, 45);
-  });
-
-  it('admin handles invalid topic time input', async () => {
-    const memories = new MockChatMemoryManager();
-    const config = new DummyChatConfigService();
-    const scheduler = { reschedule: vi.fn() };
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      new DummyAdmin() as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      config as unknown as ChatConfigService,
-      createLoggerFactory(),
-      scheduler as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    const routeSpy = vi
-      .spyOn((bot as unknown as { router: { show: Function } }).router, 'show')
-      .mockResolvedValue(undefined);
-    const showSpy = vi
-      .spyOn(
-        bot as unknown as {
-          showAdminChat: (ctx: Context, id: number) => Promise<void>;
-        },
-        'showAdminChat'
-      )
-      .mockResolvedValue(undefined);
-    await (
-      bot as unknown as {
-        handleAdminConfigTopicTime: (
-          ctx: Context,
-          chatId: number
-        ) => Promise<void>;
-      }
-    ).handleAdminConfigTopicTime(
-      { chat: { id: 1 }, reply: vi.fn() } as Context,
-      46
-    );
-    const ctxTime = {
-      chat: { id: 1 },
-      message: { text: 'bad' },
-      reply: vi.fn(),
-    } as unknown as Context;
-    await (
-      bot as unknown as { handleText: (ctx: Context) => Promise<void> }
-    ).handleText(ctxTime);
-    expect(routeSpy).toHaveBeenNthCalledWith(
-      2,
-      ctxTime,
-      'admin_chat_topic_timezone',
-      expect.anything()
-    );
-    const ctxZone = {
-      chat: { id: 1 },
-      message: { text: 'UTC' },
-      reply: vi.fn(),
-    } as unknown as Context;
-    config.setTopicTime.mockImplementationOnce(async () => {
-      throw new InvalidTopicTimeError('Invalid topic time');
-    });
-    await (
-      bot as unknown as { handleText: (ctx: Context) => Promise<void> }
-    ).handleText(ctxZone);
-    expect(config.setTopicTime).toHaveBeenCalledWith(46, 'bad', 'UTC');
-    expect(ctxZone.reply).toHaveBeenCalledWith(
-      '❌ Время статьи должно быть в формате HH:MM'
-    );
-    expect(showSpy).toHaveBeenCalledWith(ctxZone, 46);
-    expect(scheduler.reschedule).not.toHaveBeenCalled();
-  });
-
-  it('stores user messages via ChatMemoryManager', async () => {
-    const memories = new MockChatMemoryManager();
-    const configureSpy = vi
-      .spyOn(
-        MainService.prototype as unknown as Record<string, unknown>,
-        'configure'
-      )
-      .mockImplementation(() => {});
-
-    // Мокаем approvalService.getStatus чтобы возвращать 'approved' и не показывать кнопки
-    const mockApprovalService = {
-      ...new DummyApprovalService(),
-      getStatus: vi.fn(async () => 'approved'),
-    };
-
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      new DummyAdmin() as unknown as AdminService,
-      mockApprovalService as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    configureSpy.mockRestore();
-
-    const ctx = {
-      chat: { id: 2 },
-      from: { id: 2 },
-      message: { text: 'hi', message_id: 3 },
-      reply: vi.fn(),
-      answerCbQuery: vi.fn(),
-    } as unknown as Context;
-
-    await (
-      bot as unknown as { handleText: (ctx: Context) => Promise<void> }
-    ).handleText(ctx);
-
-    expect(memories.get).toHaveBeenCalledWith(2);
-    expect(memories.memory.addMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ role: 'user', content: 'hi' })
-    );
-  });
-
-  it('shows admin chats menu', async () => {
-    const memories = new MockChatMemoryManager();
-    const configureSpy = vi
-      .spyOn(
-        MainService.prototype as unknown as Record<string, unknown>,
-        'configure'
-      )
-      .mockImplementation(() => {});
-
-    const approvalService = new DummyApprovalService();
-    approvalService.listAll.mockResolvedValue([
-      { chatId: 42, status: 'approved' },
-    ]);
-
-    const chatRepo = new DummyChatInfoService();
-    chatRepo.getChat.mockResolvedValue({ chatId: 42, title: 'Test Chat' });
-
-    const actionSpy = vi.spyOn(Telegraf.prototype, 'action');
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      new DummyAdmin() as unknown as AdminService,
-      approvalService as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      chatRepo as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    await new Promise((resolve) => setImmediate(resolve));
-    const call = actionSpy.mock.calls.find(
-      ([pattern]) => pattern === 'admin_chats'
-    );
-    actionSpy.mockRestore();
-    configureSpy.mockRestore();
-    if (!call) throw new Error('Handler not found');
-    const handler = call[1];
-
-    await (
-      bot as unknown as {
-        router: { show: (ctx: Context, id: string) => Promise<void> };
-      }
-    ).router.show(
-      { chat: { id: 1 }, reply: vi.fn() } as unknown as Context,
-      'admin_menu'
-    );
-
-    const ctx = {
-      chat: { id: 1 },
-      deleteMessage: vi.fn(async () => {}),
-      reply: vi.fn(),
-      answerCbQuery: vi.fn(async () => {}),
-    } as unknown as Context;
-
-    await handler(ctx);
-
-    expect(approvalService.listAll).toHaveBeenCalled();
-    expect(chatRepo.getChat).toHaveBeenCalledWith(42);
-    expect(ctx.reply).toHaveBeenCalledWith('Выберите чат для управления:', {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: 'Test Chat (42)', callback_data: 'admin_chat:42' }],
-        ],
+    expect(deps.behaviorPipeline.handleStoredMessage).toHaveBeenCalledWith({
+      message: expect.objectContaining({
+        id: 42,
+        chatId: 2,
+        messageId: 77,
+      }),
+      directTrigger: {
+        reason: 'direct_trigger',
+        why: 'bot mention',
+        triggerMessageId: 42,
+        replyToTelegramMessageId: 77,
       },
     });
-  });
-
-  it('handles admin_chat action and shows status with ban button', async () => {
-    const memories = new MockChatMemoryManager();
-    const approvalService = new DummyApprovalService();
-    approvalService.getStatus.mockResolvedValue('approved');
-    const actionSpy = vi.spyOn(Telegraf.prototype, 'action');
-
-    const config = new DummyChatConfigService();
-    config.getConfig.mockResolvedValue({
-      chatId: 42,
-      historyLimit: 50,
-      interestInterval: 25,
-      topicTime: '09:00',
-      topicTimezone: 'UTC',
-    });
-    const messenger = new DummyMessenger();
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      new DummyAdmin() as unknown as AdminService,
-      approvalService as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      config as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      messenger as unknown as ChatMessenger
-    );
-
-    const call = actionSpy.mock.calls.find(
-      ([pattern]) =>
-        pattern instanceof RegExp && pattern.source === '^admin_chat:(\\S+)$'
-    );
-    actionSpy.mockRestore();
-    if (!call) {
-      throw new Error('Handler not found');
-    }
-    const handler = call[1];
-
-    // simulate entering admin_chats route to populate history
-    await (
-      bot as unknown as { router: unknown } as { router: any }
-    ).router.show(
-      { chat: { id: 1 }, reply: vi.fn() } as unknown as Context,
-      'admin_chats',
-      { loadData: () => [] }
-    );
-
-    const ctx = {
-      chat: { id: 1 },
-      match: ['admin_chat:42', '42'],
-      answerCbQuery: vi.fn(),
-      deleteMessage: vi.fn(async () => {}),
-      reply: vi.fn(),
-    } as unknown as Context;
-
-    await handler(ctx);
-
-    expect(approvalService.getStatus).toHaveBeenCalledWith(42);
-    expect(ctx.deleteMessage).toHaveBeenCalled();
-    expect(ctx.reply).toHaveBeenCalledWith('Статус чата 42: approved', {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: 'Забанить', callback_data: 'chat_ban:42' }],
-          [
-            {
-              text: '🕒 Лимит истории (50)',
-              callback_data: 'admin_chat_history_limit:42',
-            },
-          ],
-          [
-            {
-              text: '✨ Интервал интереса (25)',
-              callback_data: 'admin_chat_interest_interval:42',
-            },
-          ],
-          [
-            {
-              text: '📝 Время статьи (09:00)',
-              callback_data: 'admin_chat_topic_time:42',
-            },
-          ],
-        ],
-      },
-    });
-  });
-
-  it('does nothing on back from admin_chat without parent', async () => {
-    const memories = new MockChatMemoryManager();
-    const approvalService = new DummyApprovalService();
-    approvalService.getStatus.mockResolvedValue('approved');
-    const actionSpy = vi.spyOn(Telegraf.prototype, 'action');
-
-    const config = new DummyChatConfigService();
-    config.getConfig.mockResolvedValue({
-      chatId: 7,
-      historyLimit: 50,
-      interestInterval: 25,
-      topicTime: '09:00',
-      topicTimezone: 'UTC',
-    });
-    const messenger = new DummyMessenger();
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      new DummyAdmin() as unknown as AdminService,
-      approvalService as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      config as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      messenger as unknown as ChatMessenger
-    );
-    await new Promise((resolve) => setImmediate(resolve));
-
-    const backCall = actionSpy.mock.calls.find(
-      ([pattern]) => pattern === 'back'
-    );
-    actionSpy.mockRestore();
-    if (!backCall) {
-      throw new Error('Back handler not found');
-    }
-    const backHandler = backCall[1];
-
-    const loadChats = vi.fn(async () => [
-      { id: 42, title: 'Chat A' },
-      { id: 43, title: 'Chat B' },
-    ]);
-    const ctx = { chat: { id: 1 }, reply: vi.fn() } as unknown as Context;
-    await (bot as unknown as { router: any }).router.show(ctx, 'admin_menu');
-    await (bot as unknown as { router: any }).router.show(ctx, 'admin_chats', {
-      loadData: loadChats,
-    });
-    await (
-      bot as unknown as {
-        showAdminChat: (ctx: Context, id: number) => Promise<void>;
-      }
-    ).showAdminChat(ctx, 42);
-
-    const ctxBack = {
-      chat: { id: 1 },
-      deleteMessage: vi.fn(async () => {}),
-      reply: vi.fn(),
-      answerCbQuery: vi.fn(async () => {}),
-    } as unknown as Context;
-
-    await backHandler(ctxBack);
-
-    expect(loadChats).toHaveBeenCalledTimes(1);
-    expect(ctxBack.reply).not.toHaveBeenCalled();
-  });
-
-  it('chat_ban updates message', async () => {
-    const memories = new MockChatMemoryManager();
-    const approvalService = new DummyApprovalService();
-    approvalService.getStatus
-      .mockResolvedValueOnce('approved')
-      .mockResolvedValueOnce('banned');
-    const actionSpy = vi.spyOn(Telegraf.prototype, 'action');
-
-    const config = new DummyChatConfigService();
-    config.getConfig.mockResolvedValue({
-      chatId: 7,
-      historyLimit: 50,
-      interestInterval: 25,
-      topicTime: '09:00',
-      topicTimezone: 'UTC',
-    });
-    const messenger = new DummyMessenger();
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      new DummyAdmin() as unknown as AdminService,
-      approvalService as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      config as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      messenger as unknown as ChatMessenger
-    );
-
-    const call = actionSpy.mock.calls.find(
-      ([pattern]) =>
-        pattern instanceof RegExp && pattern.source === '^chat_ban:(\\S+)$'
-    );
-    actionSpy.mockRestore();
-    if (!call) {
-      throw new Error('Handler not found');
-    }
-    const handler = call[1];
-
-    // navigate to admin_chat view for chat 7
-    await (bot as unknown as { router: any }).router.show(
-      { chat: { id: 1 }, reply: vi.fn() } as unknown as Context,
-      'admin_chats',
-      { loadData: () => [] }
-    );
-    await (
-      bot as unknown as {
-        showAdminChat: (ctx: Context, id: number) => Promise<void>;
-      }
-    ).showAdminChat(
-      { chat: { id: 1 }, reply: vi.fn() } as unknown as Context,
-      7
-    );
-
-    const ctx = {
-      chat: { id: 1 },
-      match: ['chat_ban:7', '7'],
-      telegram: { sendMessage: vi.fn() },
-      answerCbQuery: vi.fn(),
-      deleteMessage: vi.fn(async () => {}),
-      reply: vi.fn(),
-    } as unknown as Context;
-
-    await handler(ctx);
-
-    expect(approvalService.ban).toHaveBeenCalledWith(7);
-    expect(messenger.sendMessage).toHaveBeenCalledWith(7, 'Доступ запрещён');
-    expect(ctx.deleteMessage).toHaveBeenCalled();
-    expect(ctx.reply).toHaveBeenCalledWith('Статус чата 7: banned', {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: 'Разбанить', callback_data: 'chat_unban:7' }],
-          [
-            {
-              text: '🕒 Лимит истории (50)',
-              callback_data: 'admin_chat_history_limit:7',
-            },
-          ],
-          [
-            {
-              text: '✨ Интервал интереса (25)',
-              callback_data: 'admin_chat_interest_interval:7',
-            },
-          ],
-          [
-            {
-              text: '📝 Время статьи (09:00)',
-              callback_data: 'admin_chat_topic_time:7',
-            },
-          ],
-        ],
-      },
-    });
-  });
-
-  it('sends chat access request to admin', async () => {
-    const memories = new MockChatMemoryManager();
-    const configureSpy = vi
-      .spyOn(
-        MainService.prototype as unknown as Record<string, unknown>,
-        'configure'
-      )
-      .mockImplementation(() => {});
-
-    const approvalService = new DummyApprovalService();
-    const admin = new DummyAdmin();
-    const messenger = new DummyMessenger();
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      admin as unknown as AdminService,
-      approvalService as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      messenger as unknown as ChatMessenger
-    );
-    configureSpy.mockRestore();
-
-    const sendMessageSpy = vi.spyOn(messenger, 'sendMessage');
-
-    const ctx = {
-      chat: { id: 42, title: 'Test' },
-      reply: vi.fn(),
-    } as unknown as Context;
-
-    await (
-      bot as unknown as { handleChatRequest: (ctx: Context) => Promise<void> }
-    ).handleChatRequest(ctx);
-
-    expect(approvalService.pending).toHaveBeenCalledWith(42);
-    expect(sendMessageSpy).toHaveBeenCalledWith(
-      1,
-      'Test (42) запросил доступ',
-      expect.objectContaining({ reply_markup: expect.any(Object) })
-    );
-    expect(ctx.reply).toHaveBeenCalledWith('Запрос отправлен');
-  });
-
-  it('handles user access request and sends notification', async () => {
-    const memories = new MockChatMemoryManager();
-    const configureSpy = vi
-      .spyOn(
-        MainService.prototype as unknown as Record<string, unknown>,
-        'configure'
-      )
-      .mockImplementation(() => {});
-
-    const messenger = new DummyMessenger();
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      new DummyAdmin() as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      messenger as unknown as ChatMessenger
-    );
-    configureSpy.mockRestore();
-
-    const sendMessageSpy = vi.spyOn(messenger, 'sendMessage');
-
-    const ctx = {
-      chat: { id: 5 },
-      from: {
-        id: 6,
-        first_name: 'John',
-        last_name: 'Doe',
-        username: 'jdoe',
-      },
-      reply: vi.fn(),
-    } as unknown as Context;
-
-    await (
-      bot as unknown as { handleRequestAccess: (ctx: Context) => Promise<void> }
-    ).handleRequestAccess(ctx);
-
-    expect(sendMessageSpy).toHaveBeenCalledWith(
-      1,
-      'Chat 5 user 6 (John Doe @jdoe) requests data access.',
-      expect.objectContaining({ reply_markup: expect.any(Object) })
-    );
-    expect(ctx.reply).toHaveBeenCalledWith('Запрос отправлен администратору.');
-  });
-
-  it('handles user_approve action', async () => {
-    const memories = new MockChatMemoryManager();
-    const admin = new DummyAdmin();
-    const approveDate = new Date('2020-01-01T00:00:00.000Z');
-    admin.createAccessKey.mockResolvedValue(approveDate);
-    const actionSpy = vi.spyOn(Telegraf.prototype, 'action');
-
-    const messenger = new DummyMessenger();
-    new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      admin as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      messenger as unknown as ChatMessenger
-    );
-
-    const call = actionSpy.mock.calls.find(
-      ([pattern]) =>
-        pattern instanceof RegExp &&
-        pattern.source === '^user_approve:(\\S+):(\\S+)$'
-    );
-    actionSpy.mockRestore();
-    if (!call) {
-      throw new Error('Handler not found');
-    }
-    const handler = call[1];
-
-    const ctx = {
-      chat: { id: 1 },
-      match: ['user_approve:5:6', '5', '6'],
-      answerCbQuery: vi.fn(),
-      reply: vi.fn(),
-      telegram: { sendMessage: vi.fn() },
-    } as unknown as Context;
-
-    await handler(ctx);
-
-    expect(admin.createAccessKey).toHaveBeenCalledWith(5, 6);
-    expect(ctx.answerCbQuery).toHaveBeenCalledWith('Доступ одобрен');
-    expect(ctx.reply).toHaveBeenCalledWith(
-      'Одобрено для чата 5 и пользователя 6'
-    );
-    expect(messenger.sendMessage).toHaveBeenCalledWith(
-      5,
-      `Доступ к данным разрешен для пользователя 6 до ${approveDate.toISOString()}. Используйте меню для экспорта и сброса`
-    );
-  });
-
-  it('exports data when allowed', async () => {
-    const memories = new MockChatMemoryManager();
-    const configureSpy = vi
-      .spyOn(
-        MainService.prototype as unknown as Record<string, unknown>,
-        'configure'
-      )
-      .mockImplementation(() => {});
-
-    const admin = new DummyAdmin();
-    const file = { buffer: Buffer.from('data'), filename: 'file.csv' };
-    admin.exportChatData.mockResolvedValue([file]);
-
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      admin as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    configureSpy.mockRestore();
-
-    const ctx = {
-      chat: { id: 2 },
-      from: { id: 3 },
-      answerCbQuery: vi.fn(),
-      reply: vi.fn(),
-      replyWithDocument: vi.fn(),
-    } as unknown as Context;
-
-    await (
-      bot as unknown as { handleExportData: (ctx: Context) => Promise<void> }
-    ).handleExportData(ctx);
-
-    expect(admin.hasAccess).toHaveBeenCalledWith(2, 3);
-    expect(ctx.answerCbQuery).toHaveBeenCalledWith(
-      'Начинаю загрузку данных...'
-    );
-    expect(ctx.reply).toHaveBeenCalledWith(
-      'Найдено 1 таблиц для экспорта. Начинаю загрузку...'
-    );
-    expect(ctx.replyWithDocument).toHaveBeenCalledWith({
-      source: file.buffer,
-      filename: file.filename,
-    });
-    expect(ctx.reply).toHaveBeenCalledWith('✅ Загрузка данных завершена!');
-  });
-
-  it('replies with error when export fails', async () => {
-    const memories = new MockChatMemoryManager();
-    const configureSpy = vi
-      .spyOn(
-        MainService.prototype as unknown as Record<string, unknown>,
-        'configure'
-      )
-      .mockImplementation(() => {});
-
-    const admin = new DummyAdmin();
-    admin.exportChatData.mockRejectedValue(new Error('fail'));
-
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      admin as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    configureSpy.mockRestore();
-
-    const ctx = {
-      chat: { id: 2 },
-      from: { id: 3 },
-      answerCbQuery: vi.fn(),
-      reply: vi.fn(),
-      replyWithDocument: vi.fn(),
-    } as unknown as Context;
-
-    await (
-      bot as unknown as { handleExportData: (ctx: Context) => Promise<void> }
-    ).handleExportData(ctx);
-
-    expect(ctx.answerCbQuery).toHaveBeenCalledWith(
-      'Начинаю загрузку данных...'
-    );
-    expect(ctx.reply).toHaveBeenCalledWith(
-      '❌ Ошибка при загрузке данных. Попробуйте позже.'
-    );
-    expect(ctx.replyWithDocument).not.toHaveBeenCalled();
-  });
-
-  it('resets memory when allowed', async () => {
-    const memories = new MockChatMemoryManager();
-    const configureSpy = vi
-      .spyOn(
-        MainService.prototype as unknown as Record<string, unknown>,
-        'configure'
-      )
-      .mockImplementation(() => {});
-
-    const admin = new DummyAdmin();
-
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      admin as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    configureSpy.mockRestore();
-
-    const ctx = {
-      chat: { id: 2 },
-      from: { id: 3 },
-      answerCbQuery: vi.fn(),
-      reply: vi.fn(),
-    } as unknown as Context;
-
-    await (
-      bot as unknown as { handleResetMemory: (ctx: Context) => Promise<void> }
-    ).handleResetMemory(ctx);
-
-    expect(admin.hasAccess).toHaveBeenCalledWith(2, 3);
-    expect(ctx.answerCbQuery).toHaveBeenCalledWith(
-      'Сбрасываю память диалога...'
-    );
-    expect(memories.reset).toHaveBeenCalledWith(2);
-    expect(ctx.reply).toHaveBeenCalledWith('✅ Контекст диалога сброшен!');
-  });
-
-  it('replies with error when memory reset fails', async () => {
-    const memories = new MockChatMemoryManager();
-    const configureSpy = vi
-      .spyOn(
-        MainService.prototype as unknown as Record<string, unknown>,
-        'configure'
-      )
-      .mockImplementation(() => {});
-
-    const admin = new DummyAdmin();
-    memories.reset.mockRejectedValue(new Error('fail'));
-
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      admin as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    configureSpy.mockRestore();
-
-    const ctx = {
-      chat: { id: 2 },
-      from: { id: 3 },
-      answerCbQuery: vi.fn(),
-      reply: vi.fn(),
-    } as unknown as Context;
-
-    await (
-      bot as unknown as { handleResetMemory: (ctx: Context) => Promise<void> }
-    ).handleResetMemory(ctx);
-
-    expect(ctx.answerCbQuery).toHaveBeenCalledWith(
-      'Сбрасываю память диалога...'
-    );
-    expect(ctx.reply).toHaveBeenCalledWith(
-      '❌ Ошибка при сбросе памяти. Попробуйте позже.'
-    );
-  });
-
-  it('shows admin menu for admin chat', async () => {
-    const memories = new MockChatMemoryManager();
-    const configureSpy = vi
-      .spyOn(
-        MainService.prototype as unknown as Record<string, unknown>,
-        'configure'
-      )
-      .mockImplementation(() => {});
-    const approvalService = new DummyApprovalService();
-    const admin = new DummyAdmin();
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      admin as unknown as AdminService,
-      approvalService as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    configureSpy.mockRestore();
-    const botWithRouter = bot as unknown as {
-      router: { show: ReturnType<typeof vi.fn> };
-      showMenu: (ctx: Context) => Promise<void>;
-    };
-    botWithRouter.router = { show: vi.fn() };
-    const ctx = { chat: { id: 1 } } as unknown as Context;
-    await botWithRouter.showMenu(ctx);
-    expect(botWithRouter.router.show).toHaveBeenCalledWith(ctx, 'admin_menu');
-  });
-
-  it('shows chat_not_approved for unapproved chats', async () => {
-    const memories = new MockChatMemoryManager();
-    const configureSpy = vi
-      .spyOn(
-        MainService.prototype as unknown as Record<string, unknown>,
-        'configure'
-      )
-      .mockImplementation(() => {});
-    const approvalService = new DummyApprovalService();
-    const admin = new DummyAdmin();
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      admin as unknown as AdminService,
-      approvalService as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    configureSpy.mockRestore();
-    const botWithRouter = bot as unknown as {
-      router: { show: ReturnType<typeof vi.fn> };
-      showMenu: (ctx: Context) => Promise<void>;
-    };
-    botWithRouter.router = { show: vi.fn() };
-    approvalService.getStatus.mockResolvedValueOnce('banned');
-    const bannedCtx = { chat: { id: 2 }, reply: vi.fn() } as unknown as Context;
-    await botWithRouter.showMenu(bannedCtx);
-    expect(botWithRouter.router.show).toHaveBeenCalledWith(
-      bannedCtx,
-      'chat_not_approved'
-    );
-    approvalService.getStatus.mockResolvedValueOnce('pending');
-    const pendingCtx = {
-      chat: { id: 3 },
-      reply: vi.fn(),
-    } as unknown as Context;
-    await botWithRouter.showMenu(pendingCtx);
-    expect(botWithRouter.router.show).toHaveBeenLastCalledWith(
-      pendingCtx,
-      'chat_not_approved'
-    );
-  });
-
-  it('shows menu when user lacks permission', async () => {
-    const memories = new MockChatMemoryManager();
-    const configureSpy = vi
-      .spyOn(
-        MainService.prototype as unknown as Record<string, unknown>,
-        'configure'
-      )
-      .mockImplementation(() => {});
-    const approvalService = new DummyApprovalService();
-    const admin = new DummyAdmin();
-    admin.hasAccess.mockResolvedValue(false);
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      admin as unknown as AdminService,
-      approvalService as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    configureSpy.mockRestore();
-    const botWithRouter = bot as unknown as {
-      router: { show: ReturnType<typeof vi.fn> };
-      showMenu: (ctx: Context) => Promise<void>;
-    };
-    botWithRouter.router = { show: vi.fn() };
-    const ctx = { chat: { id: 2 }, from: { id: 5 } } as unknown as Context;
-    await botWithRouter.showMenu(ctx);
-    expect(botWithRouter.router.show).toHaveBeenCalledWith(ctx, 'menu');
-  });
-
-  it('handles pending and banned chats in text handler', async () => {
-    const memories = new MockChatMemoryManager();
-    const configureSpy = vi
-      .spyOn(
-        MainService.prototype as unknown as Record<string, unknown>,
-        'configure'
-      )
-      .mockImplementation(() => {});
-    const approvalService = new DummyApprovalService();
-    const admin = new DummyAdmin();
-    approvalService.getStatus.mockResolvedValueOnce('pending');
-    approvalService.getStatus.mockResolvedValueOnce('banned');
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      admin as unknown as AdminService,
-      approvalService as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    configureSpy.mockRestore();
-    const sendRequest = vi
-      .spyOn(
-        bot as unknown as {
-          sendChatApprovalRequest: (
-            chatId: number,
-            title?: string
-          ) => Promise<void>;
-        },
-        'sendChatApprovalRequest'
-      )
-      .mockResolvedValue();
-    const showSpy = vi
-      .spyOn((bot as unknown as { router: { show: Function } }).router, 'show')
-      .mockResolvedValue(undefined);
-    const ctxPending = {
-      chat: { id: 2 },
-      from: { id: 1 },
-      message: { text: 'hi', message_id: 1 },
-      reply: vi.fn(),
-    } as unknown as Context;
-    await (
-      bot as unknown as { handleText: (ctx: Context) => Promise<void> }
-    ).handleText(ctxPending);
-    expect(sendRequest).not.toHaveBeenCalled();
-    expect(showSpy).toHaveBeenCalledWith(ctxPending, 'chat_not_approved');
-    const ctxBanned = {
-      chat: { id: 3 },
-      from: { id: 1 },
-      message: { text: 'hi', message_id: 1 },
-      reply: vi.fn(),
-    } as unknown as Context;
-    await (
-      bot as unknown as { handleText: (ctx: Context) => Promise<void> }
-    ).handleText(ctxBanned);
-    expect(memories.memory.addMessage).not.toHaveBeenCalled();
-    expect(showSpy).toHaveBeenNthCalledWith(2, ctxBanned, 'chat_not_approved');
-    expect(showSpy).toHaveBeenCalledTimes(2);
-  });
-
-  it('denies export when access is missing', async () => {
-    const memories = new MockChatMemoryManager();
-    const configureSpy = vi
-      .spyOn(
-        MainService.prototype as unknown as Record<string, unknown>,
-        'configure'
-      )
-      .mockImplementation(() => {});
-    const admin = new DummyAdmin();
-    admin.hasAccess.mockResolvedValue(false);
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      admin as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    configureSpy.mockRestore();
-    const botWithRouter = bot as unknown as {
-      handleExportData: (ctx: Context) => Promise<void>;
-      router: { show: ReturnType<typeof vi.fn> };
-    };
-    botWithRouter.router = { show: vi.fn() };
-    const ctx = {
-      chat: { id: 2 },
-      from: { id: 3 },
-      answerCbQuery: vi.fn(),
-    } as unknown as Context;
-    await botWithRouter.handleExportData(ctx);
-    expect(ctx.answerCbQuery).toHaveBeenCalledWith(
-      'Нет доступа или ключ просрочен'
-    );
-    expect(botWithRouter.router.show).toHaveBeenCalledWith(ctx, 'no_access');
-  });
-
-  it('handleAwaitingConfig updates history limit', async () => {
-    const memories = new MockChatMemoryManager();
-    const config = new DummyChatConfigService();
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      new DummyAdmin() as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      config as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    const showSpy = vi
-      .spyOn((bot as unknown as { router: { show: Function } }).router, 'show')
-      .mockResolvedValue(undefined);
-    const ctx = {
-      chat: { id: 10 },
-      message: { text: '7' },
-      reply: vi.fn(),
-    } as unknown as Context;
-    await (
-      bot as unknown as {
-        handleAwaitingConfig: (
-          ctx: Context,
-          awaiting: {
-            type: 'history' | 'interest';
-            chatId: number;
-            admin: boolean;
-          }
-        ) => Promise<void>;
-      }
-    ).handleAwaitingConfig(ctx, { type: 'history', chatId: 10, admin: false });
-    expect(config.setHistoryLimit).toHaveBeenCalledWith(10, 7);
-    expect(ctx.reply).toHaveBeenCalledWith('✅ Лимит истории обновлён');
-    expect(showSpy).toHaveBeenCalledWith(ctx, 'menu');
-  });
-
-  it('checkChatStatus handles pending chat', async () => {
-    const memories = new MockChatMemoryManager();
-    const approval = new DummyApprovalService();
-    approval.getStatus.mockResolvedValue('pending');
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      new DummyAdmin() as unknown as AdminService,
-      approval as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    const sendSpy = vi
-      .spyOn(
-        bot as unknown as {
-          sendChatApprovalRequest: (
-            chatId: number,
-            title?: string
-          ) => Promise<void>;
-        },
-        'sendChatApprovalRequest'
-      )
-      .mockResolvedValue();
-    const showSpy = vi
-      .spyOn((bot as unknown as { router: { show: Function } }).router, 'show')
-      .mockResolvedValue(undefined);
-    const ctx = { chat: { id: 5 }, reply: vi.fn() } as unknown as Context;
-    const result = await (
-      bot as unknown as {
-        checkChatStatus: (ctx: Context, chatId: number) => Promise<boolean>;
-      }
-    ).checkChatStatus(ctx, 5);
-    expect(result).toBe(false);
-    expect(sendSpy).not.toHaveBeenCalled();
-    expect(showSpy).toHaveBeenCalledWith(ctx, 'chat_not_approved');
-  });
-
-  it('checkChatStatus handles banned chat', async () => {
-    const memories = new MockChatMemoryManager();
-    const approval = new DummyApprovalService();
-    approval.getStatus.mockResolvedValue('banned');
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      new DummyAdmin() as unknown as AdminService,
-      approval as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    const sendSpy = vi.spyOn(
-      bot as unknown as {
-        sendChatApprovalRequest: (
-          chatId: number,
-          title?: string
-        ) => Promise<void>;
-      },
-      'sendChatApprovalRequest'
-    );
-    const showSpy = vi
-      .spyOn((bot as unknown as { router: { show: Function } }).router, 'show')
-      .mockResolvedValue(undefined);
-    const ctx = { chat: { id: 6 } } as unknown as Context;
-    const result = await (
-      bot as unknown as {
-        checkChatStatus: (ctx: Context, chatId: number) => Promise<boolean>;
-      }
-    ).checkChatStatus(ctx, 6);
-    expect(result).toBe(false);
-    expect(sendSpy).not.toHaveBeenCalled();
-    expect(showSpy).toHaveBeenCalledWith(ctx, 'chat_not_approved');
-  });
-
-  it('checkChatStatus allows approved chat', async () => {
-    const memories = new MockChatMemoryManager();
-    const approval = new DummyApprovalService();
-    approval.getStatus.mockResolvedValue('approved');
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      new DummyAdmin() as unknown as AdminService,
-      approval as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    const ctx = { chat: { id: 7 } } as unknown as Context;
-    const result = await (
-      bot as unknown as {
-        checkChatStatus: (ctx: Context, chatId: number) => Promise<boolean>;
-      }
-    ).checkChatStatus(ctx, 7);
-    expect(result).toBe(true);
-  });
-
-  it('prepareAndSendResponse does nothing without trigger', async () => {
-    const memories = new MockChatMemoryManager();
-    const pipeline = new DummyPipeline();
-    pipeline.shouldRespond.mockResolvedValue(null);
-    const responder = new DummyResponder();
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      new DummyAdmin() as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      pipeline as unknown as TriggerPipeline,
-      responder as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    const ctx = {
-      chat: { id: 1 },
-      message: { text: 'hi', message_id: 2 },
-      reply: vi.fn(),
-      sendChatAction: vi.fn().mockResolvedValue(undefined),
-      telegram: { sendChatAction: vi.fn().mockResolvedValue(undefined) },
-    } as unknown as Context;
-    await (
-      bot as unknown as {
-        prepareAndSendResponse: (ctx: Context, chatId: number) => Promise<void>;
-      }
-    ).prepareAndSendResponse(ctx, 1);
-    expect(memories.memory.addMessage).toHaveBeenCalled();
-    expect(responder.generate).not.toHaveBeenCalled();
     expect(ctx.reply).not.toHaveBeenCalled();
   });
 
-  it('prepareAndSendResponse replies when trigger matches', async () => {
-    const memories = new MockChatMemoryManager();
-    const pipeline = new DummyPipeline();
-    pipeline.shouldRespond.mockResolvedValue({
-      replyToMessageId: 2,
-      reason: 'r',
+  it('sends non-direct approved messages to BehaviorPipeline for batching', async () => {
+    const deps = makeDeps();
+    deps.messages = {
+      addMessage: vi.fn().mockResolvedValue(43),
+    };
+    deps.pipeline = {
+      shouldRespond: vi.fn().mockResolvedValue(null),
+    };
+    deps.behaviorPipeline = {
+      handleStoredMessage: vi.fn().mockResolvedValue({ kind: 'queued' }),
+    };
+    const service = buildService(deps);
+    const ctx = makeTextCtx({ chatId: 2, messageId: 78, text: 'just talking' });
+
+    await (service as any).handleMessage(ctx);
+
+    expect(deps.behaviorPipeline.handleStoredMessage).toHaveBeenCalledWith({
+      message: expect.objectContaining({
+        id: 43,
+        chatId: 2,
+        messageId: 78,
+      }),
+      directTrigger: null,
     });
-    const responder = new DummyResponder();
-    responder.generate.mockResolvedValue('answer');
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      new DummyAdmin() as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      pipeline as unknown as TriggerPipeline,
-      responder as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      new DummyMessenger() as unknown as ChatMessenger
-    );
-    const ctx = {
-      chat: { id: 1 },
-      message: { text: 'hi', message_id: 2 },
-      reply: vi.fn(),
-      sendChatAction: vi.fn().mockResolvedValue(undefined),
-      telegram: { sendChatAction: vi.fn().mockResolvedValue(undefined) },
-    } as unknown as Context;
-    await (
-      bot as unknown as {
-        prepareAndSendResponse: (ctx: Context, chatId: number) => Promise<void>;
-      }
-    ).prepareAndSendResponse(ctx, 1);
-    expect(responder.generate).toHaveBeenCalledWith(ctx, 1, 'r');
-    expect(ctx.reply).toHaveBeenCalledWith('answer', {
-      reply_parameters: { message_id: 2 },
-    });
+    expect(ctx.reply).not.toHaveBeenCalled();
+  });
+});
+
+describe('MainService.handleResetMemory', () => {
+  it('returns "denied" without resetting when a non-admin lacks access', async () => {
+    const deps = makeDeps();
+    deps.admin.hasAccess = vi.fn().mockResolvedValue(false);
+    const service = buildService(deps);
+
+    const ctx = { chat: { id: 2 }, from: { id: 5 } } as unknown as BotContext;
+    const result = await (service as any).handleResetMemory(ctx);
+
+    expect(result).toBe('denied');
+    expect(deps.reset.reset).not.toHaveBeenCalled();
   });
 
-  it('launches and stops the bot', async () => {
-    const memories = new MockChatMemoryManager();
-    const configureSpy = vi
-      .spyOn(
-        MainService.prototype as unknown as Record<string, unknown>,
-        'configure'
-      )
-      .mockImplementation(() => {});
-    const messenger = new DummyMessenger();
-    const bot = new MainService(
-      new MockEnvService() as unknown as EnvService,
-      memories as unknown as ChatMemoryManager,
-      new DummyAdmin() as unknown as AdminService,
-      new DummyApprovalService() as unknown as ChatApprovalService,
-      new DummyExtractor() as unknown as MessageContextExtractor,
-      new DummyPipeline() as unknown as TriggerPipeline,
-      new DummyResponder() as unknown as ChatResponder,
-      new DummyChatInfoService() as unknown as ChatInfoService,
-      new DummyChatConfigService() as unknown as ChatConfigService,
-      createLoggerFactory(),
-      new DummyScheduler() as unknown as TopicOfDayScheduler,
-      messenger as unknown as ChatMessenger
-    );
-    configureSpy.mockRestore();
-    const launch = vi
-      .spyOn(messenger, 'launch')
-      .mockResolvedValue(undefined as never);
-    await bot.launch();
-    expect(launch).toHaveBeenCalled();
-    const stop = vi.spyOn(messenger, 'stop').mockImplementation(() => {});
-    bot.stop('test');
-    expect(stop).toHaveBeenCalledWith('test');
+  it('resets and returns "ok" for an authorized user', async () => {
+    const deps = makeDeps();
+    deps.admin.hasAccess = vi.fn().mockResolvedValue(true);
+    const service = buildService(deps);
+
+    const ctx = { chat: { id: 2 }, from: { id: 5 } } as unknown as BotContext;
+    const result = await (service as any).handleResetMemory(ctx);
+
+    expect(result).toBe('ok');
+    expect(deps.reset.reset).toHaveBeenCalledWith(2);
   });
 
-  it('withTyping sends actions until finished', async () => {
-    vi.useFakeTimers();
+  it('skips the access check for the admin chat', async () => {
+    const deps = makeDeps();
+    const service = buildService(deps);
 
-    const ctx = {
-      chat: { id: 1 },
-      sendChatAction: vi.fn().mockResolvedValue(undefined),
-      telegram: { sendChatAction: vi.fn().mockResolvedValue(undefined) },
-    } as unknown as Context;
+    const ctx = { chat: { id: 1 }, from: { id: 5 } } as unknown as BotContext;
+    const result = await (service as any).handleResetMemory(ctx);
 
-    let resolveFn: () => void;
-    const fn = vi.fn(
-      () =>
-        new Promise<void>((resolve) => {
-          resolveFn = resolve;
-        })
-    );
+    expect(result).toBe('ok');
+    expect(deps.admin.hasAccess).not.toHaveBeenCalled();
+    expect(deps.reset.reset).toHaveBeenCalledWith(1);
+  });
+});
 
-    const promise = (
-      MainServiceModule as unknown as {
-        withTyping: (ctx: Context, fn: () => Promise<void>) => Promise<void>;
-      }
-    ).withTyping(ctx, fn);
+describe('MainService.handleExportData', () => {
+  const makeExportCtx = () =>
+    ({
+      chat: { id: 2 },
+      from: { id: 5 },
+      answerCallbackQuery: vi.fn().mockResolvedValue(undefined),
+      reply: vi.fn().mockResolvedValue(undefined),
+      replyWithDocument: vi.fn().mockResolvedValue(undefined),
+      api: {
+        editMessageText: vi.fn().mockResolvedValue(undefined),
+        deleteMessage: vi.fn().mockResolvedValue(undefined),
+      },
+    }) as unknown as BotContext;
 
-    expect(ctx.sendChatAction).toHaveBeenCalledWith('typing');
+  it('reports no data when there are no files', async () => {
+    const deps = makeDeps();
+    deps.admin.exportChatData = vi.fn().mockResolvedValue([]);
+    const service = buildService(deps);
+    const ctx = makeExportCtx();
 
-    await vi.advanceTimersByTimeAsync(4000);
-    expect(ctx.telegram.sendChatAction).toHaveBeenCalledWith(1, 'typing');
+    await (service as any).handleExportData(ctx, 10);
 
-    resolveFn?.();
-    await promise;
+    expect(ctx.replyWithDocument).not.toHaveBeenCalled();
+    expect(ctx.reply).toHaveBeenCalledWith('Нет данных для экспорта.');
+  });
 
-    await vi.advanceTimersByTimeAsync(4000);
-    expect(ctx.telegram.sendChatAction).toHaveBeenCalledTimes(1);
+  it('sends each file and updates progress', async () => {
+    const deps = makeDeps();
+    deps.admin.exportChatData = vi.fn().mockResolvedValue([
+      { buffer: Buffer.from('a'), filename: 'a.csv' },
+      { buffer: Buffer.from('b'), filename: 'b.csv' },
+    ]);
+    const service = buildService(deps);
+    const ctx = makeExportCtx();
 
-    vi.useRealTimers();
+    await (service as any).handleExportData(ctx, 10);
+
+    expect(ctx.replyWithDocument).toHaveBeenCalledTimes(2);
+    expect(ctx.api.editMessageText).toHaveBeenCalled();
+  });
+
+  it('reports an error when export throws', async () => {
+    const deps = makeDeps();
+    deps.admin.exportChatData = vi.fn().mockRejectedValue(new Error('boom'));
+    const service = buildService(deps);
+    const ctx = makeExportCtx();
+
+    await (service as any).handleExportData(ctx, 10);
+
+    expect(ctx.reply).toHaveBeenCalledWith('❌ Ошибка при загрузке данных.');
   });
 });

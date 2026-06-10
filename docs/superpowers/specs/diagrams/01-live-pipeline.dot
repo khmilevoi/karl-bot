@@ -1,0 +1,65 @@
+digraph live {
+  rankdir=TB;
+  bgcolor="white";
+  labelloc="t";
+  fontname="Segoe UI";
+  fontsize=16;
+  label="AI Behavior — Live message pipeline";
+  node [fontname="Segoe UI", fontsize=11];
+  edge [fontname="Segoe UI", fontsize=9, color="#555555"];
+
+  msg      [label="Telegram message", shape=ellipse, style=filled, fillcolor="#cfe8ff"];
+  store    [label="Message storage\n(append-only)", shape=box, style="rounded,filled", fillcolor="#eef2f5"];
+  trig     [label="Direct / name\ntrigger?", shape=diamond, style=filled, fillcolor="#fff2cc"];
+
+  batch    [label="Per-chat batch\naccumulator", shape=box, style="rounded,filled", fillcolor="#eef2f5"];
+  flushc   [label="Flush?\nsize cap | hard-cap age | idle gap", shape=diamond, style=filled, fillcolor="#fff2cc"];
+  gate     [label="Cheap behavior gate\n(triggerGate slot)\none call per batch", shape=box, style="rounded,filled", fillcolor="#d9ead3"];
+  sd       [label="shouldDecide?", shape=diamond, style=filled, fillcolor="#fff2cc"];
+  stop     [label="Store only & stop\nno action, no state change", shape=box, style="rounded,filled", fillcolor="#f4cccc"];
+
+  flush    [label="Flush open batch\n=> contextMessageIds", shape=box, style="rounded,filled", fillcolor="#eef2f5"];
+  ctx      [label="Context Assembly\nrecent window + summary + state\n+ trigger/context overlay", shape=box, style="rounded,filled", fillcolor="#eef2f5"];
+
+  decide   [label="decideBehavior\n(behaviorDecision slot)\nstructured JSON", shape=box, style="rounded,filled", fillcolor="#b6d7a8", penwidth=2];
+  risk     [label="gate stateImpactRisk = high\n=> start on stronger model", shape=note, style=filled, fillcolor="#fce5cd"];
+
+  validate [label="Validator + PatchPolicy + RateLimiter", shape=box, style="rounded,filled", fillcolor="#eef2f5"];
+  exec     [label="BehaviorExecutor", shape=box, style="rounded,filled", fillcolor="#eef2f5"];
+
+  actions  [label="Visible / runtime actions\nreply · react · ask_question\nsummarize_thread · empty set", shape=box, style="rounded,filled", fillcolor="#d0e0e3"];
+  live     [label="Live patches\nUserProfilePatch + TruthPatch", shape=box, style="rounded,filled", fillcolor="#d0e0e3"];
+
+  applic   [label="StatePatchApplicator\nbest-effort, independent\nrecompute trust/distance", shape=box, style="rounded,filled", fillcolor="#eef2f5"];
+
+  tg       [label="Telegram", shape=ellipse, style=filled, fillcolor="#cfe8ff"];
+  profiles [label="user_social_profiles", shape=cylinder, style=filled, fillcolor="#d9d9d9"];
+  truths   [label="bot_truths", shape=cylinder, style=filled, fillcolor="#d9d9d9"];
+  events   [label="behavior_events", shape=cylinder, style=filled, fillcolor="#d9d9d9"];
+  errlog   [label="ai_error_events", shape=cylinder, style=filled, fillcolor="#f4cccc"];
+
+  msg -> store -> trig;
+  trig -> flush  [label="yes"];
+  trig -> batch  [label="no"];
+  batch -> flushc;
+  flushc -> batch [label="not yet"];
+  flushc -> gate  [label="flush"];
+  gate -> sd;
+  sd -> stop [label="false"];
+  sd -> ctx  [label="true"];
+  flush -> ctx;
+  ctx -> decide;
+  risk -> decide [style=dashed];
+  decide -> validate;
+  validate -> errlog [label="on failure", style=dashed, color="#cc0000", fontcolor="#cc0000"];
+  validate -> exec;
+  exec -> actions;
+  exec -> live;
+  actions -> tg;
+  live -> applic;
+  applic -> profiles;
+  applic -> truths;
+  decide -> events;
+
+  { rank=same; profiles; truths; events; }
+}

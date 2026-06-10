@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PromptTemplateService } from '../src/application/interfaces/prompts/PromptTemplateService';
 import { PromptBuilder } from '../src/application/prompts/PromptBuilder';
+import { MessageReferenceMap } from '../src/application/prompts/MessageReferenceMap';
+import type { BehaviorPromptMessage } from '../src/application/prompts/PromptTypes';
 import type { ChatMessage } from '../src/domain/messages/ChatMessage';
 
 describe('PromptBuilder', () => {
@@ -9,13 +11,20 @@ describe('PromptBuilder', () => {
 
   beforeEach(() => {
     const map: Record<string, string> = {
-      persona: 'persona',
-      chatUser: 'U {{userName}} {{fullName}} {{attitude}}',
+      chatUser: 'U {{userName}} {{fullName}}',
       priorityRulesSystem: 'rules',
       previousSummary: 'sum {{prev}}',
-      replyTrigger: 'trigger {{triggerReason}} {{triggerMessage}}',
       userPrompt: 'U {{userMessage}}',
-      topicOfDaySystem: 'topic',
+      neutralCore: 'neutral-core',
+      behaviorGateSystem: 'gate-system',
+      behaviorDecisionSystem: 'decision-system',
+      personalityState: 'personality:{{personalityStateJson}}',
+      politicalState: 'political:{{politicalStateJson}}',
+      userProfiles: 'profiles:{{userProfilesJson}}',
+      truths: 'truths:{{truthsJson}}',
+      behaviorMessages: '{{behaviorMessages}}',
+      factCheckClaimExtractionSystem: 'extraction-system',
+      factCheckVerificationSystem: 'verification-system',
     };
     templates = {
       loadTemplate: vi.fn((name: string) => Promise.resolve(map[name])),
@@ -29,27 +38,21 @@ describe('PromptBuilder', () => {
   it('builds prompt', async () => {
     const builder = new PromptBuilder(templates);
     const result = await builder
-      .addPersona()
       .addChatUsers([
-        { username: 'u1', fullName: 'F1', attitude: 'a1' },
-        { username: 'u2', fullName: 'F2', attitude: 'a2' },
+        { username: 'u1', fullName: 'F1' },
+        { username: 'u2', fullName: 'F2' },
       ])
       .addPriorityRulesSystem()
-      .addTopicOfDaySystem()
       .addPreviousSummary('S')
-      .addReplyTrigger('why', 'msg')
       .build();
 
     expect(result).toEqual([
-      { role: 'system', content: 'persona' },
       {
         role: 'system',
-        content: 'Все пользователи чата:\nU u1 F1 a1\n\nU u2 F2 a2',
+        content: 'Все пользователи чата:\nU u1 F1\n\nU u2 F2',
       },
       { role: 'system', content: 'rules' },
-      { role: 'system', content: 'topic' },
       { role: 'system', content: 'sum S' },
-      { role: 'system', content: 'trigger why msg' },
     ]);
   });
 
@@ -66,13 +69,187 @@ describe('PromptBuilder', () => {
     ]);
   });
 
+  it('adds neutral core system message', async () => {
+    const builder = new PromptBuilder(templates);
+    await expect(builder.addNeutralCore().build()).resolves.toEqual([
+      { role: 'system', content: 'neutral-core' },
+    ]);
+  });
+
+  it('adds behavior gate and decision system messages', async () => {
+    const builder = new PromptBuilder(templates);
+    await expect(
+      builder.addBehaviorGateSystem().addBehaviorDecisionSystem().build()
+    ).resolves.toEqual([
+      { role: 'system', content: 'gate-system' },
+      { role: 'system', content: 'decision-system' },
+    ]);
+  });
+
+  it('adds personality and political state as JSON', async () => {
+    const personality = {
+      chatId: 1,
+      identityNotes: [],
+      values: [],
+      speechStyle: {
+        tone: 'neutral',
+        humor: 'none',
+        verbosity: 'short',
+        formality: 'medium',
+      },
+      socialHabits: [],
+      recurringThemes: [],
+      lastUpdatedAt: '2024-01-01',
+    } as any;
+    const political = {
+      chatId: 1,
+      ideologySummary: '',
+      positions: [],
+      uncertaintyAreas: [],
+      influenceHistory: [],
+      lastUpdatedAt: '2024-01-01',
+    } as any;
+    const builder = new PromptBuilder(templates);
+    const result = await builder
+      .addPersonalityState(personality)
+      .addPoliticalState(political)
+      .build();
+    expect(result[0].role).toBe('system');
+    expect(result[0].content).toContain('"chatId": 1');
+    expect(result[1].role).toBe('system');
+  });
+
+  it('adds behavior messages with markers', async () => {
+    const msgs: BehaviorPromptMessage[] = [
+      {
+        id: 1,
+        chatId: 10,
+        role: 'user',
+        content: 'hello',
+        username: 'alice',
+        messageId: 42,
+        userId: 7,
+      } as BehaviorPromptMessage,
+      {
+        id: 2,
+        chatId: 10,
+        role: 'assistant',
+        content: 'hi',
+        userId: 0,
+      } as BehaviorPromptMessage,
+      {
+        id: 3,
+        chatId: 10,
+        role: 'user',
+        content: 'batch',
+        userId: 8,
+      } as BehaviorPromptMessage,
+    ];
+    const refMap = MessageReferenceMap.fromMessages(msgs);
+    const builder = new PromptBuilder(templates);
+    const result = await builder
+      .addBehaviorMessages(msgs, refMap, {
+        triggerMessageIds: [1],
+        contextMessageIds: [2],
+        batchMessageIds: [3],
+      })
+      .build();
+    expect(result[0].role).toBe('user');
+    expect(result[0].content).toContain('[#1]');
+    expect(result[0].content).toContain('[TRIGGER]');
+    expect(result[0].content).toContain('[GATE_CONTEXT]');
+    expect(result[0].content).toContain('[BATCH]');
+    expect(result[0].content).toContain('[source:text]');
+  });
+
+  it('adds fact check extraction system message', async () => {
+    const builder = new PromptBuilder(templates);
+    const result = await builder.addFactCheckClaimExtractionSystem().build();
+    expect(result).toEqual([{ role: 'system', content: 'extraction-system' }]);
+  });
+
+  it('adds fact check verification system message', async () => {
+    const builder = new PromptBuilder(templates);
+    const result = await builder.addFactCheckVerificationSystem().build();
+    expect(result).toEqual([
+      { role: 'system', content: 'verification-system' },
+    ]);
+  });
+
+  it('adds fact check messages with context and batch sections', async () => {
+    const builder = new PromptBuilder(templates);
+    const batchMsg: ChatMessage = {
+      id: 10,
+      role: 'user',
+      content: 'batch content',
+      username: 'alice',
+    };
+    const contextMsg: ChatMessage = {
+      id: 5,
+      role: 'user',
+      content: 'context content',
+      username: 'bob',
+    };
+    const result = await builder
+      .addFactCheckMessages({
+        batchMessages: [batchMsg],
+        contextMessages: [contextMsg],
+      })
+      .build();
+    expect(result).toHaveLength(1);
+    expect(result[0].role).toBe('user');
+    expect(result[0].content).toContain('Context messages');
+    expect(result[0].content).toContain('Batch messages');
+    expect(result[0].content).toContain('"id":5');
+    expect(result[0].content).toContain('"id":10');
+  });
+
+  it('adds fact check candidates', async () => {
+    const builder = new PromptBuilder(templates);
+    const claim = {
+      messageId: 1,
+      claimText: 'Earth is flat',
+      category: 'external_fact' as const,
+      needsExternalSources: true,
+      riskLevel: 'low' as const,
+      whyCheckable: 'factual geography claim',
+      contextMessageIds: [],
+    };
+    const result = await builder
+      .addFactCheckCandidates({ candidates: [claim] })
+      .build();
+    expect(result[0].content).toContain('Earth is flat');
+  });
+
+  it('adds fact check sources', async () => {
+    const builder = new PromptBuilder(templates);
+    const source = {
+      url: 'https://example.com',
+      title: 'Example',
+      publisher: null,
+      snippet: 'snippet text',
+      reliability: 'authoritative',
+    };
+    const result = await builder
+      .addFactCheckSources({ sources: [source] })
+      .build();
+    expect(result[0].content).toContain('https://example.com');
+    expect(result[0].content).toContain('snippet text');
+  });
+
+  it('skips fact check sources when empty', async () => {
+    const builder = new PromptBuilder(templates);
+    const result = await builder.addFactCheckSources({ sources: [] }).build();
+    expect(result).toHaveLength(0);
+  });
+
   it('clears steps after build', async () => {
     const builder = new PromptBuilder(templates);
-    builder.addPersona();
+    builder.addNeutralCore();
     await builder.build();
-    builder.addPersona();
+    builder.addNeutralCore();
     await expect(builder.build()).resolves.toEqual([
-      { role: 'system', content: 'persona' },
+      { role: 'system', content: 'neutral-core' },
     ]);
   });
 });

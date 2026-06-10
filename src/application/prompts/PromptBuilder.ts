@@ -5,9 +5,28 @@ import {
   type PromptTemplateService,
 } from '@/application/interfaces/prompts/PromptTemplateService';
 import type { ChatMessage } from '@/domain/messages/ChatMessage';
+import type {
+  FactCheckExtractionPromptContext,
+  FactCheckPromptSource,
+} from '@/application/fact-checking/FactCheckPromptContext';
+import type { ExtractedClaim } from '@/domain/fact-checking/FactCheckTypes';
 
+import type { MessageReferenceMap } from './MessageReferenceMap';
 import type { PromptMessage } from './PromptMessage';
-import type { PromptChatUser } from './PromptTypes';
+import { buildBehaviorBrief } from './BehaviorBrief';
+import type {
+  BehaviorMessageMarkers,
+  BehaviorPromptMessage,
+  BehaviorPromptState,
+  PromptChatUser,
+  SelfIdentity,
+} from './PromptTypes';
+import type {
+  BotPersonalityState,
+  BotPoliticalState,
+  BotTruth,
+  UserSocialProfile,
+} from '@/domain/behavior/schemas/state';
 
 @injectable()
 export class PromptBuilder {
@@ -17,14 +36,6 @@ export class PromptBuilder {
     @inject(PROMPT_TEMPLATE_SERVICE_ID)
     private readonly templates: PromptTemplateService
   ) {}
-
-  addPersona(): this {
-    this.steps.push(async () => {
-      const persona = await this.templates.loadTemplate('persona');
-      return [{ role: 'system', content: persona }];
-    });
-    return this;
-  }
 
   addAskSummary(summary?: string): this {
     if (!summary) {
@@ -56,14 +67,6 @@ export class PromptBuilder {
       return [
         { role: 'system', content: template.replace('{{prev}}', summary) },
       ];
-    });
-    return this;
-  }
-
-  addCheckInterest(): this {
-    this.steps.push(async () => {
-      const template = await this.templates.loadTemplate('checkInterest');
-      return [{ role: 'system', content: template }];
     });
     return this;
   }
@@ -111,7 +114,6 @@ export class PromptBuilder {
           template
             .replace('{{userName}}', u.username)
             .replace('{{fullName}}', u.fullName)
-            .replace('{{attitude}}', u.attitude)
         )
         .join('\n\n');
       return [
@@ -127,44 +129,6 @@ export class PromptBuilder {
         'priorityRulesSystem'
       );
       return [{ role: 'system', content: restrictions }];
-    });
-    return this;
-  }
-
-  addTopicOfDaySystem(params?: { chatTitle?: string }): this {
-    this.steps.push(async () => {
-      const template = await this.templates.loadTemplate('topicOfDaySystem');
-      const content = template.replace(
-        '{{chatTitle}}',
-        params?.chatTitle ?? 'этого чата'
-      );
-      return [{ role: 'system', content }];
-    });
-    return this;
-  }
-
-  addAssessUsers(): this {
-    this.steps.push(async () => {
-      const template = await this.templates.loadTemplate('assessUsers');
-      return [{ role: 'system', content: template }];
-    });
-    return this;
-  }
-
-  addReplyTrigger(reason?: string, message?: string): this {
-    if (!reason || !message) {
-      return this;
-    }
-    this.steps.push(async () => {
-      const template = await this.templates.loadTemplate('replyTrigger');
-      return [
-        {
-          role: 'system',
-          content: template
-            .replace('{{triggerReason}}', reason)
-            .replace('{{triggerMessage}}', message),
-        },
-      ];
     });
     return this;
   }
@@ -193,6 +157,337 @@ export class PromptBuilder {
       }
     }
     return this;
+  }
+
+  addNeutralCore(): this {
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate('neutralCore');
+      return [{ role: 'system', content: template }];
+    });
+    return this;
+  }
+
+  addBehaviorGateSystem(): this {
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate('behaviorGateSystem');
+      return [{ role: 'system', content: template }];
+    });
+    return this;
+  }
+
+  addBehaviorDecisionSystem(): this {
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate(
+        'behaviorDecisionSystem'
+      );
+      return [{ role: 'system', content: template }];
+    });
+    return this;
+  }
+
+  addPersonalityState(state: BotPersonalityState): this {
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate('personalityState');
+      return [
+        {
+          role: 'system',
+          content: template.replace(
+            '{{personalityStateJson}}',
+            this.stringify(state)
+          ),
+        },
+      ];
+    });
+    return this;
+  }
+
+  addPoliticalState(state: BotPoliticalState): this {
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate('politicalState');
+      return [
+        {
+          role: 'system',
+          content: template.replace(
+            '{{politicalStateJson}}',
+            this.stringify(state)
+          ),
+        },
+      ];
+    });
+    return this;
+  }
+
+  addUserProfiles(profiles: UserSocialProfile[]): this {
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate('userProfiles');
+      return [
+        {
+          role: 'system',
+          content: template.replace(
+            '{{userProfilesJson}}',
+            this.stringify(profiles)
+          ),
+        },
+      ];
+    });
+    return this;
+  }
+
+  addTruths(truths: BotTruth[]): this {
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate('truths');
+      return [
+        {
+          role: 'system',
+          content: template.replace('{{truthsJson}}', this.stringify(truths)),
+        },
+      ];
+    });
+    return this;
+  }
+
+  addBehaviorBrief(
+    state: BehaviorPromptState,
+    messages: BehaviorPromptMessage[],
+    selfIdentity?: SelfIdentity
+  ): this {
+    this.steps.push(async () => {
+      const brief = buildBehaviorBrief({ state, messages, selfIdentity });
+      return [{ role: 'system', content: brief }];
+    });
+    return this;
+  }
+
+  addStateEvolutionSystem(): this {
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate(
+        'stateEvolutionSystem'
+      );
+      return [{ role: 'system', content: template }];
+    });
+    return this;
+  }
+
+  addPersonalitySignals(
+    signals: import('@/domain/behavior/schemas/state').PersonalitySignal[]
+  ): this {
+    if (signals.length === 0) {
+      return this;
+    }
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate('personalitySignals');
+      return [
+        {
+          role: 'system',
+          content: template.replace(
+            '{{personalitySignalsJson}}',
+            this.stringify(signals)
+          ),
+        },
+      ];
+    });
+    return this;
+  }
+
+  addUserPoliticalProfiles(
+    profiles: import('@/domain/behavior/schemas/state').UserPoliticalProfile[]
+  ): this {
+    if (profiles.length === 0) {
+      return this;
+    }
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate(
+        'userPoliticalProfiles'
+      );
+      return [
+        {
+          role: 'system',
+          content: template.replace(
+            '{{userPoliticalProfilesJson}}',
+            this.stringify(profiles)
+          ),
+        },
+      ];
+    });
+    return this;
+  }
+
+  addBehaviorMessages(
+    messages: BehaviorPromptMessage[],
+    refMap: MessageReferenceMap,
+    markers?: BehaviorMessageMarkers,
+    selfIdentity?: SelfIdentity
+  ): this {
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate('behaviorMessages');
+      const triggerSet = new Set(markers?.triggerMessageIds ?? []);
+      const contextSet = new Set(markers?.contextMessageIds ?? []);
+      const batchSet = new Set(markers?.batchMessageIds ?? []);
+
+      const telegramToStored = new Map<number, number>();
+      for (const m of messages) {
+        if (m.messageId != null) {
+          telegramToStored.set(m.messageId, m.id);
+        }
+      }
+
+      const addressedToSelf = (m: BehaviorPromptMessage): boolean => {
+        if (selfIdentity == null) return false;
+        if (m.replyToUserId != null && m.replyToUserId === selfIdentity.id)
+          return true;
+        const content = m.content.toLowerCase();
+        if (
+          selfIdentity.username &&
+          content.includes(`@${selfIdentity.username.toLowerCase()}`)
+        )
+          return true;
+        const name = selfIdentity.name.toLowerCase();
+        return name.length > 0 && content.includes(name);
+      };
+
+      const replyTargetOrdinal = (m: BehaviorPromptMessage): number | null => {
+        if (m.replyToMessageId == null) return null;
+        const storedId = telegramToStored.get(m.replyToMessageId);
+        return storedId != null ? (refMap.ordinalFor(storedId) ?? null) : null;
+      };
+
+      const lines = messages.map((m) => {
+        const markerParts = [];
+        if (triggerSet.has(m.id)) markerParts.push('[TRIGGER]');
+        if (contextSet.has(m.id)) markerParts.push('[GATE_CONTEXT]');
+        if (batchSet.has(m.id)) markerParts.push('[BATCH]');
+
+        const replyToSelf =
+          selfIdentity != null &&
+          m.replyToUserId != null &&
+          m.replyToUserId === selfIdentity.id;
+        const addressing = addressedToSelf(m)
+          ? '[to:you]'
+          : m.replyUsername != null && m.replyUsername.length > 0
+            ? `[to:@${m.replyUsername}]`
+            : '[to:room]';
+        markerParts.push(addressing);
+
+        const marker =
+          markerParts.length > 0 ? ` ${markerParts.join(' ')}` : '';
+        const fullName =
+          m.fullName ??
+          ([m.firstName, m.lastName].filter(Boolean).join(' ') || 'N/A');
+        const ordinal = refMap.ordinalFor(m.id) ?? 0;
+        const source = m.sourceType ?? 'text';
+        const header = `[#${ordinal}] [userId:${m.userId ?? 0}] [username:${m.username ?? 'N/A'}] [fullName:${fullName}] [role:${m.role}] [source:${source}]${marker}`;
+
+        let replyLine = '';
+        if (m.replyText != null && m.replyText.length > 0) {
+          const targetOrdinal = replyTargetOrdinal(m);
+          const onRef = targetOrdinal != null ? ` на #${targetOrdinal}` : '';
+          const who =
+            replyToSelf && selfIdentity != null
+              ? `ОТВЕЧАЮТ ТЕБЕ (${selfIdentity.name})`
+              : `ответ @${m.replyUsername ?? 'N/A'}`;
+          replyLine = `\n↳ ${who}${onRef}: "${this.truncate(m.replyText)}"`;
+        }
+        const quoteLine =
+          m.quoteText != null && m.quoteText.length > 0
+            ? `\n❝ цитата: "${this.truncate(m.quoteText)}"`
+            : '';
+        return `${header}${replyLine}${quoteLine}\n${m.content}`;
+      });
+      return [
+        {
+          role: 'user',
+          content: template.replace('{{behaviorMessages}}', lines.join('\n\n')),
+        },
+      ];
+    });
+    return this;
+  }
+
+  addFactCheckClaimExtractionSystem(): this {
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate(
+        'factCheckClaimExtractionSystem'
+      );
+      return [{ role: 'system', content: template }];
+    });
+    return this;
+  }
+
+  addFactCheckVerificationSystem(): this {
+    this.steps.push(async () => {
+      const template = await this.templates.loadTemplate(
+        'factCheckVerificationSystem'
+      );
+      return [{ role: 'system', content: template }];
+    });
+    return this;
+  }
+
+  addFactCheckMessages(
+    params: Pick<
+      FactCheckExtractionPromptContext,
+      'batchMessages' | 'contextMessages'
+    >
+  ): this {
+    this.steps.push(async () => {
+      const lines: string[] = [];
+      if (params.contextMessages.length > 0) {
+        lines.push(
+          'Context messages (not part of the batch, for reference only):'
+        );
+        lines.push(JSON.stringify(this.formatMessages(params.contextMessages)));
+      }
+      lines.push('Batch messages (extract claims from these):');
+      lines.push(JSON.stringify(this.formatMessages(params.batchMessages)));
+      return [{ role: 'user', content: lines.join('\n') }];
+    });
+    return this;
+  }
+
+  addFactCheckCandidates(params: { candidates: ExtractedClaim[] }): this {
+    this.steps.push(async () => {
+      return [
+        {
+          role: 'user',
+          content: `Candidate claims to verify:\n${JSON.stringify(params.candidates)}`,
+        },
+      ];
+    });
+    return this;
+  }
+
+  addFactCheckSources(params: { sources: FactCheckPromptSource[] }): this {
+    if (params.sources.length === 0) {
+      return this;
+    }
+    this.steps.push(async () => {
+      return [
+        {
+          role: 'user',
+          content: `Retrieved sources (indexed from 0):\n${JSON.stringify(params.sources)}`,
+        },
+      ];
+    });
+    return this;
+  }
+
+  private formatMessages(
+    messages: ChatMessage[]
+  ): Array<Record<string, unknown>> {
+    return messages.map((m) => ({
+      id: m.id,
+      role: m.role,
+      username: m.username ?? null,
+      content: m.content,
+    }));
+  }
+
+  private truncate(text: string, max = 200): string {
+    return text.length > max ? `${text.slice(0, max)}…` : text;
+  }
+
+  private stringify(value: unknown): string {
+    return JSON.stringify(value, null, 2);
   }
 
   async build(): Promise<PromptMessage[]> {

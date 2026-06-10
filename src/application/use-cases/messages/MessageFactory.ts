@@ -1,9 +1,10 @@
 import assert from 'node:assert';
 
-import type { Context } from 'telegraf';
+import type { Context } from 'grammy';
 
 import type { MessageContext } from '@/application/interfaces/messages/MessageContextExtractor';
 import type { StoredMessage } from '@/domain/messages/StoredMessage';
+import type { MessageSourceType } from '@/domain/voice/VoiceTypes';
 
 export class MessageFactory {
   static fromUser(ctx: Context, meta: MessageContext): StoredMessage {
@@ -11,12 +12,26 @@ export class MessageFactory {
     const text = message?.text;
     assert(typeof text === 'string', 'Нет текста сообщения');
 
-    const { replyText, replyUsername, quoteText, username, fullName } = meta;
+    const {
+      replyText,
+      replyUsername,
+      quoteText,
+      replyToMessageId,
+      replyToUserId,
+      username,
+      fullName,
+    } = meta;
 
     const chatId = ctx.chat?.id;
     assert(chatId, 'No chat id');
     const chatTitle =
       ctx.chat && 'title' in ctx.chat ? ctx.chat.title : undefined;
+    const chatUsername =
+      ctx.chat &&
+      'username' in ctx.chat &&
+      typeof ctx.chat.username === 'string'
+        ? ctx.chat.username
+        : undefined;
 
     return {
       role: 'user',
@@ -26,12 +41,64 @@ export class MessageFactory {
       replyText,
       replyUsername,
       quoteText,
+      replyToMessageId,
+      replyToUserId,
       userId: ctx.from?.id,
       messageId: ctx.message?.message_id,
       firstName: ctx.from?.first_name,
       lastName: ctx.from?.last_name,
       chatId,
       chatTitle,
+      chatUsername,
+    };
+  }
+
+  static fromUserContent(
+    ctx: Context,
+    meta: MessageContext,
+    content: string,
+    sourceType: MessageSourceType
+  ): StoredMessage {
+    const {
+      username,
+      fullName,
+      replyText,
+      replyUsername,
+      quoteText,
+      replyToMessageId,
+      replyToUserId,
+    } = meta;
+
+    const chatId = ctx.chat?.id;
+    assert(chatId, 'No chat id');
+    const chatTitle =
+      ctx.chat && 'title' in ctx.chat ? ctx.chat.title : undefined;
+    const chatUsername =
+      ctx.chat &&
+      'username' in ctx.chat &&
+      typeof ctx.chat.username === 'string'
+        ? ctx.chat.username
+        : undefined;
+
+    return {
+      role: 'user',
+      content,
+      username,
+      fullName,
+      replyText,
+      replyUsername,
+      quoteText,
+      replyToMessageId,
+      replyToUserId,
+      userId: ctx.from?.id,
+      messageId: ctx.message?.message_id,
+      firstName: ctx.from?.first_name,
+      lastName: ctx.from?.last_name,
+      chatId,
+      chatTitle,
+      chatUsername,
+      sourceType,
+      processingStatus: 'ready',
     };
   }
 
@@ -44,7 +111,7 @@ export class MessageFactory {
     return {
       role: 'assistant',
       content,
-      username: ctx.me,
+      username: ctx.me.username,
       chatId,
       chatTitle,
     };

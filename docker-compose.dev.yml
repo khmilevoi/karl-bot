@@ -1,0 +1,48 @@
+# Development override — layered on top of docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+# Builds the lighter `deps` stage (full source + dev deps, no pre-built dist),
+# bind-mounts the source for live rebuilds, and tags it karl-bot:dev so it never
+# clobbers the production image. migrate / depends_on / init are inherited from
+# the base file, so the migrate-once-then-start ordering still holds.
+x-dev: &dev
+  build:
+    context: .
+    target: deps
+  image: karl-bot:dev
+  environment:
+    NODE_ENV: development
+  volumes:
+    - ./src:/app/src
+    - ./prompts:/app/prompts
+    - ./migrations:/app/migrations
+    - ./rsbuild.config.ts:/app/rsbuild.config.ts
+    - ./tsconfig.json:/app/tsconfig.json
+    # Same local DB files as the base compose file: ./data on the host, /data
+    # in the container.
+    - ./data:/data
+
+services:
+  # The deps image has no pre-built dist, so build before migrating.
+  migrate:
+    <<: *dev
+    entrypoint: ['sh', '-c']
+    command: ['pnpm build && node dist/migrate.js up']
+
+  # -L (nodemon --legacy-watch) forces polling: inotify events don't cross the
+  # Windows-host -> Linux-container bind mount, so without it edits never trigger
+  # a rebuild. Polling lives here (not in the package.json script) so host-side
+  # `pnpm dev` keeps using fast native fs events.
+  app:
+    <<: *dev
+    command: pnpm dev
+    healthcheck:
+      disable: true
+
+  audio-worker:
+    <<: *dev
+    command: pnpm dev:audio-worker
+
+  cron-worker:
+    <<: *dev
+    command: pnpm dev:cron-worker

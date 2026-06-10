@@ -9,6 +9,112 @@ import {
   type AIService,
 } from '../application/interfaces/ai/AIService';
 import {
+  AI_GATEWAY_ID,
+  type AiGateway,
+} from '../application/interfaces/ai/AiGateway';
+import {
+  AI_ERROR_LOGGER_ID,
+  type AiErrorLogger,
+} from '../application/behavior/AiErrorLogger';
+import {
+  BEHAVIOR_AI_SERVICE_ID,
+  type BehaviorAiService,
+} from '../application/behavior/BehaviorAiService';
+import {
+  BEHAVIOR_DECISION_VALIDATOR_CONFIG_ID,
+  BEHAVIOR_PIPELINE_CONFIG_ID,
+  BEHAVIOR_RATE_LIMITER_CONFIG_ID,
+  BEHAVIOR_SUMMARIZATION_QUEUE_CONFIG_ID,
+  DEFAULT_BEHAVIOR_DECISION_VALIDATOR_CONFIG,
+  DEFAULT_BEHAVIOR_PIPELINE_CONFIG,
+  DEFAULT_BEHAVIOR_RATE_LIMITER_CONFIG,
+  DEFAULT_BEHAVIOR_SUMMARIZATION_QUEUE_CONFIG,
+  DEFAULT_PATCH_POLICY_CONFIG,
+  DEFAULT_STATE_EVOLUTION_CONFIG,
+  PATCH_POLICY_CONFIG_ID,
+  STATE_EVOLUTION_CONFIG_ID,
+  type BehaviorRateLimiterConfig,
+  type BehaviorPipelineConfig,
+  type BehaviorSummarizationQueueConfig,
+  type StateEvolutionConfig,
+} from '../application/behavior/BehaviorConfig';
+import {
+  BEHAVIOR_DECISION_VALIDATOR_ID,
+  type BehaviorDecisionValidator,
+  type BehaviorDecisionValidatorConfig,
+} from '../application/behavior/BehaviorDecisionValidator';
+import {
+  BEHAVIOR_EXECUTOR_ID,
+  type BehaviorExecutor,
+} from '../application/behavior/BehaviorExecutor';
+import {
+  BEHAVIOR_CONTEXT_ASSEMBLER_ID,
+  type BehaviorContextAssembler,
+} from '../application/behavior/BehaviorContextAssembler';
+import {
+  BEHAVIOR_EVENT_LOGGER_ID,
+  type BehaviorEventLogger,
+} from '../application/behavior/BehaviorEventLogger';
+import {
+  BEHAVIOR_PIPELINE_ID,
+  type BehaviorPipeline,
+} from '../application/behavior/BehaviorPipeline';
+import { DefaultAiErrorLogger } from '../application/behavior/DefaultAiErrorLogger';
+import { DefaultBehaviorContextAssembler } from '../application/behavior/DefaultBehaviorContextAssembler';
+import { DefaultBehaviorDecisionValidator } from '../application/behavior/DefaultBehaviorDecisionValidator';
+import { DefaultBehaviorEventLogger } from '../application/behavior/DefaultBehaviorEventLogger';
+import { DefaultBehaviorExecutor } from '../application/behavior/DefaultBehaviorExecutor';
+import { DefaultBehaviorPipeline } from '../application/behavior/DefaultBehaviorPipeline';
+import { DefaultBehaviorRateLimiter } from '../application/behavior/DefaultBehaviorRateLimiter';
+import { DefaultBehaviorSummarizationQueue } from '../application/behavior/DefaultBehaviorSummarizationQueue';
+import { DefaultPatchPolicy } from '../application/behavior/DefaultPatchPolicy';
+import { DefaultStateEvolutionContextAssembler } from '../application/behavior/DefaultStateEvolutionContextAssembler';
+import { DefaultStateEvolutionPass } from '../application/behavior/DefaultStateEvolutionPass';
+import { DefaultStateEvolutionScheduler } from '../application/behavior/DefaultStateEvolutionScheduler';
+import { DefaultStateEvolutionTrigger } from '../application/behavior/DefaultStateEvolutionTrigger';
+import { DefaultStateEvolutionWorker } from '../application/behavior/DefaultStateEvolutionWorker';
+import { DefaultStatePatchApplicator } from '../application/behavior/DefaultStatePatchApplicator';
+import {
+  STATE_EVOLUTION_CONTEXT_ASSEMBLER_ID,
+  type StateEvolutionContextAssembler,
+} from '../application/behavior/StateEvolutionContextAssembler';
+import {
+  STATE_EVOLUTION_PASS_ID,
+  type StateEvolutionPass,
+} from '../application/behavior/StateEvolutionPass';
+import {
+  STATE_EVOLUTION_SCHEDULER_ID,
+  type StateEvolutionScheduler,
+} from '../application/behavior/StateEvolutionScheduler';
+import {
+  STATE_EVOLUTION_TRIGGER_ID,
+  type StateEvolutionTrigger,
+} from '../application/behavior/StateEvolutionTrigger';
+import {
+  STATE_EVOLUTION_WORKER_ID,
+  type StateEvolutionWorker,
+} from '../application/behavior/StateEvolutionWorker';
+import {
+  BEHAVIOR_RATE_LIMITER_ID,
+  type BehaviorRateLimiter,
+} from '../application/behavior/BehaviorRateLimiter';
+import {
+  BEHAVIOR_SUMMARIZATION_QUEUE_ID,
+  type BehaviorSummarizationQueue,
+} from '../application/behavior/BehaviorSummarizationQueue';
+import {
+  PATCH_POLICY_ID,
+  type PatchPolicy,
+  type PatchPolicyConfig,
+} from '../application/behavior/PatchPolicy';
+import {
+  DEFAULT_STATE_PATCH_APPLICATOR_CONFIG,
+  STATE_PATCH_APPLICATOR_CONFIG_ID,
+  STATE_PATCH_APPLICATOR_ID,
+  type StatePatchApplicator,
+  type StatePatchApplicatorConfig,
+} from '../application/behavior/StatePatchApplicator';
+import {
   CHAT_APPROVAL_SERVICE_ID,
   type ChatApprovalService,
 } from '../application/interfaces/chat/ChatApprovalService';
@@ -21,10 +127,6 @@ import {
   type ChatInfoService,
 } from '../application/interfaces/chat/ChatInfoService';
 import {
-  CHAT_MEMORY_MANAGER_ID,
-  type ChatMemoryManager as ChatMemoryManagerInterface,
-} from '../application/interfaces/chat/ChatMemoryManager';
-import {
   CHAT_MESSENGER_ID,
   type ChatMessenger,
 } from '../application/interfaces/chat/ChatMessenger';
@@ -32,10 +134,6 @@ import {
   CHAT_RESET_SERVICE_ID,
   type ChatResetService,
 } from '../application/interfaces/chat/ChatResetService';
-import {
-  CHAT_RESPONDER_ID,
-  type ChatResponder,
-} from '../application/interfaces/chat/ChatResponder';
 import {
   CHAT_USER_SERVICE_ID,
   type ChatUserService,
@@ -45,10 +143,6 @@ import {
   type DialogueManager,
 } from '../application/interfaces/chat/DialogueManager';
 import {
-  HISTORY_SUMMARIZER_ID,
-  type HistorySummarizer,
-} from '../application/interfaces/chat/HistorySummarizer';
-import {
   TRIGGER_PIPELINE_ID,
   type TriggerPipeline,
 } from '../application/interfaces/chat/TriggerPipeline';
@@ -57,17 +151,28 @@ import {
   type EnvService,
 } from '../application/interfaces/env/EnvService';
 import {
-  INTEREST_CHECKER_ID,
-  type InterestChecker,
-} from '../application/interfaces/interest/InterestChecker';
+  VOICE_CONFIG_ID,
+  type VoiceConfig,
+} from '../application/voice/VoiceConfig';
+import {
+  QUEUED_AUDIO_TRANSCRIPTION_SERVICE_ID,
+  type QueuedAudioTranscriptionService,
+} from '../application/interfaces/voice/QueuedAudioTranscriptionService';
+import { DefaultQueuedAudioTranscriptionService } from '../application/use-cases/voice/DefaultQueuedAudioTranscriptionService';
+import {
+  AUDIO_TRANSCRIPTION_WORKER_ID,
+  type AudioTranscriptionWorker,
+} from '../application/interfaces/voice/AudioTranscriptionWorker';
+import { DefaultAudioTranscriptionWorker } from '../application/use-cases/voice/DefaultAudioTranscriptionWorker';
+import {
+  AUDIO_TRANSCRIPTION_JOB_REPOSITORY_ID,
+  type AudioTranscriptionJobRepository,
+} from '../domain/repositories/AudioTranscriptionJobRepository';
+import { SQLiteAudioTranscriptionJobRepository } from '../infrastructure/persistence/sqlite/SQLiteAudioTranscriptionJobRepository';
 import {
   LOGGER_FACTORY_ID,
   type LoggerFactory,
 } from '../application/interfaces/logging/LoggerFactory';
-import {
-  INTEREST_MESSAGE_STORE_ID,
-  type InterestMessageStore,
-} from '../application/interfaces/messages/InterestMessageStore';
 import {
   MESSAGE_CONTEXT_EXTRACTOR_ID,
   type MessageContextExtractor,
@@ -81,9 +186,12 @@ import {
   type PromptTemplateService,
 } from '../application/interfaces/prompts/PromptTemplateService';
 import {
-  TOPIC_OF_DAY_SCHEDULER_ID,
-  type TopicOfDayScheduler,
-} from '../application/interfaces/scheduler/TopicOfDayScheduler';
+  JOB_RUNNER_ID,
+  type JobRunner,
+} from '../application/interfaces/scheduler/JobRunner';
+import { HTTP_SERVER_ID, type HttpServer } from '../view/http/HttpServer';
+import { JOB_CONTROLLER_ID, JobController } from '../view/http/JobController';
+import { NodeHttpServer } from '../view/http/NodeHttpServer';
 import {
   SUMMARY_SERVICE_ID,
   type SummaryService,
@@ -98,26 +206,72 @@ import {
   PromptDirector,
 } from '../application/prompts/PromptDirector';
 import { AdminServiceImpl } from '../application/use-cases/admin/AdminServiceImpl';
-import { ChatMemoryManager as ChatMemoryManagerImpl } from '../application/use-cases/chat/ChatMemory';
 import { DefaultChatApprovalService } from '../application/use-cases/chat/DefaultChatApprovalService';
 import { DefaultChatResetService } from '../application/use-cases/chat/DefaultChatResetService';
-import { DefaultChatResponder } from '../application/use-cases/chat/DefaultChatResponder';
 import { DefaultDialogueManager } from '../application/use-cases/chat/DefaultDialogueManager';
-import { DefaultHistorySummarizer } from '../application/use-cases/chat/DefaultHistorySummarizer';
 import { DefaultTriggerPipeline } from '../application/use-cases/chat/DefaultTriggerPipeline';
 import { RepositoryChatConfigService } from '../application/use-cases/chat/RepositoryChatConfigService';
 import { RepositoryChatInfoService } from '../application/use-cases/chat/RepositoryChatInfoService';
 import { RepositoryChatUserService } from '../application/use-cases/chat/RepositoryChatUserService';
-import { DefaultInterestChecker } from '../application/use-cases/interest/DefaultInterestChecker';
 import { DefaultMessageContextExtractor } from '../application/use-cases/messages/DefaultMessageContextExtractor';
-import { InMemoryInterestMessageStore } from '../application/use-cases/messages/InMemoryInterestMessageStore';
 import { RepositoryMessageService } from '../application/use-cases/messages/RepositoryMessageService';
-import { TopicOfDaySchedulerImpl } from '../application/use-cases/scheduler/TopicOfDayScheduler';
+import { DefaultJobRunner } from '../application/use-cases/scheduler/DefaultJobRunner';
 import { RepositorySummaryService } from '../application/use-cases/summaries/RepositorySummaryService';
+import { DefaultContentAiService } from '../application/use-cases/ai/DefaultContentAiService';
+import { DefaultBehaviorAiService } from '../application/behavior/DefaultBehaviorAiService';
+import {
+  FACT_CHECK_CONFIG_ID,
+  type FactCheckConfig,
+} from '../application/fact-checking/FactCheckConfig';
+import { DefaultFactCheckReasoningService } from '../application/fact-checking/DefaultFactCheckReasoningService';
+import {
+  FACT_CHECK_REASONING_SERVICE_ID,
+  type FactCheckReasoningService,
+} from '../application/fact-checking/FactCheckReasoningService';
+import { DefaultFactCheckSourceSearchService } from '../application/fact-checking/DefaultFactCheckSourceSearchService';
+import {
+  SOURCE_SEARCH_SERVICE_ID,
+  type SourceSearchService,
+} from '../application/fact-checking/SourceSearchService';
+import { DefaultFactCheckPipeline } from '../application/fact-checking/DefaultFactCheckPipeline';
+import {
+  FACT_CHECK_PIPELINE_ID,
+  type FactCheckPipeline,
+} from '../application/fact-checking/FactCheckPipeline';
+import { DefaultFactCheckNotifier } from '../application/fact-checking/DefaultFactCheckNotifier';
+import {
+  FACT_CHECK_NOTIFIER_ID,
+  type FactCheckNotifier,
+} from '../application/fact-checking/FactCheckNotifier';
+import { DefaultFactCheckStatsService } from '../application/fact-checking/DefaultFactCheckStatsService';
+import {
+  FACT_CHECK_STATS_SERVICE_ID,
+  type FactCheckStatsService,
+} from '../application/fact-checking/FactCheckStatsService';
 import { DefaultEnvService } from '../infrastructure/config/DefaultEnvService';
 import { TestEnvService } from '../infrastructure/config/TestEnvService';
-import { ChatGPTService } from '../infrastructure/external/ChatGPTService';
+import { OpenAiSdkGateway } from '../infrastructure/external/OpenAiSdkGateway';
+import { OpenAIEmbeddingService } from '../infrastructure/external/OpenAIEmbeddingService';
+import {
+  EMBEDDING_SERVICE_ID,
+  type EmbeddingService,
+} from '../application/interfaces/ai/EmbeddingService';
 import { FilePromptTemplateService } from '../infrastructure/external/FilePromptTemplateService';
+import { TelegramFileDownloadServiceImpl } from '../infrastructure/external/TelegramFileDownloadServiceImpl';
+import { FfmpegAudioConversionService } from '../infrastructure/external/FfmpegAudioConversionService';
+import { OpenAIAudioTranscriptionService } from '../infrastructure/external/OpenAIAudioTranscriptionService';
+import {
+  TELEGRAM_FILE_DOWNLOAD_SERVICE_ID,
+  type TelegramFileDownloadService,
+} from '../application/interfaces/voice/TelegramFileDownloadService';
+import {
+  AUDIO_CONVERSION_SERVICE_ID,
+  type AudioConversionService,
+} from '../application/interfaces/voice/AudioConversionService';
+import {
+  AUDIO_TRANSCRIPTION_SERVICE_ID,
+  type AudioTranscriptionService,
+} from '../application/interfaces/voice/AudioTranscriptionService';
 import { PinoLoggerFactory } from '../infrastructure/logging/PinoLoggerFactory';
 import { TelegramMessenger } from '../view/telegram/TelegramMessenger';
 
@@ -128,6 +282,20 @@ export const register = (container: Container): void => {
   container
     .bind<EnvService>(ENV_SERVICE_ID)
     .to(EnvServiceImpl)
+    .inSingletonScope();
+
+  const envService = container.get<EnvService>(ENV_SERVICE_ID);
+  container
+    .bind<VoiceConfig>(VOICE_CONFIG_ID)
+    .toConstantValue(envService.getVoiceConfig());
+
+  container
+    .bind<FactCheckConfig>(FACT_CHECK_CONFIG_ID)
+    .toConstantValue(envService.getFactCheckConfig());
+
+  container
+    .bind<AiGateway>(AI_GATEWAY_ID)
+    .to(OpenAiSdkGateway)
     .inSingletonScope();
 
   container
@@ -144,7 +312,7 @@ export const register = (container: Container): void => {
 
   container
     .bind<PromptBuilderFactory>(PROMPT_BUILDER_FACTORY_ID)
-    .toFactory(() => () => container.get(PromptBuilder));
+    .toFactory((): PromptBuilderFactory => () => container.get(PromptBuilder));
 
   container
     .bind<PromptDirector>(PROMPT_DIRECTOR_ID)
@@ -152,8 +320,150 @@ export const register = (container: Container): void => {
     .inSingletonScope();
 
   container
+    .bind<BehaviorPipelineConfig>(BEHAVIOR_PIPELINE_CONFIG_ID)
+    .toConstantValue(DEFAULT_BEHAVIOR_PIPELINE_CONFIG);
+
+  container
+    .bind<BehaviorDecisionValidatorConfig>(
+      BEHAVIOR_DECISION_VALIDATOR_CONFIG_ID
+    )
+    .toConstantValue(DEFAULT_BEHAVIOR_DECISION_VALIDATOR_CONFIG);
+
+  container
+    .bind<PatchPolicyConfig>(PATCH_POLICY_CONFIG_ID)
+    .toConstantValue(DEFAULT_PATCH_POLICY_CONFIG);
+
+  container
+    .bind<BehaviorRateLimiterConfig>(BEHAVIOR_RATE_LIMITER_CONFIG_ID)
+    .toConstantValue(DEFAULT_BEHAVIOR_RATE_LIMITER_CONFIG);
+
+  container
+    .bind<BehaviorSummarizationQueueConfig>(
+      BEHAVIOR_SUMMARIZATION_QUEUE_CONFIG_ID
+    )
+    .toConstantValue(DEFAULT_BEHAVIOR_SUMMARIZATION_QUEUE_CONFIG);
+
+  container
+    .bind<StatePatchApplicatorConfig>(STATE_PATCH_APPLICATOR_CONFIG_ID)
+    .toConstantValue(DEFAULT_STATE_PATCH_APPLICATOR_CONFIG);
+
+  container
+    .bind<StateEvolutionConfig>(STATE_EVOLUTION_CONFIG_ID)
+    .toConstantValue(DEFAULT_STATE_EVOLUTION_CONFIG);
+
+  container
     .bind<AIService>(AI_SERVICE_ID)
-    .to(ChatGPTService)
+    .to(DefaultContentAiService)
+    .inSingletonScope();
+
+  container
+    .bind<BehaviorAiService>(BEHAVIOR_AI_SERVICE_ID)
+    .to(DefaultBehaviorAiService)
+    .inSingletonScope();
+
+  container
+    .bind<FactCheckReasoningService>(FACT_CHECK_REASONING_SERVICE_ID)
+    .to(DefaultFactCheckReasoningService)
+    .inSingletonScope();
+
+  container
+    .bind<SourceSearchService>(SOURCE_SEARCH_SERVICE_ID)
+    .to(DefaultFactCheckSourceSearchService)
+    .inSingletonScope();
+
+  container
+    .bind<FactCheckStatsService>(FACT_CHECK_STATS_SERVICE_ID)
+    .to(DefaultFactCheckStatsService)
+    .inSingletonScope();
+
+  container
+    .bind<FactCheckNotifier>(FACT_CHECK_NOTIFIER_ID)
+    .to(DefaultFactCheckNotifier)
+    .inSingletonScope();
+
+  container
+    .bind<FactCheckPipeline>(FACT_CHECK_PIPELINE_ID)
+    .to(DefaultFactCheckPipeline)
+    .inSingletonScope();
+
+  container
+    .bind<EmbeddingService>(EMBEDDING_SERVICE_ID)
+    .to(OpenAIEmbeddingService)
+    .inSingletonScope();
+
+  container
+    .bind<BehaviorContextAssembler>(BEHAVIOR_CONTEXT_ASSEMBLER_ID)
+    .to(DefaultBehaviorContextAssembler)
+    .inSingletonScope();
+
+  container
+    .bind<BehaviorDecisionValidator>(BEHAVIOR_DECISION_VALIDATOR_ID)
+    .to(DefaultBehaviorDecisionValidator)
+    .inSingletonScope();
+
+  container
+    .bind<PatchPolicy>(PATCH_POLICY_ID)
+    .to(DefaultPatchPolicy)
+    .inSingletonScope();
+
+  container
+    .bind<BehaviorRateLimiter>(BEHAVIOR_RATE_LIMITER_ID)
+    .to(DefaultBehaviorRateLimiter)
+    .inSingletonScope();
+
+  container
+    .bind<BehaviorSummarizationQueue>(BEHAVIOR_SUMMARIZATION_QUEUE_ID)
+    .to(DefaultBehaviorSummarizationQueue)
+    .inSingletonScope();
+
+  container
+    .bind<BehaviorExecutor>(BEHAVIOR_EXECUTOR_ID)
+    .to(DefaultBehaviorExecutor)
+    .inSingletonScope();
+
+  container
+    .bind<StatePatchApplicator>(STATE_PATCH_APPLICATOR_ID)
+    .to(DefaultStatePatchApplicator)
+    .inSingletonScope();
+
+  container
+    .bind<BehaviorEventLogger>(BEHAVIOR_EVENT_LOGGER_ID)
+    .to(DefaultBehaviorEventLogger)
+    .inSingletonScope();
+
+  container
+    .bind<AiErrorLogger>(AI_ERROR_LOGGER_ID)
+    .to(DefaultAiErrorLogger)
+    .inSingletonScope();
+
+  container
+    .bind<BehaviorPipeline>(BEHAVIOR_PIPELINE_ID)
+    .to(DefaultBehaviorPipeline)
+    .inSingletonScope();
+
+  container
+    .bind<StateEvolutionContextAssembler>(STATE_EVOLUTION_CONTEXT_ASSEMBLER_ID)
+    .to(DefaultStateEvolutionContextAssembler)
+    .inSingletonScope();
+
+  container
+    .bind<StateEvolutionPass>(STATE_EVOLUTION_PASS_ID)
+    .to(DefaultStateEvolutionPass)
+    .inSingletonScope();
+
+  container
+    .bind<StateEvolutionWorker>(STATE_EVOLUTION_WORKER_ID)
+    .to(DefaultStateEvolutionWorker)
+    .inSingletonScope();
+
+  container
+    .bind<StateEvolutionTrigger>(STATE_EVOLUTION_TRIGGER_ID)
+    .to(DefaultStateEvolutionTrigger)
+    .inSingletonScope();
+
+  container
+    .bind<StateEvolutionScheduler>(STATE_EVOLUTION_SCHEDULER_ID)
+    .to(DefaultStateEvolutionScheduler)
     .inSingletonScope();
 
   container
@@ -162,18 +472,8 @@ export const register = (container: Container): void => {
     .inSingletonScope();
 
   container
-    .bind<InterestMessageStore>(INTEREST_MESSAGE_STORE_ID)
-    .to(InMemoryInterestMessageStore)
-    .inSingletonScope();
-
-  container
     .bind<SummaryService>(SUMMARY_SERVICE_ID)
     .to(RepositorySummaryService)
-    .inSingletonScope();
-
-  container
-    .bind<HistorySummarizer>(HISTORY_SUMMARIZER_ID)
-    .to(DefaultHistorySummarizer)
     .inSingletonScope();
 
   container
@@ -202,18 +502,8 @@ export const register = (container: Container): void => {
     .inSingletonScope();
 
   container
-    .bind<InterestChecker>(INTEREST_CHECKER_ID)
-    .to(DefaultInterestChecker)
-    .inSingletonScope();
-
-  container
     .bind<AdminService>(ADMIN_SERVICE_ID)
     .to(AdminServiceImpl)
-    .inSingletonScope();
-
-  container
-    .bind<ChatMemoryManagerInterface>(CHAT_MEMORY_MANAGER_ID)
-    .to(ChatMemoryManagerImpl)
     .inSingletonScope();
 
   container
@@ -232,17 +522,65 @@ export const register = (container: Container): void => {
     .inSingletonScope();
 
   container
-    .bind<ChatResponder>(CHAT_RESPONDER_ID)
-    .to(DefaultChatResponder)
-    .inSingletonScope();
-
-  container
     .bind<ChatMessenger>(CHAT_MESSENGER_ID)
     .to(TelegramMessenger)
     .inSingletonScope();
 
   container
-    .bind<TopicOfDayScheduler>(TOPIC_OF_DAY_SCHEDULER_ID)
-    .to(TopicOfDaySchedulerImpl)
+    .bind<JobRunner>(JOB_RUNNER_ID)
+    .to(DefaultJobRunner)
+    .inSingletonScope();
+
+  container
+    .bind<JobController>(JOB_CONTROLLER_ID)
+    .to(JobController)
+    .inSingletonScope();
+
+  container
+    .bind<HttpServer>(HTTP_SERVER_ID)
+    .to(NodeHttpServer)
+    .inSingletonScope();
+
+  container
+    .bind<AudioTranscriptionJobRepository>(
+      AUDIO_TRANSCRIPTION_JOB_REPOSITORY_ID
+    )
+    .to(SQLiteAudioTranscriptionJobRepository)
+    .inSingletonScope();
+
+  container
+    .bind<QueuedAudioTranscriptionService>(
+      QUEUED_AUDIO_TRANSCRIPTION_SERVICE_ID
+    )
+    .to(DefaultQueuedAudioTranscriptionService)
+    .inSingletonScope();
+
+  container
+    .bind<AudioTranscriptionWorker>(AUDIO_TRANSCRIPTION_WORKER_ID)
+    .to(DefaultAudioTranscriptionWorker)
+    .inSingletonScope();
+
+  container
+    .bind<TelegramFileDownloadService>(TELEGRAM_FILE_DOWNLOAD_SERVICE_ID)
+    .toDynamicValue(
+      () => new TelegramFileDownloadServiceImpl(envService.env.BOT_TOKEN)
+    )
+    .inSingletonScope();
+
+  container
+    .bind<AudioConversionService>(AUDIO_CONVERSION_SERVICE_ID)
+    .to(FfmpegAudioConversionService)
+    .inSingletonScope();
+
+  container
+    .bind<AudioTranscriptionService>(AUDIO_TRANSCRIPTION_SERVICE_ID)
+    .toDynamicValue(() => {
+      const voiceConfig = container.get<VoiceConfig>(VOICE_CONFIG_ID);
+      const gateway = container.get<AiGateway>(AI_GATEWAY_ID);
+      return new OpenAIAudioTranscriptionService(
+        gateway,
+        voiceConfig.transcriptionModel
+      );
+    })
     .inSingletonScope();
 };

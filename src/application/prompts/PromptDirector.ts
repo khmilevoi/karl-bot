@@ -1,14 +1,22 @@
 import { inject, injectable, type ServiceIdentifier } from 'inversify';
 
 import type { ChatMessage } from '@/domain/messages/ChatMessage';
-import type { TriggerReason } from '@/domain/triggers/Trigger';
 
 import {
   PROMPT_BUILDER_FACTORY_ID,
   type PromptBuilderFactory,
 } from './PromptBuilder';
 import type { PromptMessage } from './PromptMessage';
-import type { PromptChatUser } from './PromptTypes';
+import type {
+  BehaviorPromptContext,
+  BehaviorPromptMessage,
+} from './PromptTypes';
+import type { MessageReferenceMap } from './MessageReferenceMap';
+import type { StateEvolutionContext } from '../behavior/BehaviorTypes';
+import type {
+  FactCheckExtractionPromptContext,
+  FactCheckVerificationPromptContext,
+} from '@/application/fact-checking/FactCheckPromptContext';
 
 @injectable()
 export class PromptDirector {
@@ -16,22 +24,6 @@ export class PromptDirector {
     @inject(PROMPT_BUILDER_FACTORY_ID)
     private readonly builderFactory: PromptBuilderFactory
   ) {}
-
-  async createAnswerPrompt(
-    history: ChatMessage[],
-    summary?: string,
-    trigger?: TriggerReason
-  ): Promise<PromptMessage[]> {
-    return this.builderFactory()
-      .addPersona()
-      .addPriorityRulesSystem()
-      .addUserPromptSystem()
-      .addAskSummary(summary)
-      .addReplyTrigger(trigger?.why, trigger?.message)
-      .addChatUsers(this.extractChatUsers(history))
-      .addMessages(history)
-      .build();
-  }
 
   async createSummaryPrompt(
     history: ChatMessage[],
@@ -44,86 +36,85 @@ export class PromptDirector {
       .build();
   }
 
-  async createInterestPrompt(history: ChatMessage[]): Promise<PromptMessage[]> {
-    return this.builderFactory()
-      .addPersona()
-      .addCheckInterest()
-      .addMessages(history)
-      .build();
-  }
-
-  async createAssessUsersPrompt(
-    history: ChatMessage[],
-    prevAttitudes?: { username: string; attitude: string }[]
+  async createBehaviorGatePrompt(
+    messages: BehaviorPromptMessage[],
+    refMap: MessageReferenceMap
   ): Promise<PromptMessage[]> {
-    const prevUsers = this.mapPrevAttitudes(history, prevAttitudes);
     return this.builderFactory()
-      .addPersona()
-      .addAssessUsers()
-      .addChatUsers(prevUsers)
-      .addMessages(history)
+      .addBehaviorGateSystem()
+      .addBehaviorMessages(messages, refMap)
       .build();
   }
 
-  async createTopicOfDayPrompt(params?: {
-    chatTitle?: string;
-    users?: PromptChatUser[];
-    summary?: string;
-  }): Promise<PromptMessage[]> {
-    const builder = this.builderFactory()
-      .addPersona()
-      .addTopicOfDaySystem({ chatTitle: params?.chatTitle });
-    if (params?.summary) {
-      builder.addAskSummary(params.summary);
-    }
-    if (params?.users && params.users.length > 0) {
-      builder.addChatUsers(params.users);
-    }
-    return builder.build();
+  async createBehaviorDecisionPrompt(
+    context: BehaviorPromptContext,
+    refMap: MessageReferenceMap
+  ): Promise<PromptMessage[]> {
+    return this.builderFactory()
+      .addNeutralCore()
+      .addBehaviorDecisionSystem()
+      .addAskSummary(context.summary)
+      .addPersonalityState(context.state.personality)
+      .addPoliticalState(context.state.political)
+      .addUserProfiles(context.state.profiles)
+      .addUserPoliticalProfiles(context.state.userPolitical)
+      .addTruths(context.state.truths)
+      .addBehaviorBrief(context.state, context.messages, context.selfIdentity)
+      .addBehaviorMessages(
+        context.messages,
+        refMap,
+        {
+          triggerMessageIds: context.triggerMessageIds,
+          contextMessageIds: context.contextMessageIds,
+          batchMessageIds: context.batchMessageIds,
+        },
+        context.selfIdentity
+      )
+      .build();
   }
 
-  private extractChatUsers(
-    history: ChatMessage[]
-  ): { username: string; fullName: string; attitude: string }[] {
-    const infoMap = new Map<string, { fullName: string; attitude: string }>();
-    for (const m of history) {
-      if (m.role === 'user' && m.username && m.attitude) {
-        if (!infoMap.has(m.username)) {
-          const parts = [m.firstName, m.lastName].filter(Boolean).join(' ');
-          const fullName = m.fullName ?? (parts !== '' ? parts : 'N/A');
-          infoMap.set(m.username, { fullName, attitude: m.attitude });
-        }
-      }
-    }
-    return Array.from(infoMap, ([username, v]) => ({
-      username,
-      fullName: v.fullName,
-      attitude: v.attitude,
-    }));
+  async createFactCheckExtractionPrompt(
+    context: FactCheckExtractionPromptContext
+  ): Promise<PromptMessage[]> {
+    return this.builderFactory()
+      .addFactCheckClaimExtractionSystem()
+      .addFactCheckMessages({
+        batchMessages: context.batchMessages,
+        contextMessages: context.contextMessages,
+      })
+      .build();
   }
 
-  private mapPrevAttitudes(
-    history: ChatMessage[],
-    prev?: { username: string; attitude: string }[]
-  ): { username: string; fullName: string; attitude: string }[] {
-    if (!prev || prev.length === 0) {
-      return [];
-    }
-    const nameMap = new Map<string, string>();
-    for (const m of history) {
-      if (m.role === 'user' && m.username) {
-        if (!nameMap.has(m.username)) {
-          const parts = [m.firstName, m.lastName].filter(Boolean).join(' ');
-          const fullName = m.fullName ?? (parts !== '' ? parts : 'N/A');
-          nameMap.set(m.username, fullName);
-        }
-      }
-    }
-    return prev.map((u) => ({
-      username: u.username,
-      fullName: nameMap.get(u.username) ?? 'N/A',
-      attitude: u.attitude,
-    }));
+  async createFactCheckVerificationPrompt(
+    context: FactCheckVerificationPromptContext
+  ): Promise<PromptMessage[]> {
+    return this.builderFactory()
+      .addFactCheckVerificationSystem()
+      .addFactCheckMessages({
+        batchMessages: context.batchMessages,
+        contextMessages: context.contextMessages,
+      })
+      .addFactCheckCandidates({ candidates: context.candidates })
+      .addFactCheckSources({ sources: context.sources })
+      .build();
+  }
+
+  async createStateEvolutionPrompt(
+    context: StateEvolutionContext,
+    refMap: MessageReferenceMap
+  ): Promise<PromptMessage[]> {
+    return this.builderFactory()
+      .addNeutralCore()
+      .addStateEvolutionSystem()
+      .addAskSummary(context.summary)
+      .addPersonalityState(context.state.personality)
+      .addPersonalitySignals(context.personalitySignals)
+      .addPoliticalState(context.state.political)
+      .addUserProfiles(context.state.profiles)
+      .addUserPoliticalProfiles(context.state.userPolitical)
+      .addTruths(context.state.truths)
+      .addBehaviorMessages(context.messages, refMap)
+      .build();
   }
 }
 
@@ -135,7 +126,5 @@ export const PROMPT_DIRECTOR_ID = Symbol.for(
  * PromptDirector rules:
  * - obtain a fresh PromptBuilder for every prompt
  * - chain builder steps in a declarative sequence
- * - include optional parts like summaries, triggers or previous attitudes
- *   only when corresponding parameters are provided
- * - use addCheckInterest and addAssessUsers for interest and user assessment flows
+ * - include optional parts like summaries only when corresponding parameters are provided
  */

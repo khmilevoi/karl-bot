@@ -45,6 +45,70 @@ import { SQLiteChatUserRepository } from '../infrastructure/persistence/sqlite/S
 import { SQLiteMessageRepository } from '../infrastructure/persistence/sqlite/SQLiteMessageRepository';
 import { SQLiteSummaryRepository } from '../infrastructure/persistence/sqlite/SQLiteSummaryRepository';
 import { SQLiteUserRepository } from '../infrastructure/persistence/sqlite/SQLiteUserRepository';
+import {
+  AI_ERROR_EVENT_REPOSITORY_ID,
+  type AiErrorEventRepository,
+} from '../domain/repositories/AiErrorEventRepository';
+import {
+  BEHAVIOR_EVENT_REPOSITORY_ID,
+  type BehaviorEventRepository,
+} from '../domain/repositories/BehaviorEventRepository';
+import {
+  PERSONALITY_STATE_REPOSITORY_ID,
+  type PersonalityStateRepository,
+} from '../domain/repositories/PersonalityStateRepository';
+import {
+  POLITICAL_STATE_REPOSITORY_ID,
+  type PoliticalStateRepository,
+} from '../domain/repositories/PoliticalStateRepository';
+import {
+  TRUTH_REPOSITORY_ID,
+  type TruthRepository,
+} from '../domain/repositories/TruthRepository';
+import {
+  USER_SOCIAL_PROFILE_REPOSITORY_ID,
+  type UserSocialProfileRepository,
+} from '../domain/repositories/UserSocialProfileRepository';
+import {
+  PERSONALITY_SIGNAL_REPOSITORY_ID,
+  type PersonalitySignalRepository,
+} from '../domain/repositories/PersonalitySignalRepository';
+import {
+  STATE_EVOLUTION_CURSOR_REPOSITORY_ID,
+  type StateEvolutionCursorRepository,
+} from '../domain/repositories/StateEvolutionCursorRepository';
+import {
+  USER_POLITICAL_PROFILE_REPOSITORY_ID,
+  type UserPoliticalProfileRepository,
+} from '../domain/repositories/UserPoliticalProfileRepository';
+import { SQLiteAiErrorEventRepository } from '../infrastructure/persistence/sqlite/SQLiteAiErrorEventRepository';
+import { SQLiteBehaviorEventRepository } from '../infrastructure/persistence/sqlite/SQLiteBehaviorEventRepository';
+import { SQLitePersonalitySignalRepository } from '../infrastructure/persistence/sqlite/SQLitePersonalitySignalRepository';
+import { SQLitePersonalityStateRepository } from '../infrastructure/persistence/sqlite/SQLitePersonalityStateRepository';
+import { SQLitePoliticalStateRepository } from '../infrastructure/persistence/sqlite/SQLitePoliticalStateRepository';
+import { SQLiteStateEvolutionCursorRepository } from '../infrastructure/persistence/sqlite/SQLiteStateEvolutionCursorRepository';
+import { SQLiteTruthRepository } from '../infrastructure/persistence/sqlite/SQLiteTruthRepository';
+import { SQLiteUserPoliticalProfileRepository } from '../infrastructure/persistence/sqlite/SQLiteUserPoliticalProfileRepository';
+import { SQLiteUserSocialProfileRepository } from '../infrastructure/persistence/sqlite/SQLiteUserSocialProfileRepository';
+import {
+  FACT_CHECK_RUN_REPOSITORY_ID,
+  type FactCheckRunRepository,
+  FACT_CHECK_FINDING_REPOSITORY_ID,
+  type FactCheckFindingRepository,
+  FACT_CHECK_STATS_REPOSITORY_ID,
+  type FactCheckStatsRepository,
+} from '../domain/repositories/FactCheckRepository';
+import {
+  FACT_CHECK_WINDOW_REPOSITORY_ID,
+  type FactCheckWindowRepository,
+} from '../domain/repositories/FactCheckWindowRepository';
+import {
+  FACT_CHECK_MESSAGE_WINDOW_REPOSITORY_ID,
+  type FactCheckMessageWindowRepository,
+} from '../domain/repositories/FactCheckMessageWindowRepository';
+import { SQLiteFactCheckRepository } from '../infrastructure/persistence/sqlite/SQLiteFactCheckRepository';
+import { SQLiteFactCheckWindowRepository } from '../infrastructure/persistence/sqlite/SQLiteFactCheckWindowRepository';
+import { SQLiteFactCheckMessageWindowRepository } from '../infrastructure/persistence/sqlite/SQLiteFactCheckMessageWindowRepository';
 
 export const register = (container: Container): void => {
   container
@@ -82,5 +146,64 @@ export const register = (container: Container): void => {
   container
     .bind<ChatConfigRepository>(CHAT_CONFIG_REPOSITORY_ID)
     .to(SQLiteChatConfigRepository)
+    .inSingletonScope();
+  container
+    .bind<PersonalityStateRepository>(PERSONALITY_STATE_REPOSITORY_ID)
+    .to(SQLitePersonalityStateRepository)
+    .inSingletonScope();
+  container
+    .bind<PoliticalStateRepository>(POLITICAL_STATE_REPOSITORY_ID)
+    .to(SQLitePoliticalStateRepository)
+    .inSingletonScope();
+  container
+    .bind<UserSocialProfileRepository>(USER_SOCIAL_PROFILE_REPOSITORY_ID)
+    .to(SQLiteUserSocialProfileRepository)
+    .inSingletonScope();
+  container
+    .bind<TruthRepository>(TRUTH_REPOSITORY_ID)
+    .to(SQLiteTruthRepository)
+    .inSingletonScope();
+  container
+    .bind<BehaviorEventRepository>(BEHAVIOR_EVENT_REPOSITORY_ID)
+    .to(SQLiteBehaviorEventRepository)
+    .inSingletonScope();
+  container
+    .bind<AiErrorEventRepository>(AI_ERROR_EVENT_REPOSITORY_ID)
+    .to(SQLiteAiErrorEventRepository)
+    .inSingletonScope();
+  container
+    .bind<PersonalitySignalRepository>(PERSONALITY_SIGNAL_REPOSITORY_ID)
+    .to(SQLitePersonalitySignalRepository)
+    .inSingletonScope();
+  container
+    .bind<StateEvolutionCursorRepository>(STATE_EVOLUTION_CURSOR_REPOSITORY_ID)
+    .to(SQLiteStateEvolutionCursorRepository)
+    .inSingletonScope();
+  container
+    .bind<UserPoliticalProfileRepository>(USER_POLITICAL_PROFILE_REPOSITORY_ID)
+    .to(SQLiteUserPoliticalProfileRepository)
+    .inSingletonScope();
+  container.bind(SQLiteFactCheckRepository).toSelf().inSingletonScope();
+  container
+    .bind<FactCheckRunRepository>(FACT_CHECK_RUN_REPOSITORY_ID)
+    .toDynamicValue(() => container.get(SQLiteFactCheckRepository))
+    .inSingletonScope();
+  container
+    .bind<FactCheckFindingRepository>(FACT_CHECK_FINDING_REPOSITORY_ID)
+    .toDynamicValue(() => container.get(SQLiteFactCheckRepository))
+    .inSingletonScope();
+  container
+    .bind<FactCheckStatsRepository>(FACT_CHECK_STATS_REPOSITORY_ID)
+    .toDynamicValue(() => container.get(SQLiteFactCheckRepository))
+    .inSingletonScope();
+  container
+    .bind<FactCheckWindowRepository>(FACT_CHECK_WINDOW_REPOSITORY_ID)
+    .to(SQLiteFactCheckWindowRepository)
+    .inSingletonScope();
+  container
+    .bind<FactCheckMessageWindowRepository>(
+      FACT_CHECK_MESSAGE_WINDOW_REPOSITORY_ID
+    )
+    .to(SQLiteFactCheckMessageWindowRepository)
     .inSingletonScope();
 };

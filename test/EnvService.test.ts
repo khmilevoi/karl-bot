@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { envSchema } from '../src/infrastructure/config/envSchema';
 import { TestEnvService } from '../src/infrastructure/config/TestEnvService';
 
 const OLD_ENV = { ...process.env };
@@ -39,13 +40,61 @@ describe('EnvService', () => {
     expect(env.env.LOG_PROMPTS).toBe(false);
   });
 
+  it('defaults prompt logging to development builds only', () => {
+    const baseEnv = {
+      BOT_TOKEN: 'token',
+      OPENAI_KEY: 'key',
+      DATABASE_URL: 'file:///tmp/test.db',
+      ADMIN_CHAT_ID: '1',
+    };
+
+    expect(envSchema.parse({ ...baseEnv, NODE_ENV: 'development' })).toEqual(
+      expect.objectContaining({ LOG_PROMPTS: true })
+    );
+    expect(
+      envSchema.parse({
+        ...baseEnv,
+        NODE_ENV: 'production',
+      })
+    ).toEqual(expect.objectContaining({ LOG_PROMPTS: false }));
+  });
+
+  it('honors explicit prompt logging configuration', () => {
+    const baseEnv = {
+      BOT_TOKEN: 'token',
+      OPENAI_KEY: 'key',
+      DATABASE_URL: 'file:///tmp/test.db',
+      ADMIN_CHAT_ID: '1',
+    };
+
+    expect(
+      envSchema.parse({
+        ...baseEnv,
+        NODE_ENV: 'production',
+        LOG_PROMPTS: 'true',
+      })
+    ).toEqual(expect.objectContaining({ LOG_PROMPTS: true }));
+    expect(
+      envSchema.parse({
+        ...baseEnv,
+        NODE_ENV: 'development',
+        LOG_PROMPTS: 'false',
+      })
+    ).toEqual(expect.objectContaining({ LOG_PROMPTS: false }));
+  });
+
   it('getModels returns correct models', () => {
     setRequiredEnv();
     const env = new TestEnvService();
     expect(env.getModels()).toEqual({
-      ask: 'o3',
-      summary: 'o3-mini',
-      interest: 'o3-mini',
+      triggerGate: { default: 'gpt-5.4-mini' },
+      behaviorDecision: { default: 'gpt-5.4-mini', escalation: 'gpt-5.5' },
+      summarization: { default: 'gpt-5.4-mini', escalation: 'gpt-5.5' },
+      stateEvolution: { default: 'gpt-5.4-mini', escalation: 'gpt-5.5' },
+      errorRepair: { default: 'gpt-5.4-mini', escalation: 'gpt-5.5' },
+      factCheckExtraction: { default: 'gpt-5.4-mini' },
+      factCheckVerification: { default: 'gpt-5.4-mini', escalation: 'gpt-5.5' },
+      sourceSearch: { default: 'gpt-5.4-mini' },
     });
   });
 
@@ -53,25 +102,55 @@ describe('EnvService', () => {
     setRequiredEnv();
     const env = new TestEnvService();
     expect(env.getPromptFiles()).toEqual({
-      persona: 'prompts/persona.md',
       askSummary: 'prompts/ask_summary_prompt.md',
       summarizationSystem: 'prompts/summarization_system_prompt.md',
       previousSummary: 'prompts/previous_summary_prompt.md',
-      checkInterest: 'prompts/check_interest_prompt.md',
       userPrompt: 'prompts/user_prompt.md',
       userPromptSystem: 'prompts/user_prompt_system_prompt.md',
       chatUser: 'prompts/chat_user_prompt.md',
       priorityRulesSystem: 'prompts/priority_rules_system_prompt.md',
-      assessUsers: 'prompts/assess_users_prompt.md',
-      replyTrigger: 'prompts/reply_trigger_prompt.md',
-      topicOfDaySystem: 'prompts/topic_of_day_system_prompt.md',
+      neutralCore: 'prompts/neutral_core_prompt.md',
+      behaviorGateSystem: 'prompts/behavior_gate_system_prompt.md',
+      behaviorDecisionSystem: 'prompts/behavior_decision_system_prompt.md',
+      personalityState: 'prompts/personality_state_prompt.md',
+      politicalState: 'prompts/political_state_prompt.md',
+      userProfiles: 'prompts/user_profiles_prompt.md',
+      truths: 'prompts/truths_prompt.md',
+      behaviorMessages: 'prompts/behavior_messages_prompt.md',
+      stateEvolutionSystem: 'prompts/state_evolution_system_prompt.md',
+      personalitySignals: 'prompts/personality_signals_prompt.md',
+      userPoliticalProfiles: 'prompts/user_political_profiles_prompt.md',
+      factCheckClaimExtractionSystem:
+        'prompts/fact_check_claim_extraction_system_prompt.md',
+      factCheckVerificationSystem:
+        'prompts/fact_check_verification_system_prompt.md',
     });
   });
 
-  it('getBotName returns the bot name', () => {
+  it('getFactCheckConfig returns defaults', () => {
     setRequiredEnv();
     const env = new TestEnvService();
-    expect(env.getBotName()).toBe('Карл');
+    expect(env.getFactCheckConfig()).toEqual(
+      expect.objectContaining({
+        enabled: false,
+        maxMessagesPerBatch: 200,
+        maxClaimsPerBatch: 40,
+        maxHistoryContextMessages: 100,
+        maxSourceSearchesPerBatch: 20,
+        maxSourcesPerFinding: 5,
+        maxDisplayedSourcesPerFinding: 3,
+        maxFindingsPerDigestMessage: 10,
+        verificationConfidenceThreshold: 0.75,
+      })
+    );
+    expect(env.getModels().factCheckExtraction.default).toBe('gpt-5.4-mini');
+    expect(env.getModels().factCheckVerification.escalation).toBe('gpt-5.5');
+  });
+
+  it('getBotName returns the bot name', () => {
+    setRequiredEnv({ BOT_NAME: 'RuntimeBot' });
+    const env = new TestEnvService();
+    expect(env.getBotName()).toBe('RuntimeBot');
   });
 
   it('getDialogueTimeoutMs returns timeout in ms', () => {
@@ -84,5 +163,20 @@ describe('EnvService', () => {
     setRequiredEnv();
     const env = new TestEnvService();
     expect(env.getMigrationsDir()).toBe('migrations');
+  });
+
+  it('getVoiceConfig returns default voice configuration', () => {
+    setRequiredEnv();
+    const env = new TestEnvService();
+    expect(env.getVoiceConfig()).toEqual({
+      workerConcurrency: 1,
+      workerPollIntervalMs: 1000,
+      workerLockMs: 300000,
+      workerMaxAttempts: 3,
+      transcriptionModel: 'gpt-4o-mini-transcribe',
+      maxDurationSeconds: 120,
+      transcriptionWaitTimeoutMs: 120000,
+      transcriptionResultPollIntervalMs: 500,
+    });
   });
 });

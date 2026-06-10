@@ -6,6 +6,8 @@ export default defineConfig({
     entry: {
       index: './src/index.ts',
       migrate: './src/migrate.ts',
+      'audio-worker': './src/audio-worker.ts',
+      'cron-worker': './src/cron-worker.ts',
     },
     decorators: { version: 'legacy' },
   },
@@ -42,6 +44,7 @@ export default defineConfig({
   },
   output: {
     target: 'node',
+    module: false,
     distPath: {
       root: 'dist',
     },

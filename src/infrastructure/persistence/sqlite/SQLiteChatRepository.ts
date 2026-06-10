@@ -12,21 +12,25 @@ export class SQLiteChatRepository implements ChatRepository {
   constructor(
     @inject(DB_PROVIDER_ID) private readonly dbProvider: DbProvider
   ) {}
-  async upsert({ chatId, title }: ChatEntity): Promise<void> {
+  async upsert({ chatId, title, username }: ChatEntity): Promise<void> {
     const db = await this.dbProvider.get();
     await db.run(
-      'INSERT INTO chats (chat_id, title) VALUES (?, ?) ON CONFLICT(chat_id) DO UPDATE SET title=excluded.title',
+      'INSERT INTO chats (chat_id, title, username) VALUES (?, ?, ?) ON CONFLICT(chat_id) DO UPDATE SET title=excluded.title, username=excluded.username',
       chatId,
-      title ?? null
+      title ?? null,
+      username ?? null
     );
   }
 
   async findById(chatId: number): Promise<ChatEntity | undefined> {
     const db = await this.dbProvider.get();
-    const row = await db.get<{ chat_id: number; title: string | null }>(
-      'SELECT chat_id, title FROM chats WHERE chat_id = ?',
-      chatId
-    );
-    return row ? new ChatEntity(row.chat_id, row.title) : undefined;
+    const row = await db.get<{
+      chat_id: number;
+      title: string | null;
+      username: string | null;
+    }>('SELECT chat_id, title, username FROM chats WHERE chat_id = ?', chatId);
+    return row
+      ? new ChatEntity(row.chat_id, row.title, row.username)
+      : undefined;
   }
 }

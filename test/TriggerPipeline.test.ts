@@ -1,16 +1,14 @@
-import type { Context } from 'telegraf';
+import type { Context } from 'grammy';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DefaultDialogueManager } from '../src/application/use-cases/chat/DefaultDialogueManager';
 import type { DialogueManager } from '../src/application/interfaces/chat/DialogueManager';
 import { DefaultTriggerPipeline } from '../src/application/use-cases/chat/DefaultTriggerPipeline';
 import type { TriggerPipeline } from '../src/application/interfaces/chat/TriggerPipeline';
-import type { InterestChecker } from '../src/application/interfaces/interest/InterestChecker';
 import type { Trigger, TriggerContext } from '../src/domain/triggers/Trigger';
 import { MentionTrigger } from '../src/view/telegram/triggers/MentionTrigger';
 import { ReplyTrigger } from '../src/view/telegram/triggers/ReplyTrigger';
 import { NameTrigger } from '../src/view/telegram/triggers/NameTrigger';
-import { InterestTrigger } from '../src/view/telegram/triggers/InterestTrigger';
 import type { LoggerFactory } from '../src/application/interfaces/logging/LoggerFactory';
 import type { EnvService } from '../src/application/interfaces/env/EnvService';
 
@@ -30,7 +28,6 @@ describe('TriggerPipeline', () => {
   } as unknown as LoggerFactory;
 
   const createPipeline = (
-    interestChecker: InterestChecker,
     logger: LoggerFactory = loggerFactory,
     triggers?: (dialogue: DialogueManager) => Trigger[]
   ): { pipeline: TriggerPipeline; dialogue: DialogueManager } => {
@@ -39,7 +36,6 @@ describe('TriggerPipeline', () => {
       new MentionTrigger(dialogue, logger),
       new ReplyTrigger(logger),
       new NameTrigger(env, logger),
-      new InterestTrigger(interestChecker, dialogue, logger),
     ];
     const pipeline = new DefaultTriggerPipeline(
       dialogue,
@@ -50,14 +46,10 @@ describe('TriggerPipeline', () => {
   };
 
   it('returns result when mention trigger matches', async () => {
-    const { pipeline } = createPipeline({
-      async check() {
-        return null;
-      },
-    });
+    const { pipeline } = createPipeline();
     const ctx = {
       message: { text: 'hi @bot' },
-      me: 'bot',
+      me: { username: 'bot' },
     } as unknown as Context;
     const context: TriggerContext = {
       text: 'hi @bot',
@@ -69,13 +61,18 @@ describe('TriggerPipeline', () => {
   });
 
   it('exits early when a trigger matches', async () => {
-    const interestChecker: InterestChecker = {
-      check: vi.fn().mockResolvedValue(null),
-    };
-    const { pipeline } = createPipeline(interestChecker);
+    const secondTrigger = { apply: vi.fn().mockResolvedValue(null) };
+    const { pipeline } = createPipeline(loggerFactory, () => [
+      {
+        apply: vi
+          .fn()
+          .mockResolvedValue({ replyToMessageId: null, reason: null }),
+      },
+      secondTrigger,
+    ]);
     const ctx = {
       message: { text: 'hi @bot' },
-      me: 'bot',
+      me: { username: 'bot' },
     } as unknown as Context;
     const context: TriggerContext = {
       text: 'hi @bot',
@@ -84,21 +81,14 @@ describe('TriggerPipeline', () => {
     };
     const res = await pipeline.shouldRespond(ctx, context);
     expect(res).not.toBeNull();
-    expect(interestChecker.check).not.toHaveBeenCalled();
+    expect(secondTrigger.apply).not.toHaveBeenCalled();
   });
 
-  it('responds only when interest trigger returns result without mentions or replies', async () => {
-    let result: { messageId: string; message: string; why: string } | null =
-      null;
-    const interestChecker: InterestChecker = {
-      async check() {
-        return result;
-      },
-    };
-    const { pipeline } = createPipeline(interestChecker);
+  it('returns null for non-direct messages so behavior gate can batch them', async () => {
+    const { pipeline } = createPipeline();
     const ctx = {
       message: { text: 'hello there' },
-      me: 'bot',
+      me: { username: 'bot' },
     } as unknown as Context;
     const context: TriggerContext = {
       text: 'hello there',
@@ -106,93 +96,15 @@ describe('TriggerPipeline', () => {
       chatId: 1,
     };
 
-    let res = await pipeline.shouldRespond(ctx, context);
-    expect(res).toBeNull();
-
-    result = { messageId: '1', message: 'hi', why: 'because' };
-    res = await pipeline.shouldRespond(ctx, context);
-    expect(res).not.toBeNull();
-  });
-
-  it('uses interest trigger when mention and reply triggers return null', async () => {
-    const interestChecker: InterestChecker = {
-      check: vi
-        .fn()
-        .mockResolvedValue({ messageId: '1', message: 'hi', why: 'because' }),
-    };
-    const { pipeline } = createPipeline(
-      interestChecker,
-      loggerFactory,
-      (dialogue) => [
-        { apply: vi.fn().mockResolvedValue(null) },
-        { apply: vi.fn().mockResolvedValue(null) },
-        new NameTrigger(env, loggerFactory),
-        new InterestTrigger(interestChecker, dialogue, loggerFactory),
-      ]
-    );
-    const ctx = {
-      message: { text: 'hi @bot', reply_to_message: { message_id: 2 } },
-      me: 'bot',
-    } as unknown as Context;
-    const context: TriggerContext = {
-      text: 'hi @bot',
-      replyText: 'original',
-      chatId: 1,
-    };
-    const res = await pipeline.shouldRespond(ctx, context);
-    expect(res).not.toBeNull();
-    expect(interestChecker.check).toHaveBeenCalled();
-  });
-
-  it('propagates error when interest checker fails', async () => {
-    const interestChecker: InterestChecker = {
-      check: vi.fn().mockRejectedValue(new Error('fail')),
-    };
-    const { pipeline } = createPipeline(interestChecker);
-    const ctx = {
-      message: { text: 'hello there' },
-      me: 'bot',
-    } as unknown as Context;
-    const context: TriggerContext = {
-      text: 'hello there',
-      replyText: '',
-      chatId: 1,
-    };
-    await expect(pipeline.shouldRespond(ctx, context)).rejects.toThrow('fail');
-  });
-
-  it('skips interest trigger when dialogue is active', async () => {
-    const interestChecker: InterestChecker = {
-      check: vi.fn().mockResolvedValue({
-        messageId: '1',
-        message: 'hi',
-        why: 'because',
-      }),
-    };
-    const { pipeline, dialogue } = createPipeline(interestChecker);
-    dialogue.start(1);
-    const ctx = {
-      message: { text: 'hello there' },
-      me: 'bot',
-    } as unknown as Context;
-    const context: TriggerContext = {
-      text: 'hello there',
-      replyText: '',
-      chatId: 1,
-    };
     const res = await pipeline.shouldRespond(ctx, context);
     expect(res).toBeNull();
-    expect(interestChecker.check).not.toHaveBeenCalled();
   });
 
   it('does not extend dialogue timer when no triggers match', async () => {
-    const interestChecker: InterestChecker = {
-      check: vi.fn().mockResolvedValue(null),
-    };
-    const { pipeline, dialogue } = createPipeline(interestChecker);
+    const { pipeline, dialogue } = createPipeline();
     const ctx = {
       message: { text: 'hello there' },
-      me: 'bot',
+      me: { username: 'bot' },
     } as unknown as Context;
     const context: TriggerContext = {
       text: 'hello there',
@@ -226,13 +138,10 @@ describe('TriggerPipeline', () => {
         name === 'DefaultTriggerPipeline' ? pipelineLogger : otherLogger
       ),
     } as unknown as LoggerFactory;
-    const { pipeline } = createPipeline(
-      { check: vi.fn().mockResolvedValue(null) },
-      customLoggerFactory
-    );
+    const { pipeline } = createPipeline(customLoggerFactory);
     const ctx = {
       message: { text: 'hi @bot' },
-      me: 'bot',
+      me: { username: 'bot' },
     } as unknown as Context;
     const context: TriggerContext = {
       text: 'hi @bot',
@@ -266,13 +175,10 @@ describe('TriggerPipeline', () => {
         name === 'DefaultTriggerPipeline' ? pipelineLogger : otherLogger
       ),
     } as unknown as LoggerFactory;
-    const interestChecker: InterestChecker = {
-      check: vi.fn().mockResolvedValue(null),
-    };
-    const { pipeline } = createPipeline(interestChecker, customLoggerFactory);
+    const { pipeline } = createPipeline(customLoggerFactory);
     const ctx = {
       message: { text: 'hello there' },
-      me: 'bot',
+      me: { username: 'bot' },
     } as unknown as Context;
     const context: TriggerContext = {
       text: 'hello there',

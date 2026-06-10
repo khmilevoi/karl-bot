@@ -40,10 +40,11 @@ let messageRepo: SQLiteMessageRepository;
 let summaryRepo: SQLiteSummaryRepository;
 let accessKeyRepo: SQLiteAccessKeyRepository;
 let chatUserRepo: SQLiteChatUserRepository;
+let dbFile: string;
 
 beforeEach(async () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'sqlite-'));
-  const dbFile = path.join(dir, 'test.db');
+  dbFile = path.join(dir, 'test.db');
   process.env.DATABASE_URL = `file://${dbFile}`;
   const env = new TestEnvService();
   const filename = parseDatabaseUrl(env.env.DATABASE_URL);
@@ -53,12 +54,12 @@ beforeEach(async () => {
         id INTEGER PRIMARY KEY,
         username TEXT,
         first_name TEXT,
-        last_name TEXT,
-        attitude TEXT
+        last_name TEXT
       );
       CREATE TABLE chats (
         chat_id INTEGER PRIMARY KEY,
-        title TEXT
+        title TEXT,
+        username TEXT
       );
       CREATE TABLE messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -70,6 +71,11 @@ beforeEach(async () => {
         reply_text TEXT,
         reply_username TEXT,
         quote_text TEXT,
+        reply_to_message_id INTEGER,
+        reply_to_user_id INTEGER,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        source_type TEXT NOT NULL DEFAULT 'text',
+        processing_status TEXT NOT NULL DEFAULT 'ready',
         FOREIGN KEY(user_id) REFERENCES users(id),
         FOREIGN KEY(chat_id) REFERENCES chats(chat_id)
       );
@@ -105,26 +111,27 @@ beforeEach(async () => {
 describe('SQLite repositories', () => {
   it('adds and retrieves messages', async () => {
     await chatRepo.upsert(new ChatEntity(1));
-    await userRepo.upsert(
-      new UserEntity(1, 'alice', 'Alice', 'Smith', 'neutral')
-    );
-    await messageRepo.insert({
+    await userRepo.upsert(new UserEntity(1, 'alice', 'Alice', 'Smith'));
+    const firstId = await messageRepo.insert({
       chatId: 1,
       role: 'user',
       content: 'hi',
       userId: 1,
       messageId: 11,
     });
+    expect(firstId).toBe(1);
     await userRepo.upsert(new UserEntity(0, 'bot'));
-    await messageRepo.insert({
+    const secondId = await messageRepo.insert({
       chatId: 1,
       role: 'assistant',
       content: 'hello',
       userId: 0,
     });
+    expect(secondId).toBe(2);
     const messages = await messageRepo.findByChatId(1);
     expect(messages).toEqual([
       {
+        id: 1,
         role: 'user',
         content: 'hi',
         username: 'alice',
@@ -134,10 +141,21 @@ describe('SQLite repositories', () => {
         userId: 1,
         messageId: 11,
         chatId: 1,
-        attitude: 'neutral',
+        sourceType: 'text',
+        processingStatus: 'ready',
       },
-      { role: 'assistant', content: 'hello', username: 'bot', chatId: 1 },
+      {
+        id: 2,
+        role: 'assistant',
+        content: 'hello',
+        username: 'bot',
+        chatId: 1,
+        sourceType: 'text',
+        processingStatus: 'ready',
+      },
     ]);
+    const byIds = await messageRepo.findByIds([secondId, firstId]);
+    expect(byIds.map((m) => m.id)).toEqual([firstId, secondId]);
   });
 
   it('counts and retrieves last messages', async () => {
@@ -159,22 +177,42 @@ describe('SQLite repositories', () => {
     expect(await messageRepo.countByChatId(1)).toBe(2);
     const last = await messageRepo.findLastByChatId(1, 1);
     expect(last).toEqual([
-      { role: 'assistant', content: 'hello', username: 'bot', chatId: 1 },
+      {
+        id: 2,
+        role: 'assistant',
+        content: 'hello',
+        username: 'bot',
+        chatId: 1,
+        sourceType: 'text',
+        processingStatus: 'ready',
+      },
     ]);
   });
 
-  it('clears messages', async () => {
+  it('soft-deletes messages from normal history while preserving id lookup', async () => {
     await chatRepo.upsert(new ChatEntity(1));
     await userRepo.upsert(new UserEntity(1, 'alice'));
-    await messageRepo.insert({
+    const messageId = await messageRepo.insert({
       chatId: 1,
       role: 'user',
       content: 'hi',
       userId: 1,
     });
     await messageRepo.clearByChatId(1);
+
+    const db = await open({ filename: dbFile, driver: sqlite3.Database });
+    const row = await db.get<{ is_active: number }>(
+      'SELECT is_active FROM messages WHERE id = ?',
+      messageId
+    );
+    await db.close();
+
+    expect(row).toEqual({ is_active: 0 });
     const messages = await messageRepo.findByChatId(1);
     expect(messages).toEqual([]);
+    expect(await messageRepo.countByChatId(1)).toBe(0);
+    expect(await messageRepo.findLastByChatId(1, 1)).toEqual([]);
+    expect(await messageRepo.findByIds([messageId])).toEqual([]);
   });
 
   it('stores and retrieves summary', async () => {
@@ -200,11 +238,8 @@ describe('SQLite repositories', () => {
   });
 
   it('stores and updates users', async () => {
-    await userRepo.upsert(
-      new UserEntity(42, 'alice', 'Alice', 'Smith', 'neutral')
-    );
-    const user = new UserEntity(42, 'alice2', 'Alicia', 'Johnson', 'hostile');
-    user.setAttitude('friendly');
+    await userRepo.upsert(new UserEntity(42, 'alice', 'Alice', 'Smith'));
+    const user = new UserEntity(42, 'alice2', 'Alicia', 'Johnson');
     await userRepo.upsert(user);
     const fetched = await userRepo.findById(42);
     expect(fetched).toEqual(user);
@@ -223,6 +258,125 @@ describe('SQLite repositories', () => {
     await chatUserRepo.link(1, 2);
     await chatUserRepo.link(1, 3);
     expect(await chatUserRepo.listByChat(1)).toEqual([2, 3]);
+  });
+
+  it('does not return pending voice messages in normal history reads', async () => {
+    await chatRepo.upsert(new ChatEntity(1));
+    await userRepo.upsert(new UserEntity(1, 'alice'));
+    const pendingId = await messageRepo.insert({
+      chatId: 1,
+      role: 'user',
+      content: '[voice:pending]',
+      userId: 1,
+      sourceType: 'voice',
+      processingStatus: 'pending',
+    });
+    const readyId = await messageRepo.insert({
+      chatId: 1,
+      role: 'user',
+      content: 'ready',
+      userId: 1,
+    });
+
+    expect(await messageRepo.findByChatId(1)).toEqual([
+      expect.objectContaining({ id: readyId, content: 'ready' }),
+    ]);
+    expect(await messageRepo.countByChatId(1)).toBe(1);
+    expect(await messageRepo.findLastByChatId(1, 10)).toEqual([
+      expect.objectContaining({ id: readyId, content: 'ready' }),
+    ]);
+    expect(await messageRepo.findByIds([pendingId, readyId])).toEqual([
+      expect.objectContaining({ id: readyId, content: 'ready' }),
+    ]);
+  });
+
+  it('marks pending voice messages ready with transcript', async () => {
+    await chatRepo.upsert(new ChatEntity(1));
+    await userRepo.upsert(new UserEntity(1, 'alice'));
+    const id = await messageRepo.insert({
+      chatId: 1,
+      role: 'user',
+      content: '[voice:pending]',
+      userId: 1,
+      sourceType: 'voice',
+      processingStatus: 'pending',
+    });
+
+    const updated = await messageRepo.markVoiceTranscribed(id, 'hello');
+
+    expect(updated).toEqual(
+      expect.objectContaining({
+        id,
+        content: 'hello',
+        sourceType: 'voice',
+        processingStatus: 'ready',
+      })
+    );
+  });
+
+  it('finds a pending voice message by id', async () => {
+    await chatRepo.upsert(new ChatEntity(1));
+    await userRepo.upsert(new UserEntity(1, 'alice'));
+    const pendingId = await messageRepo.insert({
+      chatId: 1,
+      role: 'user',
+      content: '[voice:pending]',
+      userId: 1,
+      sourceType: 'voice',
+      processingStatus: 'pending',
+    });
+    const readyId = await messageRepo.insert({
+      chatId: 1,
+      role: 'user',
+      content: 'ready',
+      userId: 1,
+    });
+
+    const found = await messageRepo.findPendingVoiceById(pendingId);
+    expect(found).toEqual(
+      expect.objectContaining({ id: pendingId, processingStatus: 'pending' })
+    );
+
+    expect(await messageRepo.findPendingVoiceById(readyId)).toBeNull();
+  });
+
+  it('marks a pending voice message as failed', async () => {
+    await chatRepo.upsert(new ChatEntity(1));
+    await userRepo.upsert(new UserEntity(1, 'alice'));
+    const id = await messageRepo.insert({
+      chatId: 1,
+      role: 'user',
+      content: '[voice:pending]',
+      userId: 1,
+      sourceType: 'voice',
+      processingStatus: 'pending',
+    });
+
+    await messageRepo.markVoiceFailed(id);
+
+    // Should not appear in history (failed is not ready)
+    expect(await messageRepo.findByChatId(1)).toEqual([]);
+    // Direct pending lookup returns null (now failed)
+    expect(await messageRepo.findPendingVoiceById(id)).toBeNull();
+  });
+
+  it('returns null from markVoiceTranscribed when message is not pending', async () => {
+    await chatRepo.upsert(new ChatEntity(1));
+    await userRepo.upsert(new UserEntity(1, 'alice'));
+    const id = await messageRepo.insert({
+      chatId: 1,
+      role: 'user',
+      content: '[voice:pending]',
+      userId: 1,
+      sourceType: 'voice',
+      processingStatus: 'pending',
+    });
+
+    // First transcription succeeds
+    await messageRepo.markVoiceTranscribed(id, 'hello');
+    // Second call on already-transcribed row returns null
+    const result = await messageRepo.markVoiceTranscribed(id, 'retry');
+    expect(result).toBeNull();
   });
 
   it('stores, retrieves and expires access keys', async () => {

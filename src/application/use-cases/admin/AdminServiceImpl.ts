@@ -72,9 +72,15 @@ export class AdminServiceImpl implements AdminService {
   }
 
   async hasAccess(chatId: number, userId: number): Promise<boolean> {
+    this.logger.debug({ chatId, userId }, '[HAS_ACCESS] Checking user access');
     await this.accessKeyRepo.deleteExpired(Date.now());
     const entry = await this.accessKeyRepo.findByChatAndUser(chatId, userId);
-    return entry !== undefined;
+    const hasAccess = entry !== undefined;
+    this.logger.debug(
+      { chatId, userId, hasAccess, entry },
+      '[HAS_ACCESS] Access check result'
+    );
+    return hasAccess;
   }
 
   async exportTables(): Promise<{ filename: string; buffer: Buffer }[]> {
@@ -112,7 +118,6 @@ export class AdminServiceImpl implements AdminService {
         'quoteText',
         'userId',
         'messageId',
-        'attitude',
         'chatId',
       ];
       const lines = messages.map((m) =>
@@ -135,7 +140,6 @@ export class AdminServiceImpl implements AdminService {
         'username',
         'firstName',
         'lastName',
-        'attitude',
       ];
       const lines = existing.map((u) =>
         header.map((h) => JSON.stringify(u[h] ?? '')).join(',')
@@ -150,11 +154,6 @@ export class AdminServiceImpl implements AdminService {
   async setHistoryLimit(chatId: number, value: number): Promise<void> {
     await this.chatConfig.setHistoryLimit(chatId, value);
     this.logger.info({ chatId, value }, 'Updated history limit');
-  }
-
-  async setInterestInterval(chatId: number, value: number): Promise<void> {
-    await this.chatConfig.setInterestInterval(chatId, value);
-    this.logger.info({ chatId, value }, 'Updated interest interval');
   }
 
   private async exportTable(

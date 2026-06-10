@@ -5,6 +5,7 @@
     "emitDecoratorMetadata": false,
     "module": "commonjs",
     "rootDir": "src",
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]

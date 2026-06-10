@@ -1,0 +1,9 @@
+DROP INDEX IF EXISTS idx_ai_error_events_status;
+DROP INDEX IF EXISTS idx_bot_truths_chat;
+DROP INDEX IF EXISTS idx_behavior_events_chat;
+DROP TABLE IF EXISTS ai_error_events;
+DROP TABLE IF EXISTS behavior_events;
+DROP TABLE IF EXISTS user_social_profiles;
+DROP TABLE IF EXISTS bot_truths;
+DROP TABLE IF EXISTS bot_political_states;
+DROP TABLE IF EXISTS bot_personality_states;

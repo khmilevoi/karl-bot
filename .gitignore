@@ -1,6 +1,7 @@
 node_modules
 .env
 /dist
-memory.db
+data/
 coverage
 prompts.log
+.claude

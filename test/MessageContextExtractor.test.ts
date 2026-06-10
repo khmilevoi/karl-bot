@@ -1,4 +1,4 @@
-import type { Context } from 'telegraf';
+import type { Context } from 'grammy';
 import { describe, expect, it } from 'vitest';
 
 import { DefaultMessageContextExtractor } from '../src/application/use-cases/messages/DefaultMessageContextExtractor';
@@ -57,5 +57,26 @@ describe('MessageContextExtractor', () => {
       username: 'Имя неизвестно',
       fullName: 'Имя неизвестно',
     });
+  });
+
+  it('captures reply target message id and user id', () => {
+    const extractor2 = new DefaultMessageContextExtractor();
+    const ctx = {
+      message: {
+        text: 'ответ',
+        reply_to_message: {
+          message_id: 555,
+          text: 'оригинал',
+          from: { id: 42, first_name: 'Анна' },
+        },
+      },
+      from: { id: 7, first_name: 'Олег' },
+    } as unknown as Context;
+
+    const result = extractor2.extract(ctx);
+
+    expect(result.replyToMessageId).toBe(555);
+    expect(result.replyToUserId).toBe(42);
+    expect(result.replyText).toBe('оригинал');
   });
 });

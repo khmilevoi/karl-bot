@@ -1,21 +1,21 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { PromptDirector } from '../src/application/prompts/PromptDirector';
+import { MessageReferenceMap } from '../src/application/prompts/MessageReferenceMap';
 import type {
   PromptBuilder,
   PromptBuilderFactory,
 } from '../src/application/prompts/PromptBuilder';
+import type {
+  BehaviorPromptContext,
+  BehaviorPromptMessage,
+} from '../src/application/prompts/PromptTypes';
 import type { ChatMessage } from '../src/domain/messages/ChatMessage';
-import type { TriggerReason } from '../src/domain/triggers/Trigger';
 
 function createBuilder() {
   const calls: string[] = [];
   const builder = {
     calls,
-    addPersona: vi.fn(() => {
-      calls.push('addPersona');
-      return builder;
-    }),
     addPriorityRulesSystem: vi.fn(() => {
       calls.push('addPriorityRulesSystem');
       return builder;
@@ -26,10 +26,6 @@ function createBuilder() {
     }),
     addAskSummary: vi.fn((summary?: string) => {
       calls.push('addAskSummary');
-      return builder;
-    }),
-    addReplyTrigger: vi.fn((why?: string, message?: string) => {
-      calls.push('addReplyTrigger');
       return builder;
     }),
     addChatUsers: vi.fn((users: unknown) => {
@@ -52,16 +48,72 @@ function createBuilder() {
       calls.push('addPreviousSummary');
       return builder;
     }),
-    addCheckInterest: vi.fn(() => {
-      calls.push('addCheckInterest');
+    addNeutralCore: vi.fn(() => {
+      calls.push('addNeutralCore');
       return builder;
     }),
-    addAssessUsers: vi.fn(() => {
-      calls.push('addAssessUsers');
+    addBehaviorGateSystem: vi.fn(() => {
+      calls.push('addBehaviorGateSystem');
       return builder;
     }),
-    addTopicOfDaySystem: vi.fn(() => {
-      calls.push('addTopicOfDaySystem');
+    addBehaviorDecisionSystem: vi.fn(() => {
+      calls.push('addBehaviorDecisionSystem');
+      return builder;
+    }),
+    addPersonalityState: vi.fn(() => {
+      calls.push('addPersonalityState');
+      return builder;
+    }),
+    addPoliticalState: vi.fn(() => {
+      calls.push('addPoliticalState');
+      return builder;
+    }),
+    addUserProfiles: vi.fn(() => {
+      calls.push('addUserProfiles');
+      return builder;
+    }),
+    addTruths: vi.fn(() => {
+      calls.push('addTruths');
+      return builder;
+    }),
+    addBehaviorBrief: vi.fn(() => {
+      calls.push('addBehaviorBrief');
+      return builder;
+    }),
+    addBehaviorMessages: vi.fn(() => {
+      calls.push('addBehaviorMessages');
+      return builder;
+    }),
+    addStateEvolutionSystem: vi.fn(() => {
+      calls.push('addStateEvolutionSystem');
+      return builder;
+    }),
+    addPersonalitySignals: vi.fn(() => {
+      calls.push('addPersonalitySignals');
+      return builder;
+    }),
+    addUserPoliticalProfiles: vi.fn(() => {
+      calls.push('addUserPoliticalProfiles');
+      return builder;
+    }),
+    addFactCheckClaimExtractionSystem: vi.fn(() => {
+      calls.push('addFactCheckClaimExtractionSystem');
+      return builder;
+    }),
+    addFactCheckVerificationSystem: vi.fn(() => {
+      calls.push('addFactCheckVerificationSystem');
+      return builder;
+    }),
+    addFactCheckMessages: vi.fn(() => {
+      calls.push('addFactCheckMessages');
+      return builder;
+    }),
+    addFactCheckCandidates: vi.fn(() => {
+      calls.push('addFactCheckCandidates');
+      return builder;
+    }),
+    addFactCheckSources: vi.fn(() => {
+      calls.push('addFactCheckSources');
       return builder;
     }),
     build: vi.fn(async () => {
@@ -73,42 +125,6 @@ function createBuilder() {
 }
 
 describe('PromptDirector', () => {
-  it('creates answer prompt', async () => {
-    const builder = createBuilder();
-    const factory: PromptBuilderFactory = () => builder;
-    const director = new PromptDirector(factory);
-    const history: ChatMessage[] = [
-      {
-        role: 'user',
-        content: 'hi',
-        username: 'u1',
-        attitude: 'a1',
-        fullName: 'F1',
-        messageId: 1,
-      },
-      { role: 'assistant', content: 'hello' },
-    ];
-    const trigger: TriggerReason = { why: 'w', message: 'm' };
-    await director.createAnswerPrompt(history, 'sum', trigger);
-
-    expect(builder.calls).toEqual([
-      'addPersona',
-      'addPriorityRulesSystem',
-      'addUserPromptSystem',
-      'addAskSummary',
-      'addReplyTrigger',
-      'addChatUsers',
-      'addMessages',
-      'build',
-    ]);
-    expect(builder.addAskSummary).toHaveBeenCalledWith('sum');
-    expect(builder.addReplyTrigger).toHaveBeenCalledWith('w', 'm');
-    expect(builder.addChatUsers).toHaveBeenCalledWith([
-      { username: 'u1', fullName: 'F1', attitude: 'a1' },
-    ]);
-    expect(builder.addMessages).toHaveBeenCalledWith(history);
-  });
-
   it('creates summary prompt', async () => {
     const builder = createBuilder();
     const factory: PromptBuilderFactory = () => builder;
@@ -118,7 +134,6 @@ describe('PromptDirector', () => {
         role: 'user',
         content: 'hi',
         username: 'u1',
-        attitude: 'a1',
         fullName: 'F1',
         messageId: 1,
       },
@@ -136,91 +151,154 @@ describe('PromptDirector', () => {
     expect(builder.addMessages).toHaveBeenCalledWith(history);
   });
 
-  it('creates interest prompt', async () => {
+  it('creates behavior gate prompt', async () => {
     const builder = createBuilder();
     const factory: PromptBuilderFactory = () => builder;
     const director = new PromptDirector(factory);
-    const history: ChatMessage[] = [
+    const messages: BehaviorPromptMessage[] = [
       {
+        id: 1,
+        chatId: 10,
         role: 'user',
         content: 'hi',
-        username: 'u1',
-        attitude: 'a1',
-        fullName: 'F1',
-        messageId: 1,
-      },
-      { role: 'assistant', content: 'hello' },
+        userId: 7,
+      } as BehaviorPromptMessage,
     ];
-    await director.createInterestPrompt(history);
+    const refMap = MessageReferenceMap.fromMessages(messages);
+    await director.createBehaviorGatePrompt(messages, refMap);
 
     expect(builder.calls).toEqual([
-      'addPersona',
-      'addCheckInterest',
-      'addMessages',
+      'addBehaviorGateSystem',
+      'addBehaviorMessages',
       'build',
     ]);
-    expect(builder.addMessages).toHaveBeenCalledWith(history);
+    expect(builder.addBehaviorMessages).toHaveBeenCalledWith(messages, refMap);
   });
 
-  it('creates assess users prompt', async () => {
+  it('creates behavior decision prompt in correct order', async () => {
     const builder = createBuilder();
     const factory: PromptBuilderFactory = () => builder;
     const director = new PromptDirector(factory);
-    const history: ChatMessage[] = [
+    const context: BehaviorPromptContext = {
+      summary: 'prev-summary',
+      messages: [
+        {
+          id: 1,
+          chatId: 10,
+          role: 'user',
+          content: 'hi',
+          userId: 7,
+        } as BehaviorPromptMessage,
+      ],
+      triggerMessageIds: [1],
+      contextMessageIds: [],
+      batchMessageIds: [],
+      state: {
+        personality: {} as any,
+        political: {} as any,
+        profiles: [],
+        truths: [],
+        userPolitical: [],
+      },
+    };
+    const refMap = MessageReferenceMap.fromMessages(context.messages);
+    await director.createBehaviorDecisionPrompt(context, refMap);
+
+    expect(builder.calls).toEqual([
+      'addNeutralCore',
+      'addBehaviorDecisionSystem',
+      'addAskSummary',
+      'addPersonalityState',
+      'addPoliticalState',
+      'addUserProfiles',
+      'addUserPoliticalProfiles',
+      'addTruths',
+      'addBehaviorBrief',
+      'addBehaviorMessages',
+      'build',
+    ]);
+    expect(builder.addAskSummary).toHaveBeenCalledWith('prev-summary');
+    expect(builder.addBehaviorMessages).toHaveBeenCalledWith(
+      context.messages,
+      refMap,
       {
-        role: 'user',
-        content: 'hi',
-        username: 'u1',
-        attitude: 'a1',
-        fullName: 'F1',
-        messageId: 1,
+        triggerMessageIds: context.triggerMessageIds,
+        contextMessageIds: context.contextMessageIds,
+        batchMessageIds: context.batchMessageIds,
       },
-      { role: 'assistant', content: 'hello' },
-    ];
-    const prev = [{ username: 'u1', attitude: 'old' }];
-    await director.createAssessUsersPrompt(history, prev);
-
-    expect(builder.calls).toEqual([
-      'addPersona',
-      'addAssessUsers',
-      'addChatUsers',
-      'addMessages',
-      'build',
-    ]);
-    expect(builder.addChatUsers).toHaveBeenCalledWith([
-      { username: 'u1', fullName: 'F1', attitude: 'old' },
-    ]);
+      context.selfIdentity
+    );
   });
 
-  it('creates topic of day prompt', async () => {
+  it('creates fact check extraction prompt', async () => {
     const builder = createBuilder();
     const factory: PromptBuilderFactory = () => builder;
     const director = new PromptDirector(factory);
-    await director.createTopicOfDayPrompt();
-
-    expect(builder.calls).toEqual([
-      'addPersona',
-      'addTopicOfDaySystem',
-      'build',
-    ]);
-  });
-
-  it('creates topic of day prompt with context', async () => {
-    const builder = createBuilder();
-    const factory: PromptBuilderFactory = () => builder;
-    const director = new PromptDirector(factory);
-    await director.createTopicOfDayPrompt({
-      chatTitle: 'Chat',
-      summary: 'sum',
-      users: [{ username: 'u', fullName: 'F', attitude: 'a' }],
+    const batchMsg: ChatMessage = {
+      role: 'user',
+      content: 'msg',
+      messageId: 1,
+    };
+    await director.createFactCheckExtractionPrompt({
+      batchMessages: [batchMsg],
+      contextMessages: [],
     });
 
     expect(builder.calls).toEqual([
-      'addPersona',
-      'addTopicOfDaySystem',
-      'addAskSummary',
-      'addChatUsers',
+      'addFactCheckClaimExtractionSystem',
+      'addFactCheckMessages',
       'build',
     ]);
+    expect(builder.addFactCheckMessages).toHaveBeenCalledWith({
+      batchMessages: [batchMsg],
+      contextMessages: [],
+    });
+  });
+
+  it('creates fact check verification prompt', async () => {
+    const builder = createBuilder();
+    const factory: PromptBuilderFactory = () => builder;
+    const director = new PromptDirector(factory);
+    const batchMsg: ChatMessage = {
+      role: 'user',
+      content: 'msg',
+      messageId: 1,
+    };
+    const candidate = {
+      messageId: 1,
+      claimText: 'claim',
+      category: 'external_fact' as const,
+      needsExternalSources: true,
+      riskLevel: 'low' as const,
+      whyCheckable: 'reason',
+      contextMessageIds: [],
+    };
+    const source = {
+      url: 'https://example.com',
+      title: 'Source',
+      publisher: null,
+      snippet: 'text',
+      reliability: 'authoritative',
+    };
+    await director.createFactCheckVerificationPrompt({
+      candidates: [candidate],
+      batchMessages: [batchMsg],
+      contextMessages: [],
+      sources: [source],
+    });
+
+    expect(builder.calls).toEqual([
+      'addFactCheckVerificationSystem',
+      'addFactCheckMessages',
+      'addFactCheckCandidates',
+      'addFactCheckSources',
+      'build',
+    ]);
+    expect(builder.addFactCheckCandidates).toHaveBeenCalledWith({
+      candidates: [candidate],
+    });
+    expect(builder.addFactCheckSources).toHaveBeenCalledWith({
+      sources: [source],
+    });
   });
 });
