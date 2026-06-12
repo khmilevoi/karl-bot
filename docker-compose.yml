@@ -11,6 +11,7 @@ x-app: &app
   environment: &app-env
     DATABASE_URL: file:///data/memory.db
     NODE_ENV: production
+    PROMPTS_LOG_FILE: /app/logs/prompts.log
   # SQLite lives in the local ./data directory and is mounted to /data inside
   # every container, so memory.db, memory.db-wal, and memory.db-shm are the same
   # files on the host and in Docker.
@@ -18,7 +19,7 @@ x-app: &app
     - ./data:/data
     # Prompt logs stay on the host so they can be read without entering the
     # container.
-    - ./prompts.log:/app/prompts.log
+    - ./logs:/app/logs
 
 services:
   # One-shot schema migrator. Long-running services wait for this to exit 0,
@@ -35,8 +36,8 @@ services:
     environment:
       <<: *app-env
       PORT: 3000
-    ports:
-      - '127.0.0.1:${PORT:-3000}:3000'
+    expose:
+      - '3000'
     init: true
     depends_on:
       migrate:

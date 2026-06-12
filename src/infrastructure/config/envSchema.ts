@@ -19,6 +19,7 @@ export const envSchema = z
     ADMIN_CHAT_ID: z.coerce.number(),
     NODE_ENV: z.string().default('development'),
     LOG_PROMPTS: booleanEnv.optional(),
+    PROMPTS_LOG_FILE: z.string().min(1).default('prompts.log'),
     VOICE_WORKER_CONCURRENCY: z.coerce.number().int().positive().default(1),
     VOICE_WORKER_POLL_INTERVAL_MS: z.coerce
       .number()

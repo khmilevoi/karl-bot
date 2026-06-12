@@ -1,6 +1,5 @@
 import { promises as fs } from 'fs';
 import { inject, injectable } from 'inversify';
-import path from 'path';
 
 import type { AiModelId } from '@/application/interfaces/ai/AiModelId';
 import type { AIService } from '@/application/interfaces/ai/AIService';
@@ -97,7 +96,7 @@ export class DefaultContentAiService implements AIService {
     if (!this.envService.env.LOG_PROMPTS) {
       return;
     }
-    const filePath = path.join(process.cwd(), 'prompts.log');
+    const filePath = this.envService.env.PROMPTS_LOG_FILE;
     const responseText =
       typeof response === 'string'
         ? response
