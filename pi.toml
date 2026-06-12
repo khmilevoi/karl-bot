@@ -1,0 +1,23 @@
+schema = 1
+
+[project]
+name = "karl-bot"
+
+[source]
+repo = "git@github.com:khmilevoi/karl-bot.git"
+branch = "release"
+
+[build]
+compose = "docker-compose.yml"
+
+[ingress]
+service = "app"
+port = 3000
+
+[healthcheck]
+path = "/health"
+expect = "200"
+timeout = "60s"
+
+[env]
+file = ".env"

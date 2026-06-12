@@ -14,6 +14,7 @@ export interface Env {
   ADMIN_CHAT_ID: number;
   NODE_ENV: string;
   LOG_PROMPTS: boolean;
+  PROMPTS_LOG_FILE: string;
   VOICE_WORKER_CONCURRENCY: number;
   VOICE_WORKER_POLL_INTERVAL_MS: number;
   VOICE_WORKER_LOCK_MS: number;

@@ -48,6 +48,7 @@
    OPENAI_KEY=your-openai-key
    ADMIN_CHAT_ID=123456         # ID чата администратора для выдачи ключей
    LOG_PROMPTS=false            # логировать запросы и ответы в prompts.log
+   PROMPTS_LOG_FILE=prompts.log # путь к файлу логов промптов
    ```
 
 Если вы добавляете или изменяете переменные окружения, не забудьте обновить файл `.env.example`.
